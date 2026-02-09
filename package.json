@@ -1,6 +1,6 @@
 {
-	"name": "mycelium",
-	"version": "1.0.1",
+	"name": "@eweren/mycelium",
+	"version": "0.0.2",
 	"author": "Nico Hülscher",
 	"scripts": {
 		"dev": "vite dev",

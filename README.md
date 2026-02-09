@@ -33,7 +33,7 @@ Spatial tree-chat UI for AI agents (Svelte 5). Messages are nodes in a tree: par
 ## Install
 
 ```bash
-npm install mycelium
+npm install @eweren/mycelium
 ```
 
 Peer dependency: **Svelte ^5**. The package also depends on `marked` and `dompurify` (included).
@@ -46,7 +46,7 @@ Peer dependency: **Svelte ^5**. The package also depends on `marked` and `dompur
 
 ```svelte
 <script lang="ts">
-  import { ChatCanvas, ChatEngine, DEFAULT_CHAT_ENGINE_CONFIG, type MessageNode } from 'mycelium';
+  import { ChatCanvas, ChatEngine, DEFAULT_CHAT_ENGINE_CONFIG, type MessageNode } from '@eweren/mycelium';
 
   const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
 
@@ -72,7 +72,7 @@ Create one `ChatEngine` per conversation (e.g. per page or per chat id). You can
 
 ```svelte
 <script lang="ts">
-  import { ChatCanvas, ChatEngine, DEFAULT_CHAT_ENGINE_CONFIG, type MessageNode } from 'mycelium';
+  import { ChatCanvas, ChatEngine, DEFAULT_CHAT_ENGINE_CONFIG, type MessageNode } from '@eweren/mycelium';
 
   const engine = new ChatEngine({
     ...DEFAULT_CHAT_ENGINE_CONFIG,
@@ -193,7 +193,7 @@ Pass partial config to the `ChatEngine` constructor or as the `config` prop of `
 
 ## API reference
 
-### Exports from `mycelium`
+### Exports from `@eweren/mycelium`
 
 | Export | Description |
 |--------|-------------|
@@ -250,26 +250,6 @@ This repo includes a demo (conversation list + spatial chat with OpenAI):
 
 1. Set **server-side** env var `OPENAI_API_KEY` (key is not sent to the client; the app uses a SvelteKit API route to stream from OpenAI).
 2. Run `npm run dev` and open the app (e.g. go to `/demo` for the conversation list).
-
-## Building and publishing
-
-### Pre-publish checklist
-
-1. **npm account** — Create one at [npmjs.com](https://www.npmjs.com/signup) if needed. Check that the name **mycelium** is [available](https://www.npmjs.com/package/mycelium) (or choose a scoped name, e.g. `@your-username/mycelium`).
-2. **Repository URLs** — In `package.json`, set `repository`, `bugs`, and `homepage` to your real repo (replace `your-username/spacial-chat` with your GitHub org/repo).
-3. **License** — You have a `LICENSE` file and `"license": "MIT"` in `package.json`. Your current LICENSE is the “No-Sale Variant” (no commercial sale). If that’s intentional, keep it; otherwise switch to [plain MIT](https://opensource.org/license/mit/) text if you want to allow resale.
-4. **Build** — Run `npm run build` (or `npm pack`, which runs `prepack` and builds). Ensure `dist/` is produced and no build errors.
-5. **Dry run** — Run `npm publish --dry-run` to see which files would be included (should list `dist/`, `package.json`, `README.md`, etc.).
-
-### Publish
-
-```bash
-npm login          # once per machine
-npm run build      # optional if you use prepack
-npm publish        # runs prepack → build, then publishes
-```
-
-For a scoped package (e.g. `@your-username/mycelium`), use `npm publish --access public` the first time.
 
 ## License
 

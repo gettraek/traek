@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.2] - Released 2026-02-09
+
+### Changed
+
+- **Package name** — Changed from `mycelium` to `@eweren/mycelium`.
+
 ## [0.0.1] - Released 2026-02-09
 
 ### Added
