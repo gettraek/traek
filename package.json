@@ -1,6 +1,6 @@
 {
-	"name": "@eweren/mycelium",
-	"version": "0.0.2",
+	"name": "traek",
+	"version": "0.0.1",
 	"author": "Nico Hülscher",
 	"scripts": {
 		"dev": "vite dev",
@@ -95,6 +95,8 @@
 	"homepage": "https://github.com/eweren/lycelium#readme",
 	"dependencies": {
 		"dompurify": "^3.3.1",
-		"marked": "^17.0.1"
+		"highlight.js": "^11.11.1",
+		"marked": "^17.0.1",
+		"marked-highlight": "^2.2.3"
 	}
 }

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ChatCanvas from '$lib/ChatCanvas.svelte';
+	import TraekCanvas from '$lib/TraekCanvas.svelte';
 	import {
-		ChatEngine,
-		DEFAULT_CHAT_ENGINE_CONFIG,
+		TraekEngine,
+		DEFAULT_TRACK_ENGINE_CONFIG,
 		type AddNodePayload
-	} from '$lib/ChatEngine.svelte';
+	} from '$lib/TraekEngine.svelte';
 
 	const LOG_CONTEXT = 'BenchmarkCanvas';
 
@@ -97,7 +97,7 @@
 		count: payloads.length
 	});
 
-	const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+	const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 	const addNodesStart = performance.now();
 	engine.addNodes(payloads);
 	requestAnimationFrame(() => {
@@ -110,4 +110,4 @@
 	});
 </script>
 
-<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} showFps={true} />
+<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} showFps={true} />

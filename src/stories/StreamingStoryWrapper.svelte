@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import ChatCanvas from '$lib/ChatCanvas.svelte';
-	import { ChatEngine, DEFAULT_CHAT_ENGINE_CONFIG, type MessageNode } from '$lib/ChatEngine.svelte';
+	import TraekCanvas from '$lib/TraekCanvas.svelte';
+	import {
+		TraekEngine,
+		DEFAULT_TRACK_ENGINE_CONFIG,
+		type MessageNode
+	} from '$lib/TraekEngine.svelte';
 
 	const STREAMING_CONTENT = `Based on what you’ve shared, I’d start by narrowing the question to one main decision or outcome you need help with. Add 2–3 short context bullets and any constraints (time, budget, team). That’s usually enough for a useful first answer.
 
 Want to refine the question together or get a quick recommendation from here?`;
 
-	const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+	const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 	engine.addNode('How do I get a good answer from the expert?', 'user');
 	const responseNode = engine.addNode('', 'assistant', {
 		autofocus: true
@@ -47,8 +51,8 @@ Want to refine the question together or get a quick recommendation from here?`;
 				);
 				if (thoughtNode) engine.updateNode(thoughtNode.id, { content: 'Done' });
 			}
-		}, DEFAULT_CHAT_ENGINE_CONFIG.streamIntervalMs);
+		}, DEFAULT_TRACK_ENGINE_CONFIG.streamIntervalMs);
 	});
 </script>
 
-<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} showFps={true} />
+<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} showFps={true} />

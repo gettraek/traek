@@ -3,10 +3,10 @@
  * Used by the demo app in src/routes/demo.
  */
 
-import type { AddNodePayload } from './ChatEngine.svelte';
+import type { AddNodePayload } from './TraekEngine.svelte';
 
-const LIST_KEY = 'mycelium-demo-conversations';
-const CONV_PREFIX = 'mycelium-demo-conv-';
+const LIST_KEY = 'traek-demo-conversations';
+const CONV_PREFIX = 'traek-demo-conv-';
 
 export interface ConversationMeta {
 	id: string;

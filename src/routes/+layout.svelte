@@ -1,11 +1,12 @@
 <script lang="ts">
 	import '../app.css';
+	import GravityDotsBackground from '../lib/GravityDotsBackground.svelte';
 </script>
 
 <svelte:head>
-	<title>Mycelium Demo</title>
-	<meta name="description" content="Mycelium Demo" />
-	<meta name="keywords" content="Mycelium, Demo, Svelte, SvelteKit" />
+	<title>Træk Demo</title>
+	<meta name="description" content="Træk Demo" />
+	<meta name="keywords" content="Træk, Demo, Svelte, SvelteKit" />
 	<meta name="author" content="Nico Hülscher" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta name="robots" content="index, follow" />

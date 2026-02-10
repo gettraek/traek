@@ -1,23 +1,27 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import ChatCanvas from '$lib/ChatCanvas.svelte';
-	import { ChatEngine, DEFAULT_CHAT_ENGINE_CONFIG, type MessageNode } from '$lib/ChatEngine.svelte';
-	import type { AddNodePayload } from '$lib/ChatEngine.svelte';
+	import { page } from '$app/state';
+	import TraekCanvas from '$lib/TraekCanvas.svelte';
+	import {
+		DefaultLoadingOverlay,
+		TraekEngine,
+		DEFAULT_TRACK_ENGINE_CONFIG,
+		type MessageNode,
+		type AddNodePayload
+	} from '$lib';
 	import {
 		getConversation,
 		saveConversation,
 		titleFromNodes,
 		type SavedConversation,
 		type SavedViewport
-	} from '../../lib/demo-persistence.ts';
+	} from '$lib/demo-persistence';
 
-	const id = $derived($page.params.id);
+	const id = $derived(page.params.id);
 
-	let engine = $state<ChatEngine | null>(null);
+	let engine = $state<TraekEngine | null>(null);
 	let conv = $state<SavedConversation | null>(null);
 	let error = $state<string | null>(null);
-	/** Latest viewport from ChatCanvas (for persist). */
+	/** Latest viewport from TraekCanvas (for persist). */
 	let lastViewport = $state<SavedViewport | null>(null);
 	let viewportPersistTimeout = 0;
 	function scheduleViewportPersist() {
@@ -35,18 +39,17 @@
 		const data = getConversation(currentId);
 		if (data) {
 			conv = data;
-			const e = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+			const e = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 			if (data.nodes.length > 0) {
 				e.addNodes(data.nodes);
 			}
 			// Restore last focused node (reply context)
 			if (data.activeNodeId != null) {
 				const exists = data.nodes.some((n) => n.id === data.activeNodeId);
-				if (exists) e.activeNodeId = data.activeNodeId;
-			}
-			if (e.activeNodeId == null && data.nodes.length > 0) {
-				const last = data.nodes[data.nodes.length - 1];
-				if (last?.id) e.activeNodeId = last.id;
+				if (exists) {
+					e.activeNodeId = data.activeNodeId;
+					e.focusOnNode(data.activeNodeId);
+				}
 			}
 			engine = e;
 			error = null;
@@ -60,12 +63,12 @@
 				nodes: []
 			};
 			saveConversation(conv);
-			engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+			engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 			error = null;
 		}
 	});
 
-	function pathToUserNode(eng: ChatEngine, userNode: MessageNode): MessageNode[] {
+	function pathToUserNode(eng: TraekEngine, userNode: MessageNode): MessageNode[] {
 		const path: MessageNode[] = [];
 		let current: MessageNode | undefined = userNode;
 		while (current) {
@@ -89,7 +92,7 @@
 		}));
 	}
 
-	function persist(eng: ChatEngine) {
+	function persist(eng: TraekEngine) {
 		if (!conv || !id) return;
 		const nodes = nodesToPayloads(eng.nodes);
 		const title = titleFromNodes(nodes);
@@ -199,11 +202,11 @@
 
 {#if engine}
 	<div class="chat-layout">
-		<a href="/" class="back">← Back to list</a>
+		<a href="/demo" class="back">← Back to list</a>
 		<div class="canvas-wrap">
-			<ChatCanvas
+			<TraekCanvas
 				{engine}
-				config={DEFAULT_CHAT_ENGINE_CONFIG}
+				config={DEFAULT_TRACK_ENGINE_CONFIG}
 				initialScale={conv?.viewport?.scale}
 				initialOffset={conv?.viewport
 					? { x: conv.viewport.offsetX, y: conv.viewport.offsetY }
@@ -214,7 +217,11 @@
 					lastViewport = { scale: v.scale, offsetX: v.offset.x, offsetY: v.offset.y };
 					scheduleViewportPersist();
 				}}
-			/>
+			>
+				{#snippet initialOverlay()}
+					<DefaultLoadingOverlay />
+				{/snippet}
+			</TraekCanvas>
 		</div>
 	</div>
 {:else}
@@ -230,7 +237,7 @@
 		inset: 0;
 		display: flex;
 		flex-direction: column;
-		background: #fafafa;
+		background: var(--traek-conv-bg, #fafafa);
 	}
 	.back {
 		position: absolute;
@@ -238,9 +245,9 @@
 		left: 1rem;
 		z-index: 10;
 		padding: 0.4rem 0.75rem;
-		background: #0b0b0b;
+		background: var(--traek-conv-back-bg, #0b0b0b);
 		border-radius: 0.25rem;
-		color: #ddd;
+		color: var(--traek-conv-back-text, #dddddd);
 		text-decoration: none;
 		font-size: 0.9rem;
 	}
@@ -249,7 +256,7 @@
 		min-height: 0;
 	}
 	.error {
-		color: #c00;
+		color: var(--traek-error-text, #cc0000);
 		padding: 1rem;
 	}
 
@@ -261,7 +268,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 1.25rem;
-		background: #0b0b0b;
+		background: var(--traek-loading-bg, #0b0b0b);
 		animation: loading-fade 0.3s ease-out;
 	}
 	@keyframes loading-fade {
@@ -275,8 +282,8 @@
 	.loading-spinner {
 		width: 2rem;
 		height: 2rem;
-		border: 2px solid rgba(255, 255, 255, 0.12);
-		border-top-color: #888;
+		border: 2px solid var(--traek-spinner-border, rgba(255, 255, 255, 0.12));
+		border-top-color: var(--traek-spinner-top, #888888);
 		border-radius: 50%;
 		animation: loading-spin 0.7s linear infinite;
 	}
@@ -287,7 +294,7 @@
 	}
 	.loading-text {
 		margin: 0;
-		color: #888;
+		color: var(--traek-loading-text, #888888);
 		font-size: 0.95rem;
 		letter-spacing: 0.02em;
 	}

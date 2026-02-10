@@ -1,18 +1,18 @@
 <script module lang="ts">
 	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import ChatCanvas from '$lib/ChatCanvas.svelte';
+	import TraekCanvas from '$lib/TraekCanvas.svelte';
 	import {
-		ChatEngine,
-		DEFAULT_CHAT_ENGINE_CONFIG,
-		type ChatEngineConfig,
+		TraekEngine,
+		DEFAULT_TRACK_ENGINE_CONFIG,
+		type TraekEngineConfig,
 		type MessageNode
-	} from '$lib/ChatEngine.svelte';
+	} from '$lib/TraekEngine.svelte';
 	import BenchmarkCanvas from './BenchmarkCanvas.svelte';
 	import StreamingStoryWrapper from './StreamingStoryWrapper.svelte';
 
 	const { Story } = defineMeta({
-		title: 'Molecules/ChatCanvas',
-		component: ChatCanvas,
+		title: 'Molecules/TraekCanvas',
+		component: TraekCanvas,
 		tags: ['autodocs'],
 		argTypes: {
 			engine: { control: false },
@@ -69,8 +69,8 @@ Here’s how to make your chat with the expert effective.
 
 **What do you want to focus on first: framing your question, or adding context?**`;
 
-	function createEngineWithRichBranches(): ChatEngine {
-		const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+	function createEngineWithRichBranches(): TraekEngine {
+		const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 		engine.addNode('How do I get the most out of a session with an expert?', 'user');
 		const richReply = engine.addNode(RICH_BUBBLE_MARKDOWN, 'assistant');
 
@@ -98,8 +98,8 @@ Here’s how to make your chat with the expert effective.
 	}
 
 	function createMockReplyHandler(
-		engine: ChatEngine,
-		config: ChatEngineConfig
+		engine: TraekEngine,
+		config: TraekEngineConfig
 	): (input: string, userNode: MessageNode) => void {
 		return (_lastInput: string, _userNode: MessageNode) => {
 			setTimeout(() => {
@@ -154,8 +154,8 @@ Here’s how to make your chat with the expert effective.
 		};
 	}
 
-	function createEngineWithConversation(): ChatEngine {
-		const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+	function createEngineWithConversation(): TraekEngine {
+		const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 		engine.addNode('I need advice on choosing the right tech stack for a new product.', 'user');
 		const responseNode = engine.addNode(
 			'I can help with that. To tailor the advice: what’s the product type, team size, and any constraints (timeline, budget, existing stack)?',
@@ -166,8 +166,8 @@ Here’s how to make your chat with the expert effective.
 		return engine;
 	}
 
-	function createEngineWithError(): ChatEngine {
-		const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+	function createEngineWithError(): TraekEngine {
+		const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 		engine.addNode('What’s the best way to structure our API?', 'user');
 		const responseNode = engine.addNode('', 'assistant', {
 			autofocus: true
@@ -180,8 +180,8 @@ Here’s how to make your chat with the expert effective.
 		return engine;
 	}
 
-	function createEngineWithExpandableThought(): ChatEngine {
-		const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG);
+	function createEngineWithExpandableThought(): TraekEngine {
+		const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
 		engine.addNode('How should I phrase my question to get a useful answer?', 'user');
 		const responseNode = engine.addNode(
 			'Short version: one clear question, 2–3 context bullets, and any constraints. That’s usually enough for a strong first answer.',
@@ -208,22 +208,22 @@ Here’s how to make your chat with the expert effective.
 
 <Story asChild name="Default">
 	{#if typeof window !== 'undefined'}
-		{@const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG)}
-		<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} showFps={true} />
+		{@const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG)}
+		<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} showFps={true} />
 	{/if}
 </Story>
 
 <Story asChild name="With mock reply">
 	{#if typeof window !== 'undefined'}
-		{@const engine = new ChatEngine(DEFAULT_CHAT_ENGINE_CONFIG)}
-		{@const onSendMessage = createMockReplyHandler(engine, DEFAULT_CHAT_ENGINE_CONFIG)}
-		<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} {onSendMessage} showFps={true} />
+		{@const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG)}
+		{@const onSendMessage = createMockReplyHandler(engine, DEFAULT_TRACK_ENGINE_CONFIG)}
+		<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} {onSendMessage} showFps={true} />
 	{/if}
 </Story>
 
 <Story asChild name="With conversation">
 	{@const engine = createEngineWithConversation()}
-	<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} showFps={true} />
+	<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} showFps={true} />
 </Story>
 
 <Story asChild name="Streaming">
@@ -232,17 +232,17 @@ Here’s how to make your chat with the expert effective.
 
 <Story asChild name="Error state">
 	{@const engine = createEngineWithError()}
-	<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} showFps={true} />
+	<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} showFps={true} />
 </Story>
 
 <Story asChild name="Thought with expandable steps">
 	{@const engine = createEngineWithExpandableThought()}
-	<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} showFps={true} />
+	<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} showFps={true} />
 </Story>
 
 <Story asChild name="Rich bubble and branched conversation">
 	{@const engine = createEngineWithRichBranches()}
-	<ChatCanvas {engine} config={DEFAULT_CHAT_ENGINE_CONFIG} showFps={true} />
+	<TraekCanvas {engine} config={DEFAULT_TRACK_ENGINE_CONFIG} showFps={true} />
 </Story>
 
 <Story asChild name="Benchmark: 100 nodes">

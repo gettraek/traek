@@ -1,4 +1,4 @@
-const LOG_CONTEXT = 'ChatEngine';
+import { browser } from '$app/environment';
 
 export type NodeStatus = 'streaming' | 'done' | 'error';
 
@@ -35,7 +35,7 @@ export interface AddNodePayload {
   data?: unknown;
 }
 
-export interface ChatEngineConfig {
+export interface TraekEngineConfig {
   focusDurationMs: number;
   zoomSpeed: number;
   zoomLineModeBoost: number;
@@ -53,13 +53,13 @@ export interface ChatEngineConfig {
   gridStep: number;
 }
 
-export const DEFAULT_CHAT_ENGINE_CONFIG: ChatEngineConfig = {
+export const DEFAULT_TRACK_ENGINE_CONFIG: TraekEngineConfig = {
   focusDurationMs: 280,
   zoomSpeed: 0.004,
   zoomLineModeBoost: 20,
   scaleMin: 0.05,
   scaleMax: 8,
-  nodeWidth: 400,
+  nodeWidth: 350,
   nodeHeightDefault: 100,
   streamIntervalMs: 30,
   rootNodeOffsetX: -175,
@@ -70,14 +70,14 @@ export const DEFAULT_CHAT_ENGINE_CONFIG: ChatEngineConfig = {
   gridStep: 20,
 };
 
-export class ChatEngine {
+export class TraekEngine {
   nodes = $state<MessageNode[]>([]);
   activeNodeId = $state<string | null>(null);
-  private config: ChatEngineConfig;
+  private config: TraekEngineConfig;
   private pendingHeightLayoutRafId: number | null = null;
 
-  constructor(config?: Partial<ChatEngineConfig>) {
-    this.config = { ...DEFAULT_CHAT_ENGINE_CONFIG, ...config };
+  constructor(config?: Partial<TraekEngineConfig>) {
+    this.config = { ...DEFAULT_TRACK_ENGINE_CONFIG, ...config };
   }
 
   // Der "Context Path" - Gibt nur die relevanten Knoten für den aktuellen Branch zurück
@@ -138,7 +138,7 @@ export class ChatEngine {
       this.layoutChildren(parentId);
     }
 
-    if (options.autofocus) {
+    if (options.autofocus && browser) {
       requestAnimationFrame(() => {
         this.pendingFocusNodeId = newNode.id;
       });
@@ -155,20 +155,12 @@ export class ChatEngine {
   addNodes(payloads: AddNodePayload[]): MessageNode[] {
     if (payloads.length === 0) return [];
 
-    const totalStart = performance.now();
-
     const defaultH = this.config.nodeHeightDefault;
-    let t = performance.now();
     const withIds = payloads.map((p) => ({
       ...p,
       id: p.id ?? crypto.randomUUID(),
     }));
-    console.log(LOG_CONTEXT, 'addNodes: assign ids', {
-      ms: Math.round(performance.now() - t),
-      count: payloads.length,
-    });
 
-    t = performance.now();
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const added = new Set<string>(this.nodes.map((n) => n.id));
     const sorted: typeof withIds = [];
@@ -189,11 +181,7 @@ export class ChatEngine {
       }
       prevSize = sorted.length;
     }
-    console.log(LOG_CONTEXT, 'addNodes: topological sort', {
-      ms: Math.round(performance.now() - t),
-    });
 
-    t = performance.now();
     const newNodes: MessageNode[] = sorted.map((p) => {
       const hasExplicitPosition =
         typeof p.metadata?.x === 'number' || typeof p.metadata?.y === 'number';
@@ -215,28 +203,12 @@ export class ChatEngine {
         data: p.data,
       };
     });
-    console.log(LOG_CONTEXT, 'addNodes: build newNodes', {
-      ms: Math.round(performance.now() - t),
-    });
 
-    t = performance.now();
     this.nodes = [...this.nodes, ...newNodes];
     const firstRoot = newNodes.find((n) => n.parentId == null);
     if (firstRoot) this.activeNodeId = firstRoot.id;
-    console.log(LOG_CONTEXT, 'addNodes: state update + activeNodeId', {
-      ms: Math.round(performance.now() - t),
-    });
 
-    t = performance.now();
     this.flushLayoutFromRoot();
-    console.log(LOG_CONTEXT, 'addNodes: flushLayoutFromRoot', {
-      ms: Math.round(performance.now() - t),
-    });
-
-    console.log(LOG_CONTEXT, 'addNodes: total', {
-      ms: Math.round(performance.now() - totalStart),
-      count: newNodes.length,
-    });
     return newNodes;
   }
 
@@ -251,7 +223,6 @@ export class ChatEngine {
   /** Run layout from every root (parentId null). Use after adding nodes with deferLayout. */
   flushLayoutFromRoot() {
     const roots = this.nodes.filter((n) => n.parentId == null);
-    const start = performance.now();
     const childrenMap = this.buildChildrenMap();
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const subtreeHeightCache = new Map<string, number>();
@@ -262,22 +233,13 @@ export class ChatEngine {
       this.fillSubtreeWidthCache(root.id, childrenMap, subtreeWidthCache);
     }
     for (const root of roots) {
-      const t = performance.now();
       this.layoutChildrenWithCache(
         root.id,
         childrenMap,
         subtreeHeightCache,
         subtreeWidthCache,
       );
-      console.log(LOG_CONTEXT, 'flushLayoutFromRoot: layoutChildren(root)', {
-        rootId: root.id.slice(0, 8),
-        ms: Math.round(performance.now() - t),
-      });
     }
-    console.log(LOG_CONTEXT, 'flushLayoutFromRoot: total', {
-      ms: Math.round(performance.now() - start),
-      roots: roots.length,
-    });
   }
 
   private buildChildrenMap(): Map<string | null, MessageNode[]> {

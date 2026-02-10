@@ -1,12 +1,13 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import {
-		ChatEngine,
-		type ChatEngineConfig,
-		DEFAULT_CHAT_ENGINE_CONFIG,
+		TraekEngine,
+		type TraekEngineConfig,
+		DEFAULT_TRACK_ENGINE_CONFIG,
 		type MessageNode
-	} from './ChatEngine.svelte';
-	import MessageNodeWrapper from './MessageNodeWrapper.svelte';
+	} from './TraekEngine.svelte';
+	import TraekNodeWrapper from './TraekNodeWrapper.svelte';
 	import TextNode from './TextNode.svelte';
 
 	let {
@@ -18,10 +19,11 @@
 		onSendMessage,
 		onNodesChanged,
 		onViewportChange,
-		showFps = false
+		showFps = false,
+		initialOverlay
 	}: {
-		engine?: ChatEngine | null;
-		config?: Partial<ChatEngineConfig>;
+		engine?: TraekEngine | null;
+		config?: Partial<TraekEngineConfig>;
 		initialPlacementPadding?: { left: number; top: number };
 		/** Restore saved zoom (e.g. after reload). */
 		initialScale?: number;
@@ -33,20 +35,22 @@
 		/** Called when viewport (scale/offset) changes. Use to persist for reload. */
 		onViewportChange?: (viewport: { scale: number; offset: { x: number; y: number } }) => void;
 		showFps?: boolean;
+		/** Optional Svelte 5 snippet rendered as the initial intro overlay. */
+		initialOverlay?: Snippet;
 	} = $props();
 
 	const config = $derived({
-		...DEFAULT_CHAT_ENGINE_CONFIG,
+		...DEFAULT_TRACK_ENGINE_CONFIG,
 		...configProp
-	} satisfies ChatEngineConfig);
+	} satisfies TraekEngineConfig);
 
-	let defaultEngine = $state<ChatEngine | null>(null);
+	let defaultEngine = $state<TraekEngine | null>(null);
 	$effect(() => {
 		if (engineProp == null && defaultEngine == null) {
-			defaultEngine = new ChatEngine(config);
+			defaultEngine = new TraekEngine(config);
 		}
 	});
-	const engine = $derived(engineProp ?? (defaultEngine as ChatEngine));
+	const engine = $derived(engineProp ?? (defaultEngine as TraekEngine));
 
 	$effect(() => {
 		const id = engine.pendingFocusNodeId;
@@ -56,22 +60,22 @@
 		engine.clearPendingFocus();
 	});
 
-  // Canvas State (optional restore from saved viewport; use initial values only at mount)
-  const initScale = initialScale ?? 1;
-  const initOffset = { x: initialOffset?.x ?? 0, y: initialOffset?.y ?? 0 };
-  let scale = $state(initScale);
-  let offset = $state(initOffset);
-  let viewportChangeTimeoutId = 0;
-  function notifyViewportChange() {
-    onViewportChange?.({ scale, offset: { x: offset.x, y: offset.y } });
-  }
-  function scheduleViewportChange() {
-    if (viewportChangeTimeoutId) clearTimeout(viewportChangeTimeoutId);
-    viewportChangeTimeoutId = window.setTimeout(() => {
-      viewportChangeTimeoutId = 0;
-      notifyViewportChange();
-    }, 300);
-  }
+	// Canvas State (optional restore from saved viewport; use initial values only at mount)
+	const initScale = initialScale ?? 1;
+	const initOffset = { x: initialOffset?.x ?? 0, y: initialOffset?.y ?? 0 };
+	let scale = $state(initScale);
+	let offset = $state(initOffset);
+	let viewportChangeTimeoutId = 0;
+	function notifyViewportChange() {
+		onViewportChange?.({ scale, offset: { x: offset.x, y: offset.y } });
+	}
+	function scheduleViewportChange() {
+		if (viewportChangeTimeoutId) clearTimeout(viewportChangeTimeoutId);
+		viewportChangeTimeoutId = window.setTimeout(() => {
+			viewportChangeTimeoutId = 0;
+			notifyViewportChange();
+		}, 300);
+	}
 	let isDragging = $state(false);
 	let draggingNodeId = $state<string | null>(null);
 	let dragStartMouse = $state<{ x: number; y: number } | null>(null);
@@ -95,6 +99,10 @@
 	let fps = $state(0);
 	let viewportResizeVersion = $state(0);
 
+	// Initial load overlay: blurred veil that hides once the initial
+	// canvas view is ready (no selection) or an initial focus has finished.
+	let showIntroOverlay = $state(true);
+
 	// Input State
 	let userInput = $state('');
 
@@ -114,6 +122,20 @@
 			if (rafId) cancelAnimationFrame(rafId);
 			ro.disconnect();
 		};
+	});
+
+	// Hide intro overlay as soon as:
+	// - there are nodes AND
+	//   - nothing is selected (no active node), or
+	//   - a pending focus finished (handled in centerOnNode).
+	$effect(() => {
+		if (!engine || !showIntroOverlay) return;
+		const hasNodes = engine.nodes.length > 0;
+		const hasActive = !!engine.activeNodeId;
+		const hasPendingFocus = !!engine.pendingFocusNodeId;
+		if (hasNodes && !hasActive && !hasPendingFocus) {
+			showIntroOverlay = false;
+		}
 	});
 
 	$effect(() => {
@@ -230,14 +252,14 @@
 			}
 		}
 
-    function handleTouchEnd(e: TouchEvent) {
-      if (e.touches.length === 0) {
-        if (draggingNodeId && engine) {
-          engine.snapNodeToGrid(draggingNodeId);
-          onNodesChanged?.();
-        }
-        notifyViewportChange();
-        isDragging = false;
+		function handleTouchEnd(e: TouchEvent) {
+			if (e.touches.length === 0) {
+				if (draggingNodeId && engine) {
+					engine.snapNodeToGrid(draggingNodeId);
+					onNodesChanged?.();
+				}
+				notifyViewportChange();
+				isDragging = false;
 				draggingNodeId = null;
 				dragStartMouse = null;
 				dragStartNodePosition = null;
@@ -347,7 +369,13 @@
 					const eased = easeOutCubic(t);
 					offset.x = startX + (targetX - startX) * eased;
 					offset.y = startY + (targetY - startY) * eased;
-					if (t >= 1) clampOffset();
+					if (t >= 1) {
+						clampOffset();
+						// Initial selection focus finished – hide intro overlay.
+						if (showIntroOverlay) {
+							showIntroOverlay = false;
+						}
+					}
 					if (t < 1) {
 						focusAnimationId = requestAnimationFrame(tick);
 					}
@@ -475,17 +503,19 @@
 		clampOffset();
 	}
 
-  function handleMouseUp() {
-    if (draggingNodeId && engine) {
-      engine.snapNodeToGrid(draggingNodeId);
-      onNodesChanged?.();
-    }
-    notifyViewportChange();
-    isDragging = false;
-    draggingNodeId = null;
-    dragStartMouse = null;
-    dragStartNodePosition = null;
-  }
+	function handleMouseUp() {
+		if (draggingNodeId && engine) {
+			engine.snapNodeToGrid(draggingNodeId);
+			onNodesChanged?.();
+		}
+		notifyViewportChange();
+		isDragging = false;
+		draggingNodeId = null;
+		dragStartMouse = null;
+		dragStartNodePosition = null;
+		// Reset global cursor override from dragging.
+		document.body.style.cursor = '';
+	}
 
 	function sendMessage() {
 		if (!userInput.trim()) return;
@@ -661,9 +691,8 @@
 		role="grid"
 		tabindex="-1"
 		class="viewport"
-		class:dragging-node={!!draggingNodeId}
 		class:dragging-canvas={isDragging || !!touchStartPan || !!pinchStart}
-		style:cursor={isDragging ? 'grabbing' : 'grab'}
+		class:grabbing={isDragging || draggingNodeId}
 		style:background-position="{offset.x}px {offset.y}px"
 		style:background-size="{config.gridStep * scale}px {config.gridStep * scale}px"
 		style:background-image="radial-gradient(circle, #333 {Math.max(0.1, scale).toFixed(1)}px,
@@ -717,11 +746,51 @@
 												ancestorPath[i].id === parent.id &&
 												ancestorPath[i + 1].id === node.id
 										)}
-									<path
-										class="connection"
-										class:connection--highlight={isOnAncestorPath}
-										d={pathD}
-									/>
+									{#if !isOnAncestorPath}
+										<!-- Non-marked connection -->
+										<path class="connection" d={pathD} />
+									{/if}
+								{/if}
+							{/if}
+						{/if}
+					{/each}
+
+					{#each engine.nodes as node}
+						{#if node.parentId}
+							{@const parent = engine.nodes.find((n) => n.id === node.parentId)}
+							{#if parent}
+								{@const isThought = node.type === 'thought'}
+								{@const step = config.gridStep}
+								{@const parentX = (parent.metadata?.x ?? 0) * step}
+								{@const parentY = (parent.metadata?.y ?? 0) * step}
+								{@const parentH = parent.metadata?.height ?? config.nodeHeightDefault}
+								{@const nodeX = (node.metadata?.x ?? 0) * step}
+								{@const nodeY = (node.metadata?.y ?? 0) * step}
+								{@const nodeH = node.metadata?.height ?? config.nodeHeightDefault}
+								{#if !isThought}
+									{@const pathD = getConnectionPath(
+										parentX,
+										parentY,
+										config.nodeWidth,
+										parentH,
+										nodeX,
+										nodeY,
+										config.nodeWidth,
+										nodeH
+									)}
+									{@const ancestorPath = engine.contextPath()}
+									{@const isOnAncestorPath =
+										ancestorPath.length >= 2 &&
+										ancestorPath.some(
+											(_, i) =>
+												i < ancestorPath.length - 1 &&
+												ancestorPath[i].id === parent.id &&
+												ancestorPath[i + 1].id === node.id
+										)}
+									{#if isOnAncestorPath}
+										<!-- Marked connection (always rendered on top) -->
+										<path class="connection connection--highlight" d={pathD} />
+									{/if}
 								{/if}
 							{/if}
 						{/if}
@@ -742,7 +811,7 @@
 						{viewportResizeVersion}
 					/>
 				{:else if node.type === 'code'}
-					<MessageNodeWrapper
+					<TraekNodeWrapper
 						{node}
 						{isActive}
 						{engine}
@@ -761,10 +830,16 @@
 							<div class="role-tag">{node.role}</div>
 							<div class="node-card-content">{node.content}</div>
 						</button>
-					</MessageNodeWrapper>
+					</TraekNodeWrapper>
 				{/if}
 			{/each}
 		</div>
+
+		{#if showIntroOverlay && initialOverlay}
+			<div class="overlay-root" transition:fade>
+				{@render initialOverlay()}
+			</div>
+		{/if}
 
 		<div class="floating-input-container" transition:fade>
 			<div class="context-info">
@@ -801,179 +876,193 @@
 {/if}
 
 <style>
-	.viewport {
-		width: 100%;
-		height: 100vh;
-		background-color: #0b0b0b;
-		overflow: hidden;
-		position: relative;
-	}
+	@layer base;
 
-	.viewport.dragging-node {
-		cursor: grabbing;
-	}
+	@layer base {
+		.viewport {
+			width: 100%;
+			height: 100vh;
+			background-color: var(--traek-canvas-bg, #0b0b0b);
+			overflow: hidden;
+			position: relative;
+			cursor: grab;
+		}
+		.viewport.grabbing {
+			cursor: grabbing;
+		}
 
-	.viewport.dragging-canvas {
-		user-select: none;
-	}
+		.viewport.dragging-canvas {
+			user-select: none;
+		}
 
-	.canvas-space {
-		position: absolute;
-		top: 0;
-		left: 0;
-		transform-origin: 0 0;
-	}
+		.canvas-space {
+			position: absolute;
+			top: 0;
+			left: 0;
+			transform-origin: 0 0;
+		}
 
-	.node-card {
-		position: absolute;
-		width: 100%;
-		min-height: 100px;
-		background: #161616;
-		border: 1px solid #2a2a2a;
-		border-radius: 12px;
-		padding: 16px;
-		color: #ddd;
-		transition:
-			border-color 0.2s,
-			box-shadow 0.2s,
-			top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
-			left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-		cursor: pointer;
-	}
+		.node-card {
+			position: absolute;
+			width: 100%;
+			min-height: 100px;
+			background: var(--traek-node-bg, #161616);
+			border: 1px solid var(--traek-node-border, #2a2a2a);
+			border-radius: 12px;
+			padding: 16px;
+			color: var(--traek-node-text, #dddddd);
+			transition:
+				border-color 0.2s,
+				box-shadow 0.2s,
+				top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+				left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+			cursor: pointer;
+		}
 
-	.node-card.active {
-		border-color: #00d8ff;
-		box-shadow: 0 0 20px rgba(0, 216, 255, 0.15);
-	}
+		.node-card.active {
+			border-color: var(--traek-node-active-border, #00d8ff);
+			box-shadow: 0 0 20px var(--traek-node-active-glow, rgba(0, 216, 255, 0.15));
+		}
 
-	.node-card.user {
-		border-top: 3px solid #00d8ff;
-	}
-	.node-card.assistant {
-		border-top: 3px solid #ff3e00;
-	}
+		.node-card.user {
+			border-top: 3px solid var(--traek-node-user-border-top, #00d8ff);
+		}
+		.node-card.assistant {
+			border-top: 3px solid var(--traek-node-assistant-border-top, #ff3e00);
+		}
 
-	.role-tag {
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 1px;
-		margin-bottom: 8px;
-		opacity: 0.5;
-	}
+		.role-tag {
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			margin-bottom: 8px;
+			opacity: 0.5;
+		}
 
-	.node-card-content {
-		font-size: 13px;
-		line-height: 1.45;
-		white-space: pre-wrap;
-		word-break: break-word;
-	}
+		.node-card-content {
+			font-size: 13px;
+			line-height: 1.45;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
 
-	.connections {
-		position: absolute;
-		left: -25000px;
-		top: -25000px;
-		width: 50000px;
-		height: 50000px;
-		pointer-events: none;
-		stroke: #333;
-		stroke-width: 1.5;
-		fill: none;
-		overflow: visible;
-	}
+		.connections {
+			position: absolute;
+			left: -25000px;
+			top: -25000px;
+			width: 50000px;
+			height: 50000px;
+			pointer-events: none;
+			stroke: var(--traek-connection-stroke, #333333);
+			stroke-width: 1.5;
+			fill: none;
+			overflow: visible;
+		}
 
-	.connection--highlight {
-		stroke: #00d8ff;
-		stroke-width: 2.5;
-	}
+		.connection--highlight {
+			stroke: var(--traek-connection-highlight, #00d8ff);
+			stroke-width: 2.5;
+		}
 
-	/* FLOATING INPUT STYLES */
-	.floating-input-container {
-		position: fixed;
-		bottom: 20px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 100%;
-		max-width: 600px;
-		z-index: 100;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 12px;
-	}
+		/* FLOATING INPUT STYLES */
+		.floating-input-container {
+			position: fixed;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 100%;
+			max-width: calc(min(600px, 100vw) - 3rem);
+			z-index: 100;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 12px;
+		}
 
-	.input-wrapper {
-		width: 100%;
-		background: rgba(30, 30, 30, 0.8);
-		backdrop-filter: blur(20px);
-		border: 1px solid #444;
-		border-radius: 16px;
-		display: flex;
-		padding: 8px 12px;
-		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-	}
+		.input-wrapper {
+			width: 100%;
+			background: var(--traek-input-bg, rgba(30, 30, 30, 0.8));
+			backdrop-filter: blur(20px);
+			border: 1px solid var(--traek-input-border, #444444);
+			border-radius: 16px;
+			display: flex;
+			padding: 8px 12px;
+			box-shadow: 0 20px 40px var(--traek-input-shadow, rgba(0, 0, 0, 0.4));
+		}
 
-	input {
-		flex: 1;
-		background: transparent;
-		border: none;
-		color: white;
-		padding: 12px;
-		outline: none;
-		font-size: 16px;
-	}
+		input {
+			flex: 1;
+			background: transparent;
+			border: none;
+			color: white;
+			padding: 12px;
+			outline: none;
+			font-size: 16px;
+		}
 
-	button {
-		background: #00d8ff;
-		color: black;
-		border: none;
-		width: 40px;
-		height: 40px;
-		border-radius: 10px;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: transform 0.1s;
-	}
+		button {
+			background: var(--traek-input-button-bg, #00d8ff);
+			color: var(--traek-input-button-text, #000000);
+			border: none;
+			width: 40px;
+			height: 40px;
+			border-radius: 10px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: transform 0.1s;
+		}
 
-	button:hover:not(:disabled) {
-		transform: scale(1.05);
-	}
-	button:disabled {
-		opacity: 0.3;
-		cursor: not-allowed;
-	}
+		button:hover:not(:disabled) {
+			transform: scale(1.05);
+		}
+		button:disabled {
+			opacity: 0.3;
+			cursor: not-allowed;
+		}
 
-	.context-info {
-		font-size: 12px;
-		color: #888;
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		background: rgba(0, 0, 0, 0.4);
-		padding: 4px 12px;
-		border-radius: 20px;
-	}
+		.context-info {
+			font-size: 12px;
+			color: var(--traek-input-context-text, #888888);
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			background: var(--traek-input-context-bg, rgba(0, 0, 0, 0.4));
+			padding: 4px 12px;
+			border-radius: 20px;
+		}
 
-	.dot {
-		width: 8px;
-		height: 8px;
-		background: #00d8ff;
-		border-radius: 50%;
-	}
-	.dot.gray {
-		background: #555;
-	}
+		.dot {
+			width: 8px;
+			height: 8px;
+			background: var(--traek-input-dot, #00d8ff);
+			border-radius: 50%;
+		}
+		.dot.gray {
+			background: var(--traek-input-dot-muted, #555555);
+		}
 
-	.stats {
-		position: absolute;
-		top: 20px;
-		right: 20px;
-		color: #555;
-		font-family: monospace;
-	}
+		.stats {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			color: var(--traek-stats-text, #555555);
+			font-family: monospace;
+		}
 
-	.stats-sep {
-		margin: 0 6px;
+		.stats-sep {
+			margin: 0 6px;
+		}
+
+		.overlay-root {
+			position: absolute;
+			inset: 0;
+			z-index: 80;
+			pointer-events: none;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
 	}
 </style>
