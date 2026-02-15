@@ -100,6 +100,11 @@
 		}
 	}
 
+	.action-badge:focus-visible {
+		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+		outline-offset: 2px;
+	}
+
 	/* Mobile touch target improvements */
 	@media (max-width: 768px) {
 		.action-badge {

@@ -68,7 +68,9 @@
 		role="button"
 		tabindex="-1"
 		onclick={closeVariants}
-		onkeydown={(e) => { if (e.key === 'Escape') closeVariants(); }}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') closeVariants();
+		}}
 	></div>
 {/if}
 
@@ -186,6 +188,11 @@
 		align-items: center;
 		font-size: 13px;
 		opacity: 0.8;
+	}
+
+	.traek-toolbar-badge:focus-visible {
+		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+		outline-offset: 2px;
 	}
 
 	/* Mobile touch target improvements */

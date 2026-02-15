@@ -527,15 +527,6 @@ npm install traek
 		max-width: 22rem;
 	}
 
-	.pill-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.45rem;
-		margin: 0.75rem 0 0.5rem;
-		padding: 0;
-		list-style: none;
-	}
-
 	.two-column {
 		display: grid;
 		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);

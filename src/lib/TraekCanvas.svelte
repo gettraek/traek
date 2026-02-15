@@ -26,6 +26,8 @@
 		ScrollBoundaryGuard
 	} from './canvas/scrollUtils';
 	import ConnectionLayer from './canvas/ConnectionLayer.svelte';
+	import ToastContainer from './toast/ToastContainer.svelte';
+	import { toastUndo } from './toast/toastStore.svelte';
 
 	type InputActionsContext = {
 		engine: TraekEngine;
@@ -135,6 +137,17 @@
 		};
 	});
 
+	// Wire delete-undo toast
+	$effect(() => {
+		if (!engine) return;
+		engine.onNodeDeleted = (count, restore) => {
+			toastUndo(`${count} node${count > 1 ? 's' : ''} deleted`, restore);
+		};
+		return () => {
+			engine.onNodeDeleted = undefined;
+		};
+	});
+
 	$effect(() => {
 		const id = engine.pendingFocusNodeId;
 		if (!id) return;
@@ -162,6 +175,7 @@
 		}, 300);
 	}
 	let isDragging = $state(false);
+	let editingNodeId = $state<string | null>(null);
 	let draggingNodeId = $state<string | null>(null);
 	let connectionDrag = $state<ConnectionDragState | null>(null);
 	let lastDropTargetEl: Element | null = null;
@@ -195,6 +209,11 @@
 
 	// Input State
 	let userInput = $state('');
+	let sendFlash = $state(false);
+
+	// Branch celebration tracking
+	let celebratedBranches = $state(new Set<string>());
+	let branchCelebration = $state<string | null>(null);
 
 	// Action resolver lifecycle
 	let resolver = $state<ActionResolver | null>(null);
@@ -773,7 +792,26 @@
 		resolver?.reset();
 		centerOnNode(userNode);
 
+		// Check if this created a branch (parent now has 2+ non-thought children)
+		if (parentNode) {
+			const siblings = engine.nodes.filter(
+				(n) => n.parentIds.includes(parentNode.id) && n.type !== 'thought'
+			);
+			if (siblings.length === 2 && !celebratedBranches.has(parentNode.id)) {
+				celebratedBranches = new Set([...celebratedBranches, parentNode.id]);
+				branchCelebration = 'You created a branch! Explore different directions.';
+				setTimeout(() => {
+					branchCelebration = null;
+				}, 4000);
+			}
+		}
+
 		const actionArg = allActions.length > 0 ? allActions : undefined;
+
+		sendFlash = true;
+		setTimeout(() => {
+			sendFlash = false;
+		}, 300);
 
 		onSendMessage?.(lastInput, userNode, actionArg);
 	}
@@ -782,13 +820,32 @@
 		engine?.activeNodeId ? new Set(engine.getAncestorPath(engine.activeNodeId)) : null
 	);
 
+	function handleBuiltInEdit(nodeId: string) {
+		editingNodeId = nodeId;
+	}
+
+	function handleEditSave(nodeId: string, content: string) {
+		engine?.updateNode(nodeId, { content });
+		editingNodeId = null;
+		onNodesChanged?.();
+	}
+
+	function handleEditCancel() {
+		editingNodeId = null;
+	}
+
 	const activeNodeActions = $derived.by(() => {
 		if (!engine?.activeNodeId) return [];
 		const activeNode = engine.nodes.find((n: Node) => n.id === engine.activeNodeId);
 		if (!activeNode) return [];
 
 		// 1. Start with defaults
-		const defaults = defaultNodeActionsProp ?? createDefaultNodeActions({ onRetry, onEditNode });
+		const defaults =
+			defaultNodeActionsProp ??
+			createDefaultNodeActions({
+				onRetry,
+				onEditNode: onEditNode ?? handleBuiltInEdit
+			});
 
 		// 2. Append type-specific actions from registry (deduplicate by id)
 		const typeDef = registry?.get(activeNode.type);
@@ -825,7 +882,11 @@
 		).toFixed(1)}px, transparent {Math.max(0.1, scale).toFixed(1)}px)"
 		onkeydown={(e) => {
 			if (e.key === 'Escape') {
-				engine.activeNodeId = null;
+				if (editingNodeId) {
+					editingNodeId = null;
+				} else {
+					engine.activeNodeId = null;
+				}
 			}
 		}}
 		onwheel={handleWheel}
@@ -881,6 +942,10 @@
 							gridStep={config.gridStep}
 							nodeWidth={config.nodeWidth}
 							{viewportResizeVersion}
+							{editingNodeId}
+							onEditSave={handleEditSave}
+							onEditCancel={handleEditCancel}
+							onStartEdit={onEditNode ?? handleBuiltInEdit}
 						/>
 					{:else}
 						<!-- Wrapped component (registry, node.component, or componentMap) -->
@@ -968,11 +1033,27 @@
 					resolver
 				})}
 			{:else}
+				{#if branchCelebration}
+					<div class="branch-celebration" transition:fade>
+						<span class="celebration-icon">🌿</span>
+						{branchCelebration}
+					</div>
+				{/if}
 				<div class="context-info">
 					{#if engine.activeNodeId}
-						<span class="dot"></span> Reply linked to selected message
+						{@const ctxNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
+						{@const childCount = ctxNode
+							? engine.nodes.filter((n) => n.parentIds.includes(ctxNode.id) && n.type !== 'thought')
+									.length
+							: 0}
+						<span class="dot"></span>
+						{#if childCount > 0}
+							Branching from selected message
+						{:else}
+							Replying to selected message
+						{/if}
 					{:else}
-						<span class="dot gray"></span> New thread in center
+						<span class="dot gray"></span> Starting a new conversation
 					{/if}
 				</div>
 				{#if resolver && actionsProp}
@@ -989,6 +1070,7 @@
 						sendMessage();
 					}}
 					class="input-wrapper"
+					class:send-flash={sendFlash}
 				>
 					{#if resolver && actionsProp && resolver.slashFilter !== null}
 						<SlashCommandDropdown
@@ -1041,9 +1123,29 @@
 					<span class="stats-fps">{fps} FPS</span>
 					<span class="stats-sep">|</span>
 				{/if}
-				{Math.round(scale * 100)}% | Context: {engine.contextPath().length} Nodes
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<span
+					class="stats-zoom"
+					onclick={() => {
+						scale = 1;
+						clampOffset();
+						scheduleViewportChange();
+					}}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') {
+							scale = 1;
+							clampOffset();
+							scheduleViewportChange();
+						}
+					}}
+					title="Reset zoom to 100%"
+					role="button"
+					tabindex="0">{Math.round(scale * 100)}%</span
+				>
 			</div>
 		{/if}
+
+		<ToastContainer />
 	</div>
 {/if}
 
@@ -1208,6 +1310,23 @@
 			background: var(--traek-input-dot-muted, #555555);
 		}
 
+		.branch-celebration {
+			background: rgba(0, 216, 255, 0.12);
+			border: 1px solid rgba(0, 216, 255, 0.3);
+			color: var(--traek-input-button-bg, #00d8ff);
+			padding: 8px 16px;
+			border-radius: 20px;
+			font-size: 13px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			backdrop-filter: blur(10px);
+		}
+
+		.celebration-icon {
+			font-size: 16px;
+		}
+
 		.stats {
 			position: absolute;
 			top: 20px;
@@ -1218,6 +1337,44 @@
 
 		.stats-sep {
 			margin: 0 6px;
+		}
+
+		.stats-zoom {
+			cursor: pointer;
+			border-radius: 4px;
+			padding: 2px 4px;
+			transition: color 0.15s;
+		}
+
+		.stats-zoom:hover {
+			color: var(--traek-input-button-bg, #00d8ff);
+		}
+
+		@keyframes send-flash {
+			0% {
+				border-color: var(--traek-input-button-bg, #00d8ff);
+			}
+			100% {
+				border-color: var(--traek-input-border, #444444);
+			}
+		}
+
+		.input-wrapper.send-flash {
+			animation: send-flash 300ms ease-out;
+		}
+
+		textarea:focus-visible {
+			outline: none;
+		}
+
+		button:focus-visible {
+			outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+			outline-offset: 2px;
+		}
+
+		.stats-zoom:focus-visible {
+			outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+			outline-offset: 2px;
 		}
 
 		.overlay-root {

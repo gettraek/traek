@@ -3,7 +3,6 @@ import {
 	DEFAULT_TRACK_ENGINE_CONFIG,
 	type TraekEngineConfig
 } from '$lib/TraekEngine.svelte';
-import type { SvelteComponent } from 'svelte';
 import ExampleCustomComponent from './ExampleCustomComponent.svelte';
 
 /**
@@ -70,7 +69,7 @@ Here’s how to make your chat with the expert effective.
 		parentIds: [overview.id]
 	});
 
-	engine.addCustomNode(ExampleCustomComponent as unknown as typeof SvelteComponent, {}, 'system', {
+	engine.addCustomNode(ExampleCustomComponent, {}, 'system', {
 		parentIds: [contextUser.id],
 		type: 'debugNode'
 	});

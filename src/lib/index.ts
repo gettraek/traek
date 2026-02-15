@@ -48,6 +48,17 @@ export { ReplayController } from './persistence/ReplayController.svelte';
 export { default as ReplayControls } from './persistence/ReplayControls.svelte';
 export type { ConversationSnapshot, SerializedNode } from './persistence/types.js';
 
+// Toast system
+export { default as ToastContainer } from './toast/ToastContainer.svelte';
+export { default as ToastComponent } from './toast/Toast.svelte';
+export {
+	toastStore,
+	toast,
+	toastUndo,
+	type ToastType,
+	type Toast as ToastData
+} from './toast/toastStore.svelte';
+
 // Schemas (Zod)
 export { serializedNodeSchema, conversationSnapshotSchema } from './persistence/schemas.js';
 export { traekEngineConfigSchema, addNodePayloadSchema } from './schemas.js';

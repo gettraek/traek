@@ -25,5 +25,8 @@ vite.config.ts.timestamp-*
 # Playwright
 test-results
 
+# Coverage
+coverage
+
 *storybook.log
 storybook-static

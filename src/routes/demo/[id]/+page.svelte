@@ -150,7 +150,7 @@
 		let current: MessageNode | undefined = userNode;
 		while (current) {
 			path.unshift(current);
-			const primaryParentId = current!.parentIds[0];
+			const primaryParentId: string | undefined = current!.parentIds[0];
 			current = primaryParentId
 				? (eng.nodes.find((n) => n.id === primaryParentId) as MessageNode | undefined)
 				: undefined;
@@ -174,7 +174,7 @@
 
 	function persist(eng: TraekEngine) {
 		if (!conv || !id) return;
-		const nodes = nodesToPayloads(eng.nodes);
+		const nodes = nodesToPayloads(eng.nodes as MessageNode[]);
 		const title = titleFromNodes(nodes);
 		saveConversation({
 			...conv,
@@ -196,15 +196,13 @@
 
 	function handleRetry(nodeId: string) {
 		if (!engine) return;
-		const assistantNode = engine.nodes.find(
-			(n: { id: string }) => n.id === nodeId
-		);
+		const assistantNode = engine.nodes.find((n: { id: string }) => n.id === nodeId);
 		if (!assistantNode) return;
 		const userParentId = assistantNode.parentIds[0];
 		if (!userParentId) return;
-		const userNode = engine.nodes.find(
-			(n: { id: string }) => n.id === userParentId
-		) as MessageNode | undefined;
+		const userNode = engine.nodes.find((n: { id: string }) => n.id === userParentId) as
+			| MessageNode
+			| undefined;
 		if (!userNode) return;
 		// Delete the assistant node and its descendants
 		engine.deleteNodeAndDescendants(nodeId);
@@ -212,19 +210,6 @@
 		const userContent = userNode.content ?? '';
 		const actions = (userNode.data as { actions?: string[] })?.actions;
 		onSendMessage(userContent, userNode, actions);
-	}
-
-	function handleEditNode(nodeId: string) {
-		if (!engine) return;
-		const node = engine.nodes.find(
-			(n: { id: string }) => n.id === nodeId
-		) as MessageNode | undefined;
-		if (!node) return;
-		const newContent = window.prompt('Edit message:', node.content ?? '');
-		if (newContent !== null && newContent !== node.content) {
-			engine.updateNode(nodeId, { content: newContent });
-			persist(engine);
-		}
 	}
 
 	async function onSendMessage(input: string, userNode: MessageNode, action?: string | string[]) {
@@ -350,8 +335,10 @@
 		}
 
 		async function runOneBranch(responseNodeId: string, thoughtNodeId: string) {
+			if (!eng) return;
+			const e = eng;
 			function setThinkingDone() {
-				eng?.updateNode(thoughtNodeId, { content: 'Done' });
+				e.updateNode(thoughtNodeId, { content: 'Done' });
 			}
 			try {
 				const res = await fetch('/api/chat', {
@@ -429,7 +416,6 @@
 					: undefined}
 				{onSendMessage}
 				onRetry={handleRetry}
-				onEditNode={handleEditNode}
 				onNodesChanged={() => engine && persist(engine)}
 				onViewportChange={(v) => {
 					lastViewport = { scale: v.scale, offsetX: v.offset.x, offsetY: v.offset.y };

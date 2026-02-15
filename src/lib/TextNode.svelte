@@ -12,7 +12,11 @@
 		viewportRoot = null,
 		gridStep = 20,
 		nodeWidth = 350,
-		viewportResizeVersion = 0
+		viewportResizeVersion = 0,
+		editingNodeId = null,
+		onEditSave,
+		onEditCancel,
+		onStartEdit
 	} = $props<{
 		node: any;
 		isActive: boolean;
@@ -21,10 +25,41 @@
 		gridStep?: number;
 		nodeWidth?: number;
 		viewportResizeVersion?: number;
+		editingNodeId?: string | null;
+		onEditSave?: (nodeId: string, content: string) => void;
+		onEditCancel?: () => void;
+		onStartEdit?: (nodeId: string) => void;
 	}>();
 
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let isScrolledToEnd = $state(false);
+	let editContent = $state('');
+	let editTextarea = $state<HTMLTextAreaElement | null>(null);
+
+	const isEditing = $derived(editingNodeId === node.id);
+
+	// When entering edit mode, initialize content and auto-focus
+	$effect(() => {
+		if (isEditing) {
+			editContent = node.content ?? '';
+			tick().then(() => {
+				editTextarea?.focus();
+				// Place cursor at end
+				if (editTextarea) {
+					editTextarea.selectionStart = editTextarea.value.length;
+					editTextarea.selectionEnd = editTextarea.value.length;
+				}
+			});
+		}
+	});
+
+	function saveEdit() {
+		onEditSave?.(node.id, editContent);
+	}
+
+	function cancelEdit() {
+		onEditCancel?.();
+	}
 
 	const renderedContent = $derived(markdownToHtml(node.content ?? ''));
 
@@ -63,22 +98,50 @@
 	{nodeWidth}
 	{viewportResizeVersion}
 >
-	<div
-		bind:this={scrollContainer}
-		class="content-area custom-scrollbar"
-		onscroll={() => checkScrolledToEnd(scrollContainer)}
-	>
-		<div class="text-content markdown-body">
-			{#if node.content}
-				{@html renderedContent}
-			{:else if node.role === 'assistant'}
-				<span class="typing-cursor">|</span>
-			{/if}
+	{#if isEditing}
+		<div class="edit-overlay">
+			<textarea
+				bind:this={editTextarea}
+				bind:value={editContent}
+				class="edit-textarea"
+				onkeydown={(e) => {
+					if (e.key === 'Enter' && !e.shiftKey) {
+						e.preventDefault();
+						saveEdit();
+					} else if (e.key === 'Escape') {
+						cancelEdit();
+					}
+				}}
+			></textarea>
+			<div class="edit-actions">
+				<button type="button" class="edit-btn edit-btn-save" onclick={saveEdit}>Save</button>
+				<button type="button" class="edit-btn edit-btn-cancel" onclick={cancelEdit}>Cancel</button>
+			</div>
 		</div>
-	</div>
+	{:else}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			bind:this={scrollContainer}
+			class="content-area custom-scrollbar"
+			onscroll={() => checkScrolledToEnd(scrollContainer)}
+			ondblclick={() => {
+				if (node.role === 'user' && onStartEdit) {
+					onStartEdit(node.id);
+				}
+			}}
+		>
+			<div class="text-content markdown-body">
+				{#if node.content}
+					{@html renderedContent}
+				{:else if node.role === 'assistant'}
+					<span class="typing-cursor">|</span>
+				{/if}
+			</div>
+		</div>
 
-	{#if node.content.length > 500 && !isScrolledToEnd}
-		<div transition:fadedSlide={{ axis: 'y' }} class="scroll-hint">Scroll for more ↓</div>
+		{#if node.content.length > 500 && !isScrolledToEnd}
+			<div transition:fadedSlide={{ axis: 'y' }} class="scroll-hint">Scroll for more ↓</div>
+		{/if}
 	{/if}
 </TraekNodeWrapper>
 
@@ -209,6 +272,66 @@
 			50% {
 				opacity: 0;
 			}
+		}
+
+		/* Inline edit mode */
+		.edit-overlay {
+			display: flex;
+			flex-direction: column;
+			padding: 12px;
+			gap: 8px;
+		}
+
+		.edit-textarea {
+			width: 100%;
+			min-height: 60px;
+			padding: 12px;
+			background: var(--traek-node-bg, #161616);
+			color: var(--traek-node-text, #dddddd);
+			border: 2px solid var(--traek-input-button-bg, #00d8ff);
+			border-radius: 8px;
+			font-family: inherit;
+			font-size: 14px;
+			line-height: 1.6;
+			resize: vertical;
+			outline: none;
+			box-sizing: border-box;
+		}
+
+		.edit-textarea:focus {
+			box-shadow: 0 0 8px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.3));
+		}
+
+		.edit-actions {
+			display: flex;
+			gap: 6px;
+			justify-content: flex-end;
+		}
+
+		.edit-btn {
+			padding: 4px 14px;
+			border-radius: 6px;
+			border: 1px solid;
+			font-size: 12px;
+			cursor: pointer;
+			font-family: inherit;
+			transition: opacity 0.15s;
+		}
+
+		.edit-btn:hover {
+			opacity: 0.85;
+		}
+
+		.edit-btn-save {
+			background: var(--traek-input-button-bg, #00d8ff);
+			border-color: var(--traek-input-button-bg, #00d8ff);
+			color: var(--traek-input-button-text, #000000);
+		}
+
+		.edit-btn-cancel {
+			background: transparent;
+			border-color: var(--traek-thought-panel-border, #333333);
+			color: var(--traek-node-text, #dddddd);
 		}
 	}
 </style>

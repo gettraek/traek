@@ -1,3 +1,8 @@
+---
+name: pm
+description: Transform vague product ideas into concrete, executable strategies with clear metrics, user impact, and technical feasibility.
+---
+
 # Product Strategy & Execution Skill
 
 ## Core Philosophy

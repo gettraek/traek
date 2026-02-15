@@ -31,6 +31,18 @@
 	let wrapper = $state<HTMLElement | null>(null);
 	let isInView = $state(true);
 	let isThoughtExpanded = $state(false);
+	let previousStatus = $state<string | undefined>(undefined);
+	let showCompletePulse = $state(false);
+
+	$effect(() => {
+		if (previousStatus === 'streaming' && node.status === 'done') {
+			showCompletePulse = true;
+			setTimeout(() => {
+				showCompletePulse = false;
+			}, 300);
+		}
+		previousStatus = node.status;
+	});
 	let expandedStepIndices = $state<Record<number, boolean>>({});
 	let resizeObserver: ResizeObserver;
 	let intersectionObserverRef: IntersectionObserver | null = null;
@@ -106,7 +118,9 @@
 	data-node-id={node.id}
 	class="message-node-wrapper {node.role} {isActive ? 'active' : ''} {node.status === 'error'
 		? 'error'
-		: ''} {!isInView ? 'message-node-wrapper--placeholder' : ''}"
+		: ''} {!isInView ? 'message-node-wrapper--placeholder' : ''} {showCompletePulse
+		? 'stream-complete'
+		: ''}"
 	style:left="{(node.metadata?.x ?? 0) * gridStep}px"
 	style:top="{(node.metadata?.y ?? 0) * gridStep}px"
 	style:width="{nodeWidth}px"
@@ -139,7 +153,6 @@
 				</span>
 			{/if}
 		</span>
-		<span class="node-id">ID: {node.id.slice(0, 4)}</span>
 	</button>
 	{#if node.status === 'error'}
 		<div class="error-banner" role="alert">
@@ -283,6 +296,45 @@
 			backdrop-filter: blur(10px);
 		}
 
+		@keyframes node-appear {
+			from {
+				opacity: 0;
+				transform: scale(0.96);
+			}
+			to {
+				opacity: 1;
+				transform: scale(1);
+			}
+		}
+
+		@keyframes stream-complete-pulse {
+			0% {
+				border-color: var(--traek-thought-tag-cyan, #00d8ff);
+				box-shadow: 0 0 20px rgba(0, 216, 255, 0.4);
+			}
+			100% {
+				border-color: var(--traek-thought-panel-border, #333333);
+				box-shadow: none;
+			}
+		}
+
+		.message-node-wrapper {
+			animation: node-appear 250ms ease-out both;
+		}
+
+		.message-node-wrapper.stream-complete {
+			animation: stream-complete-pulse 300ms ease-out;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.message-node-wrapper {
+				animation: none;
+			}
+			.message-node-wrapper.stream-complete {
+				animation: none;
+			}
+		}
+
 		.message-node-wrapper.active {
 			border-color: var(--traek-thought-panel-border-active, #00d8ff);
 			box-shadow: 0 0 30px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.15));
@@ -332,11 +384,6 @@
 
 		.message-node-wrapper.assistant .role-indicator {
 			color: var(--traek-thought-tag-orange, #ff3e00);
-		}
-
-		.node-id {
-			color: var(--traek-thought-tag-gray, #444444);
-			font-size: 9px;
 		}
 
 		.header-status {
@@ -687,6 +734,13 @@
 			transform: translateX(-50%) scale(1.6);
 			background: var(--traek-thought-tag-cyan, #00d8ff);
 			box-shadow: 0 0 16px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.6));
+		}
+
+		.node-header:focus-visible,
+		.thought-pill:focus-visible,
+		.error-banner-btn:focus-visible {
+			outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+			outline-offset: 2px;
 		}
 
 		/* Mobile touch target improvements */
