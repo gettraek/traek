@@ -16,6 +16,7 @@ export interface Node {
 	type: BasicNodeTypes | string;
 	status?: NodeStatus;
 	errorMessage?: string;
+	createdAt?: number;
 	metadata?: {
 		x: number;
 		y: number;
@@ -58,6 +59,7 @@ export interface AddNodePayload {
 	type?: MessageNode['type'];
 	status?: NodeStatus;
 	errorMessage?: string;
+	createdAt?: number;
 	metadata?: Partial<NonNullable<MessageNode['metadata']>>;
 	data?: unknown;
 }
@@ -152,6 +154,7 @@ export class TraekEngine {
 			parentId,
 			role,
 			type: options.type ?? 'text',
+			createdAt: Date.now(),
 			metadata: {
 				x: options.x ?? 0,
 				y: options.y ?? 0,
@@ -204,6 +207,7 @@ export class TraekEngine {
 			role,
 			content,
 			type: options.type ?? 'text',
+			createdAt: Date.now(),
 			metadata: {
 				x: options.x ?? 0,
 				y: options.y ?? 0,
@@ -280,6 +284,7 @@ export class TraekEngine {
 				type: p.type ?? 'text',
 				status: p.status,
 				errorMessage: p.errorMessage,
+				createdAt: p.createdAt ?? Date.now(),
 				metadata: {
 					x: p.metadata?.x ?? 0,
 					y: p.metadata?.y ?? 0,
@@ -585,5 +590,66 @@ export class TraekEngine {
 
 	branchFrom(nodeId: string) {
 		this.activeNodeId = nodeId;
+	}
+
+	/**
+	 * Serialize the full engine state into a JSON-safe snapshot.
+	 * Component references (from addCustomNode) are stripped — only node.type is stored.
+	 */
+	serialize(title?: string): import('./persistence/types.js').ConversationSnapshot {
+		return {
+			version: 1,
+			createdAt: Date.now(),
+			title,
+			activeNodeId: this.activeNodeId,
+			nodes: this.nodes.map((n) => ({
+				id: n.id,
+				parentId: n.parentId,
+				content: (n as MessageNode).content ?? '',
+				role: n.role,
+				type: n.type,
+				status: n.status,
+				createdAt: n.createdAt ?? Date.now(),
+				metadata: {
+					x: n.metadata?.x ?? 0,
+					y: n.metadata?.y ?? 0,
+					...(n.metadata?.height != null ? { height: n.metadata.height } : {})
+				},
+				data: n.data
+			}))
+		};
+	}
+
+	/** Create an engine from a serialized snapshot. */
+	static fromSnapshot(
+		snapshot: import('./persistence/types.js').ConversationSnapshot,
+		config?: Partial<TraekEngineConfig>
+	): TraekEngine {
+		const engine = new TraekEngine({
+			...snapshot.config,
+			...config
+		});
+		if (snapshot.nodes.length > 0) {
+			engine.addNodes(
+				snapshot.nodes.map((n) => ({
+					id: n.id,
+					parentId: n.parentId,
+					content: n.content,
+					role: n.role,
+					type: n.type,
+					status: n.status,
+					createdAt: n.createdAt,
+					metadata: n.metadata,
+					data: n.data
+				}))
+			);
+		}
+		if (snapshot.activeNodeId != null) {
+			const exists = engine.nodes.some((n) => n.id === snapshot.activeNodeId);
+			if (exists) {
+				engine.activeNodeId = snapshot.activeNodeId;
+			}
+		}
+		return engine;
 	}
 }

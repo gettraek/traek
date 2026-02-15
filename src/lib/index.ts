@@ -30,3 +30,8 @@ export {
 	thoughtNodeDefinition
 } from './node-types/index.js';
 export type { NodeTypeDefinition, NodeTypeAction } from './node-types/index.js';
+
+// Persistence & Replay
+export { ReplayController } from './persistence/ReplayController.svelte';
+export { default as ReplayControls } from './persistence/ReplayControls.svelte';
+export type { ConversationSnapshot, SerializedNode } from './persistence/types.js';
