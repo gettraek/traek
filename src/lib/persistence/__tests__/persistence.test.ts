@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TraekEngine } from '../../TraekEngine.svelte';
 import { ReplayController } from '../ReplayController.svelte';
 import type { ConversationSnapshot, SerializedNode } from '../types.js';
+import { serializedNodeSchema, conversationSnapshotSchema } from '../schemas.js';
 
 function makeNode(overrides: Partial<SerializedNode> & { id: string }): SerializedNode {
 	return {
@@ -148,6 +149,70 @@ describe('TraekEngine.fromSnapshot()', () => {
 		expect(restored.activeNodeId).toBe(node2.id);
 		expect(restored.nodes.find((n) => n.id === node1.id)).toBeDefined();
 		expect(restored.nodes.find((n) => n.id === node2.id)).toBeDefined();
+	});
+});
+
+describe('Zod Schema Validation', () => {
+	it('should accept a valid SerializedNode', () => {
+		const result = serializedNodeSchema.safeParse(makeNode({ id: 'valid', status: 'done' }));
+		expect(result.success).toBe(true);
+	});
+
+	it('should reject a SerializedNode with missing id', () => {
+		const result = serializedNodeSchema.safeParse({
+			parentId: null,
+			content: 'test',
+			role: 'user',
+			type: 'text',
+			createdAt: Date.now(),
+			metadata: { x: 0, y: 0 }
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('should reject a SerializedNode with invalid role', () => {
+		const result = serializedNodeSchema.safeParse({
+			id: 'x',
+			parentId: null,
+			content: 'test',
+			role: 'invalid',
+			type: 'text',
+			createdAt: Date.now(),
+			metadata: { x: 0, y: 0 }
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('should accept a valid ConversationSnapshot', () => {
+		const snapshot = makeSnapshot([makeNode({ id: 'a' })]);
+		const result = conversationSnapshotSchema.safeParse(snapshot);
+		expect(result.success).toBe(true);
+	});
+
+	it('should reject a ConversationSnapshot with wrong version', () => {
+		const result = conversationSnapshotSchema.safeParse({
+			version: 2,
+			createdAt: Date.now(),
+			activeNodeId: null,
+			nodes: []
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('should accept optional viewport in snapshot', () => {
+		const snapshot = makeSnapshot([], {
+			viewport: { scale: 1.5, offsetX: 100, offsetY: -50 }
+		});
+		const result = conversationSnapshotSchema.safeParse(snapshot);
+		expect(result.success).toBe(true);
+	});
+});
+
+describe('TraekEngine.fromSnapshot() validation', () => {
+	it('should throw on invalid snapshot data', () => {
+		expect(() => {
+			TraekEngine.fromSnapshot({ version: 99, nodes: 'bad' } as never);
+		}).toThrow(/Invalid snapshot/);
 	});
 });
 

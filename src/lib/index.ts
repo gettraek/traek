@@ -35,3 +35,9 @@ export type { NodeTypeDefinition, NodeTypeAction } from './node-types/index.js';
 export { ReplayController } from './persistence/ReplayController.svelte';
 export { default as ReplayControls } from './persistence/ReplayControls.svelte';
 export type { ConversationSnapshot, SerializedNode } from './persistence/types.js';
+
+// Schemas (Zod)
+export { serializedNodeSchema, conversationSnapshotSchema } from './persistence/schemas.js';
+export { traekEngineConfigSchema, addNodePayloadSchema } from './schemas.js';
+export { actionDefinitionSchema } from './actions/schemas.js';
+export { nodeTypeActionSchema, nodeTypeDefinitionSchema } from './node-types/schemas.js';

@@ -6,16 +6,28 @@
 
 import { env } from '$env/dynamic/private';
 import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit.js';
+import { z } from 'zod';
+
+const chatRequestSchema = z.object({
+	messages: z
+		.array(
+			z.object({
+				role: z.string(),
+				content: z.string()
+			})
+		)
+		.min(1)
+});
 
 const DEFAULT_DAILY_LIMIT = 50;
 
 export async function POST({ request, getClientAddress }) {
 	const apiKey = env.OPENAI_API_KEY;
 	if (!apiKey) {
-		return new Response(
-			JSON.stringify({ error: 'OPENAI_API_KEY not set on server' }),
-			{ status: 500, headers: { 'Content-Type': 'application/json' } }
-		);
+		return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not set on server' }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' }
+		});
 	}
 
 	pruneOldEntries();
@@ -41,9 +53,9 @@ export async function POST({ request, getClientAddress }) {
 		);
 	}
 
-	let body: { messages?: Array<{ role: string; content: string }> };
+	let raw: unknown;
 	try {
-		body = await request.json();
+		raw = await request.json();
 	} catch {
 		return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
 			status: 400,
@@ -51,13 +63,14 @@ export async function POST({ request, getClientAddress }) {
 		});
 	}
 
-	const messages = body.messages ?? [];
-	if (!Array.isArray(messages) || messages.length === 0) {
-		return new Response(JSON.stringify({ error: 'messages array required' }), {
-			status: 400,
-			headers: { 'Content-Type': 'application/json' }
-		});
+	const parsed = chatRequestSchema.safeParse(raw);
+	if (!parsed.success) {
+		return new Response(
+			JSON.stringify({ error: 'messages array required', details: parsed.error.issues }),
+			{ status: 400, headers: { 'Content-Type': 'application/json' } }
+		);
 	}
+	const { messages } = parsed.data;
 
 	const res = await fetch('https://api.openai.com/v1/chat/completions', {
 		method: 'POST',
@@ -77,10 +90,10 @@ export async function POST({ request, getClientAddress }) {
 
 	if (!res.ok) {
 		const err = await res.text();
-		return new Response(
-			JSON.stringify({ error: 'OpenAI request failed', detail: err }),
-			{ status: res.status, headers: { 'Content-Type': 'application/json' } }
-		);
+		return new Response(JSON.stringify({ error: 'OpenAI request failed', detail: err }), {
+			status: res.status,
+			headers: { 'Content-Type': 'application/json' }
+		});
 	}
 
 	// Parse OpenAI SSE stream and emit only content deltas as plain text

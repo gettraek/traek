@@ -5,6 +5,17 @@
 
 import { env } from '$env/dynamic/private';
 import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit.js';
+import { z } from 'zod';
+
+const resolveActionsRequestSchema = z.object({
+	input: z.string().min(1),
+	actions: z.array(
+		z.object({
+			id: z.string(),
+			description: z.string()
+		})
+	)
+});
 
 const DEFAULT_DAILY_LIMIT = 100;
 
@@ -41,9 +52,9 @@ export async function POST({ request, getClientAddress }) {
 		);
 	}
 
-	let body: { input?: string; actions?: Array<{ id: string; description: string }> };
+	let raw: unknown;
 	try {
-		body = await request.json();
+		raw = await request.json();
 	} catch {
 		return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
 			status: 400,
@@ -51,13 +62,14 @@ export async function POST({ request, getClientAddress }) {
 		});
 	}
 
-	const { input, actions } = body;
-	if (!input || !actions || !Array.isArray(actions)) {
-		return new Response(JSON.stringify({ error: 'input and actions array required' }), {
-			status: 400,
-			headers: { 'Content-Type': 'application/json' }
-		});
+	const parsed = resolveActionsRequestSchema.safeParse(raw);
+	if (!parsed.success) {
+		return new Response(
+			JSON.stringify({ error: 'input and actions array required', details: parsed.error.issues }),
+			{ status: 400, headers: { 'Content-Type': 'application/json' } }
+		);
 	}
+	const { input, actions } = parsed.data;
 
 	const actionList = actions.map((a) => `- ${a.id}: ${a.description}`).join('\n');
 	const systemPrompt = `You are an action classifier. Given a user message and a list of available actions, return a JSON array of action IDs that are relevant to the user's intent. Return only the JSON array, nothing else. If no actions match, return [].

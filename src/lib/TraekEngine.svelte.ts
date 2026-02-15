@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import type { SvelteComponent } from 'svelte';
+import { conversationSnapshotSchema } from './persistence/schemas.js';
 
 export type NodeStatus = 'streaming' | 'done' | 'error';
 
@@ -620,11 +621,17 @@ export class TraekEngine {
 		};
 	}
 
-	/** Create an engine from a serialized snapshot. */
+	/** Create an engine from a serialized snapshot. Validates input with Zod. */
 	static fromSnapshot(
 		snapshot: import('./persistence/types.js').ConversationSnapshot,
 		config?: Partial<TraekEngineConfig>
 	): TraekEngine {
+		const result = conversationSnapshotSchema.safeParse(snapshot);
+		if (!result.success) {
+			throw new Error(
+				`Invalid snapshot: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`
+			);
+		}
 		const engine = new TraekEngine({
 			...snapshot.config,
 			...config

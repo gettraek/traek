@@ -51,3 +51,4 @@ Nodes have `id`, `parentId`, `role` (user/assistant/system), `type` (TEXT/CODE/T
 - **Theming**: CSS custom properties prefixed with `--traek-*` on `:root` (dark theme default)
 - **SvelteKit**: uses Node adapter, mdsvex preprocessor for markdown in Svelte files
 - **TypeScript**: strict mode enabled
+- **Validation**: Use **Zod** for all runtime validation. Define Zod schemas for external data boundaries (API responses, user input, serialized snapshots, config objects, localStorage data). Co-locate schemas with their types in the same file or a `schemas.ts` next to `types.ts`. Derive TypeScript types from Zod schemas with `z.infer<>` where practical.
