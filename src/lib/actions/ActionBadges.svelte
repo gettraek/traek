@@ -23,7 +23,7 @@
 				type="button"
 				class="action-badge"
 				class:suggested={isSuggested && !isSelected}
-				class:active={isSelected}
+				class:selected={isSelected}
 				class:inactive={!isSuggested && !isSelected}
 				title={action.description}
 				onclick={() => onToggle(action.id)}
@@ -79,7 +79,7 @@
 		animation: badge-pulse 1.5s ease-in-out infinite;
 	}
 
-	.action-badge.active {
+	.action-badge.selected {
 		opacity: 1;
 		background: var(--traek-badge-bg-active, rgba(0, 216, 255, 0.15));
 		border-color: var(--traek-badge-border-active, #00d8ff);

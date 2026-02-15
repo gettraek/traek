@@ -31,6 +31,17 @@ export {
 	thoughtNodeDefinition
 } from './node-types/index.js';
 export type { NodeTypeDefinition, NodeTypeAction } from './node-types/index.js';
+export type { ActionVariant } from './node-types/types.js';
+
+// Default node actions
+export {
+	duplicateAction,
+	deleteAction,
+	createRetryAction,
+	createEditAction,
+	createDefaultNodeActions
+} from './defaultNodeActions.js';
+export type { DefaultNodeActionCallbacks } from './defaultNodeActions.js';
 
 // Persistence & Replay
 export { ReplayController } from './persistence/ReplayController.svelte';

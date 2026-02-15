@@ -4,7 +4,8 @@ export const nodeTypeActionSchema = z.object({
 	id: z.string(),
 	label: z.string(),
 	icon: z.string().optional(),
-	handler: z.function()
+	handler: z.function(),
+	variants: z.function().optional()
 });
 
 export const nodeTypeDefinitionSchema = z.object({

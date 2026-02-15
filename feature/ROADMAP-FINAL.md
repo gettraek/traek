@@ -600,30 +600,30 @@
 
 ## Gesamtplan-Uebersicht
 
-| Phase | Paket | Prioritaet | Aufwand | Abhaengig von |
-|-------|-------|-----------|---------|---------------|
-| **-2** | ZOD-1: Zod Integration | P0 | 2-3d | - |
-| **-1** | DAG-1: Multi-Parent Graph | P0 | 1-2w | ZOD-1 |
-| **0** | QW-1: Touch Targets | P0 | 1h | DAG-1 |
-| **0** | QW-2: Multi-Line Input | P0 | 2h | - |
-| **0** | QW-3: Action Badges Visible | P0 | 2h | - |
-| **0** | QW-4: Connection Fading | P0 | 4h | - |
-| **0** | QW-5: Error Visibility | P0 | 4h | - |
-| **0** | QW-6: Empty State | P0 | 1h | - |
-| **1a** | P1A-1: Persistence Chat-Liste | P0 | 3-5d | - |
-| **1a** | P1A-2: Onboarding Tour | P0 | 3-4d | - |
-| **1a** | P1A-3: Subtree Collapse | P0 | 3d | - |
-| **1a** | P1A-4: Keyboard + ARIA | P0 | 1-2w | - |
-| **1b** | P1B-1: Smart Search | P0 | 3-5d | P1A-1, P1A-3 |
-| **1b** | P1B-2: Node Edit & Delete | P0 | 3-5d | P1A-3, P1A-4 |
-| **2** | P2-1: Branch-Vergleich | P1 | 4-5d | P1A-3 |
-| **2** | P2-2: Performance | P1 | 1-2w | - |
-| **2** | P2-3: Mobile & Touch | P1 | 1-2w | QW-1 |
-| **3** | P3-1: Context Breadcrumb | P2 | 1d | - |
-| **3** | P3-2: Node Ghost Preview | P2 | 1d | - |
-| **3** | P3-3: Keyboard Phase 2 | P2 | 2d | P1A-4 |
-| **3** | P3-4: Tags & Filter | P2 | 3d | P1B-1, P1A-1 |
-| **3** | P3-5: Replay UI | P2 | 3d | P1A-1 |
+| Phase | Paket | Prioritaet | Aufwand | Abhaengig von | Status |
+|-------|-------|-----------|---------|---------------|--------|
+| **-2** | ZOD-1: Zod Integration | P0 | 2-3d | - | ERLEDIGT |
+| **-1** | DAG-1: Multi-Parent Graph | P0 | 1-2w | ZOD-1 | ERLEDIGT |
+| **0** | QW-1: Touch Targets | P0 | 1h | DAG-1 | ERLEDIGT |
+| **0** | QW-2: Multi-Line Input | P0 | 2h | - | ERLEDIGT |
+| **0** | QW-3: Action Badges Visible | P0 | 2h | - | ERLEDIGT |
+| **0** | QW-4: Connection Fading | P0 | 4h | - | ERLEDIGT |
+| **0** | QW-5: Error Visibility | P0 | 4h | - | ERLEDIGT |
+| **0** | QW-6: Empty State | P0 | 1h | - | ERLEDIGT |
+| **1a** | P1A-1: Persistence Chat-Liste | P0 | 3-5d | - | |
+| **1a** | P1A-2: Onboarding Tour | P0 | 3-4d | - | |
+| **1a** | P1A-3: Subtree Collapse | P0 | 3d | - | |
+| **1a** | P1A-4: Keyboard + ARIA | P0 | 1-2w | - | |
+| **1b** | P1B-1: Smart Search | P0 | 3-5d | P1A-1, P1A-3 | |
+| **1b** | P1B-2: Node Edit & Delete | P0 | 3-5d | P1A-3, P1A-4 | |
+| **2** | P2-1: Branch-Vergleich | P1 | 4-5d | P1A-3 | |
+| **2** | P2-2: Performance | P1 | 1-2w | - | |
+| **2** | P2-3: Mobile & Touch | P1 | 1-2w | QW-1 | |
+| **3** | P3-1: Context Breadcrumb | P2 | 1d | - | |
+| **3** | P3-2: Node Ghost Preview | P2 | 1d | - | |
+| **3** | P3-3: Keyboard Phase 2 | P2 | 2d | P1A-4 | |
+| **3** | P3-4: Tags & Filter | P2 | 3d | P1B-1, P1A-1 | |
+| **3** | P3-5: Replay UI | P2 | 3d | P1A-1 | |
 
 ---
 

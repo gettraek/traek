@@ -11,13 +11,21 @@
 		type NodeComponentMap
 	} from './TraekEngine.svelte';
 	import TraekNodeWrapper from './TraekNodeWrapper.svelte';
-	import TextNode from './TextNode.svelte';
-	import type { ActionDefinition, ResolveActions } from './actions/types.js';
-	import { ActionResolver } from './actions/ActionResolver.svelte.js';
+	import type { ActionDefinition, ResolveActions } from './actions/types';
+	import { ActionResolver } from './actions/ActionResolver.svelte';
 	import ActionBadges from './actions/ActionBadges.svelte';
 	import SlashCommandDropdown from './actions/SlashCommandDropdown.svelte';
 	import type { NodeTypeRegistry } from './node-types/NodeTypeRegistry.svelte.js';
+	import type { NodeTypeAction } from './node-types/types';
 	import NodeToolbar from './NodeToolbar.svelte';
+	import { createDefaultNodeActions } from './defaultNodeActions.js';
+	import type { ConnectionDragState } from './canvas/connectionPath';
+	import {
+		findScrollable,
+		scrollableCanConsumeWheel,
+		ScrollBoundaryGuard
+	} from './canvas/scrollUtils';
+	import ConnectionLayer from './canvas/ConnectionLayer.svelte';
 
 	type InputActionsContext = {
 		engine: TraekEngine;
@@ -46,7 +54,11 @@
 		inputActions,
 		actions: actionsProp,
 		resolveActions: resolveActionsProp,
-		registry
+		registry,
+		onRetry,
+		defaultNodeActions: defaultNodeActionsProp,
+		filterNodeActions: filterNodeActionsProp,
+		onEditNode
 	}: {
 		engine?: TraekEngine | null;
 		config?: Partial<TraekEngineConfig>;
@@ -83,6 +95,14 @@
 		resolveActions?: ResolveActions;
 		/** Node type registry. When provided, replaces componentMap for node rendering and enables lifecycle hooks. */
 		registry?: NodeTypeRegistry;
+		/** Called when the user clicks Retry on an error-state node. */
+		onRetry?: (nodeId: string) => void;
+		/** Override the built-in default actions (duplicate, delete, retry, edit). */
+		defaultNodeActions?: NodeTypeAction[];
+		/** Per-node filter to customize which actions appear. */
+		filterNodeActions?: (node: Node, actions: NodeTypeAction[]) => NodeTypeAction[];
+		/** Called when the user clicks Edit on a user node. */
+		onEditNode?: (nodeId: string) => void;
 	} = $props();
 
 	const config = $derived({
@@ -143,6 +163,10 @@
 	}
 	let isDragging = $state(false);
 	let draggingNodeId = $state<string | null>(null);
+	let connectionDrag = $state<ConnectionDragState | null>(null);
+	let lastDropTargetEl: Element | null = null;
+	let hoveredConnection = $state<{ parentId: string; childId: string } | null>(null);
+	let hoveredNodeId = $state<string | null>(null);
 	let dragStartMouse = $state<{ x: number; y: number } | null>(null);
 	let dragStartNodePosition = $state<{ x: number; y: number } | null>(null);
 	let touchStartPan = $state<{
@@ -160,6 +184,7 @@
 		distance: number;
 	} | null>(null);
 	let viewportEl = $state<HTMLElement | null>(null);
+	const scrollGuard = new ScrollBoundaryGuard();
 	let focusAnimationId = 0;
 	let fps = $state(0);
 	let viewportResizeVersion = $state(0);
@@ -493,43 +518,19 @@
 		});
 	}
 
-	/** Find the nearest scrollable ancestor (overflow auto/scroll with scrollable content). */
-	function findScrollable(el: Element): HTMLElement | null {
-		let current: Element | null = el;
-		while (current && current instanceof HTMLElement) {
-			const style = getComputedStyle(current);
-			const oy = style.overflowY;
-			const ox = style.overflowX;
-			const overflow = style.overflow;
-			const canScrollY =
-				(oy === 'auto' || oy === 'scroll' || overflow === 'auto' || overflow === 'scroll') &&
-				current.scrollHeight > current.clientHeight;
-			const canScrollX =
-				(ox === 'auto' || ox === 'scroll' || overflow === 'auto' || overflow === 'scroll') &&
-				current.scrollWidth > current.clientWidth;
-			if (canScrollY || canScrollX) return current;
-			current = current.parentElement;
-		}
-		return null;
-	}
-
-	/** True if the scrollable element can consume the wheel (has room to scroll in that direction). */
-	function scrollableCanConsumeWheel(el: HTMLElement, deltaX: number, deltaY: number): boolean {
-		const canScrollDown = el.scrollTop < el.scrollHeight - el.clientHeight - 1;
-		const canScrollUp = el.scrollTop > 1;
-		const canScrollRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 1;
-		const canScrollLeft = el.scrollLeft > 1;
-		if (Math.abs(deltaY) >= Math.abs(deltaX)) {
-			return (deltaY > 0 && canScrollDown) || (deltaY < 0 && canScrollUp);
-		}
-		return (deltaX > 0 && canScrollRight) || (deltaX < 0 && canScrollLeft);
-	}
-
 	function handleWheel(e: WheelEvent) {
 		// Let scrollable content (any node, active or not) consume the wheel
 		const scrollable = findScrollable(e.target as Element);
-		if (scrollable && scrollableCanConsumeWheel(scrollable, e.deltaX, e.deltaY)) {
-			return;
+		if (scrollable) {
+			if (scrollableCanConsumeWheel(scrollable, e.deltaX, e.deltaY)) {
+				scrollGuard.recordScrollInside();
+				return;
+			}
+			// Container hit its boundary — suppress canvas movement during cooldown
+			if (scrollGuard.shouldSuppressCanvasWheel()) {
+				e.preventDefault();
+				return;
+			}
 		}
 		e.preventDefault();
 
@@ -567,9 +568,60 @@
 		}
 	}
 
+	/** Compute port center in canvas-pixel coordinates (before transform). */
+	function getPortCanvasPosition(
+		nodeId: string,
+		portType: 'input' | 'output'
+	): { x: number; y: number } | null {
+		const node = engine.nodes.find((n: Node) => n.id === nodeId);
+		if (!node) return null;
+		const step = config.gridStep;
+		const x = (node.metadata?.x ?? 0) * step + config.nodeWidth / 2;
+		const y =
+			portType === 'input'
+				? (node.metadata?.y ?? 0) * step
+				: (node.metadata?.y ?? 0) * step + (node.metadata?.height ?? config.nodeHeightDefault);
+		return { x, y };
+	}
+
+	/** Convert client (screen) coordinates to canvas-pixel coordinates. */
+	function clientToCanvas(clientX: number, clientY: number): { x: number; y: number } {
+		if (!viewportEl) return { x: 0, y: 0 };
+		const rect = viewportEl.getBoundingClientRect();
+		return {
+			x: (clientX - rect.left - offset.x) / scale,
+			y: (clientY - rect.top - offset.y) / scale
+		};
+	}
+
 	function handleMouseDown(e: MouseEvent) {
 		if (e.button !== 0) return;
 		if ((e.target as HTMLElement).closest('.floating-input-container')) return;
+
+		// Check for connection port click BEFORE node drag
+		const portEl = (e.target as HTMLElement).closest('[data-port-type]');
+		if (portEl) {
+			const portNodeId = portEl.getAttribute('data-port-node-id');
+			const portType = portEl.getAttribute('data-port-type') as 'input' | 'output';
+			if (portNodeId && portType) {
+				const pos = getPortCanvasPosition(portNodeId, portType);
+				if (pos) {
+					connectionDrag = {
+						sourceNodeId: portNodeId,
+						sourcePortType: portType,
+						sourceX: pos.x,
+						sourceY: pos.y,
+						currentX: pos.x,
+						currentY: pos.y,
+						hoverTargetNodeId: null
+					};
+					e.preventDefault();
+					e.stopPropagation();
+					return;
+				}
+			}
+		}
+
 		const nodeEl = (e.target as HTMLElement).closest('[data-node-id]');
 		if (nodeEl) {
 			const id = nodeEl.getAttribute('data-node-id');
@@ -595,6 +647,40 @@
 	}
 
 	function handleMouseMove(e: MouseEvent) {
+		// Connection drag: update rubber band position
+		if (connectionDrag) {
+			const canvasPos = clientToCanvas(e.clientX, e.clientY);
+			connectionDrag.currentX = canvasPos.x;
+			connectionDrag.currentY = canvasPos.y;
+
+			// Find hover target port via elementFromPoint
+			if (lastDropTargetEl) {
+				lastDropTargetEl.classList.remove('port-drop-target');
+				lastDropTargetEl = null;
+			}
+			const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+			const targetPort = elUnder?.closest?.('[data-port-type]');
+			if (targetPort) {
+				const targetNodeId = targetPort.getAttribute('data-port-node-id');
+				const targetPortType = targetPort.getAttribute('data-port-type');
+				// Valid: output→input or input→output, and not same node
+				const isValidTarget =
+					targetNodeId &&
+					targetNodeId !== connectionDrag.sourceNodeId &&
+					targetPortType !== connectionDrag.sourcePortType;
+				if (isValidTarget) {
+					connectionDrag.hoverTargetNodeId = targetNodeId;
+					targetPort.classList.add('port-drop-target');
+					lastDropTargetEl = targetPort;
+				} else {
+					connectionDrag.hoverTargetNodeId = null;
+				}
+			} else {
+				connectionDrag.hoverTargetNodeId = null;
+			}
+			return;
+		}
+
 		if (draggingNodeId && engine && dragStartMouse && dragStartNodePosition) {
 			const dxCanvas = (e.clientX - dragStartMouse.x) / scale;
 			const dyCanvas = (e.clientY - dragStartMouse.y) / scale;
@@ -613,6 +699,28 @@
 	}
 
 	function handleMouseUp() {
+		// Connection drag: try to create connection
+		if (connectionDrag) {
+			if (lastDropTargetEl) {
+				lastDropTargetEl.classList.remove('port-drop-target');
+				lastDropTargetEl = null;
+			}
+			if (connectionDrag.hoverTargetNodeId && engine) {
+				let parentId: string;
+				let childId: string;
+				if (connectionDrag.sourcePortType === 'output') {
+					parentId = connectionDrag.sourceNodeId;
+					childId = connectionDrag.hoverTargetNodeId;
+				} else {
+					parentId = connectionDrag.hoverTargetNodeId;
+					childId = connectionDrag.sourceNodeId;
+				}
+				engine.addConnection(parentId, childId);
+			}
+			connectionDrag = null;
+			return;
+		}
+
 		if (draggingNodeId && engine) {
 			engine.snapNodeToGrid(draggingNodeId);
 			onNodesChanged?.();
@@ -670,146 +778,34 @@
 		onSendMessage?.(lastInput, userNode, actionArg);
 	}
 
-	const CONNECTION_CORNER_RADIUS = 12;
+	const activeAncestorIds = $derived(
+		engine?.activeNodeId ? new Set(engine.getAncestorPath(engine.activeNodeId)) : null
+	);
 
-	/** Bezier factor for a 90° circular arc: 4/3 * (sqrt(2)-1) */
-	const QUARTER_BEZIER = (4 * (Math.SQRT2 - 1)) / 3;
+	const activeNodeActions = $derived.by(() => {
+		if (!engine?.activeNodeId) return [];
+		const activeNode = engine.nodes.find((n: Node) => n.id === engine.activeNodeId);
+		if (!activeNode) return [];
 
-	/**
-	 * Rectilinear path with rounded corners using cubic Bezier (no SVG arc).
-	 * Vertical → horizontal → vertical; corners are quarter-circle Beziers.
-	 */
-	function pathVerticalHorizontalVertical(
-		x1: number,
-		y1: number,
-		x2: number,
-		y2: number,
-		r: number
-	): string {
-		const midY = (y1 + y2) / 2;
-		const dx = x2 - x1;
-		const minR = Math.min(r, Math.abs(dx) / 2, Math.abs(y2 - y1) / 4);
-		if (minR <= 0) return `M ${x1} ${y1} L ${x2} ${y2}`;
-		const k = QUARTER_BEZIER;
-		const t = minR * (1 - k);
-		const goRight = dx >= 0;
-		const r1 = goRight ? minR : -minR;
-		const r2 = goRight ? -minR : minR;
-		const a1x = x1;
-		const a1y = midY - minR;
-		const c1a = goRight ? `${x1} ${midY - t}` : `${x1} ${midY - t}`;
-		const c1b = goRight ? `${x1 + t} ${midY}` : `${x1 - t} ${midY}`;
-		const b1x = x1 + r1;
-		const b1y = midY;
-		const a2x = x2 + r2;
-		const a2y = midY;
-		const c2a = goRight ? `${x2 - t} ${midY}` : `${x2 + t} ${midY}`;
-		const c2b = goRight ? `${x2} ${midY + t}` : `${x2} ${midY + t}`;
-		const b2x = x2;
-		const b2y = midY + minR;
-		return `M ${x1} ${y1} L ${a1x} ${a1y} C ${c1a} ${c1b} ${b1x} ${b1y} L ${a2x} ${a2y} C ${c2a} ${c2b} ${b2x} ${b2y} L ${x2} ${y2}`;
-	}
+		// 1. Start with defaults
+		const defaults = defaultNodeActionsProp ?? createDefaultNodeActions({ onRetry, onEditNode });
 
-	/**
-	 * Rectilinear path with rounded corners using cubic Bezier (no SVG arc).
-	 * Horizontal → vertical → horizontal.
-	 */
-	function pathHorizontalVerticalHorizontal(
-		x1: number,
-		y1: number,
-		x2: number,
-		y2: number,
-		r: number
-	): string {
-		const midX = (x1 + x2) / 2;
-		const dy = y2 - y1;
-		const minR = Math.min(r, Math.abs(dy) / 2, Math.abs(x2 - x1) / 4);
-		if (minR <= 0) return `M ${x1} ${y1} L ${x2} ${y2}`;
-		const k = QUARTER_BEZIER;
-		const t = minR * (1 - k);
-		const goDown = dy >= 0;
-		const turnRight = x2 > midX;
-		const r1 = goDown ? minR : -minR;
-		const r2 = turnRight ? minR : -minR;
-		const a1x = midX - (turnRight ? minR : -minR);
-		const a1y = y1;
-		const c1a = turnRight ? `${midX - t} ${y1}` : `${midX + t} ${y1}`;
-		const c1b = goDown ? `${midX} ${y1 + t}` : `${midX} ${y1 - t}`;
-		const b1x = midX;
-		const b1y = y1 + r1;
-		const a2x = midX;
-		const a2y = y2 - (goDown ? minR : -minR);
-		const c2a = goDown ? `${midX} ${y2 - t}` : `${midX} ${y2 + t}`;
-		const c2b = turnRight ? `${midX + t} ${y2}` : `${midX - t} ${y2}`;
-		const b2x = midX + r2;
-		const b2y = y2;
-		return `M ${x1} ${y1} L ${a1x} ${a1y} C ${c1a} ${c1b} ${b1x} ${b1y} L ${a2x} ${a2y} C ${c2a} ${c2b} ${b2x} ${b2y} L ${x2} ${y2}`;
-	}
+		// 2. Append type-specific actions from registry (deduplicate by id)
+		const typeDef = registry?.get(activeNode.type);
+		const typeActions = typeDef?.actions ?? [];
+		const defaultIds = new Set(defaults.map((a) => a.id));
+		const merged = [...defaults, ...typeActions.filter((a) => !defaultIds.has(a.id))];
 
-	/**
-	 * Returns SVG path d for a rectilinear connection (horizontal/vertical segments
-	 * with rounded corners). Prefers parent bottom → child top when child is below
-	 * parent; otherwise uses the shortest edge-center pair and a square path.
-	 */
-	function getConnectionPath(
-		parentX: number,
-		parentY: number,
-		parentW: number,
-		parentH: number,
-		childX: number,
-		childY: number,
-		childW: number,
-		childH: number
-	): string {
-		const r = CONNECTION_CORNER_RADIUS;
-		const parentBottomY = parentY + parentH;
-		const childBelowParent = childY >= parentBottomY;
-		if (childBelowParent) {
-			const x1 = parentX + parentW / 2;
-			const y1 = parentBottomY;
-			const x2 = childX + childW / 2;
-			const y2 = childY;
-			return pathVerticalHorizontalVertical(x1, y1, x2, y2, r);
-		}
-		const edges = (
-			left: number,
-			top: number,
-			w: number,
-			h: number
-		): { x: number; y: number; outX: number; outY: number }[] => {
-			const cx = left + w / 2;
-			const cy = top + h / 2;
-			return [
-				{ x: cx, y: top, outX: 0, outY: -1 },
-				{ x: cx, y: top + h, outX: 0, outY: 1 },
-				{ x: left, y: cy, outX: -1, outY: 0 },
-				{ x: left + w, y: cy, outX: 1, outY: 0 }
-			];
-		};
-		const parentEdges = edges(parentX, parentY, parentW, parentH);
-		const childEdges = edges(childX, childY, childW, childH);
-		let best = { dist: Infinity, i: 0, j: 0 };
-		for (let i = 0; i < 4; i++) {
-			for (let j = 0; j < 4; j++) {
-				const pe = parentEdges[i];
-				const ce = childEdges[j];
-				if (pe === undefined || ce === undefined) continue;
-				const dx = ce.x - pe.x;
-				const dy = ce.y - pe.y;
-				const d = dx * dx + dy * dy;
-				if (d < best.dist) {
-					best = { dist: d, i, j };
-				}
-			}
-		}
-		const p = parentEdges[best.i];
-		const c = childEdges[best.j];
-		if (p === undefined || c === undefined) return 'M 0 0';
-		const outVertical = p.outY !== 0;
-		return outVertical
-			? pathVerticalHorizontalVertical(p.x, p.y, c.x, c.y, r)
-			: pathHorizontalVerticalHorizontal(p.x, p.y, c.x, c.y, r);
-	}
+		// 3. Role filter: retry only on assistant, edit only on user
+		const filtered = merged.filter((a) => {
+			if (a.id === 'retry' && activeNode.role !== 'assistant') return false;
+			if (a.id === 'edit' && activeNode.role !== 'user') return false;
+			return true;
+		});
+
+		// 4. Custom filter
+		return filterNodeActionsProp ? filterNodeActionsProp(activeNode, filtered) : filtered;
+	});
 </script>
 
 {#if engine}
@@ -820,6 +816,7 @@
 		class="viewport"
 		class:dragging-canvas={isDragging || !!touchStartPan || !!pinchStart}
 		class:grabbing={isDragging || draggingNodeId}
+		class:connection-drag-active={!!connectionDrag}
 		style:background-position="{offset.x}px {offset.y}px"
 		style:background-size="{config.gridStep * scale}px {config.gridStep * scale}px"
 		style:background-image="radial-gradient(circle, var(--traek-canvas-dot, #333333) {Math.max(
@@ -837,107 +834,35 @@
 		onmouseup={handleMouseUp}
 		onmouseleave={handleMouseUp}
 	>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_mouse_events_have_key_events -->
 		<div
 			class="canvas-space"
 			style:transform="translate({offset.x}px, {offset.y}px) scale({scale})"
+			onmouseover={(e) => {
+				const nodeEl = (e.target as HTMLElement).closest?.('[data-node-id]');
+				hoveredNodeId = nodeEl ? nodeEl.getAttribute('data-node-id') : null;
+			}}
+			onmouseout={(e) => {
+				const related = (e.relatedTarget as HTMLElement)?.closest?.('[data-node-id]');
+				if (!related) hoveredNodeId = null;
+			}}
 		>
 			<svg class="connections">
 				<g transform="translate(25000, 25000)">
-					{#each engine.nodes as node}
-						{#if node.parentIds.length > 0 && node.type !== 'thought'}
-							{@const nodeX = (node.metadata?.x ?? 0) * config.gridStep}
-							{@const nodeY = (node.metadata?.y ?? 0) * config.gridStep}
-							{@const nodeH = node.metadata?.height ?? config.nodeHeightDefault}
-							{@const ancestorPath = engine.contextPath()}
-							{#each node.parentIds as pid}
-								{@const parent = engine.nodes.find((n) => n.id === pid)}
-								{#if parent}
-									{@const parentX = (parent.metadata?.x ?? 0) * config.gridStep}
-									{@const parentY = (parent.metadata?.y ?? 0) * config.gridStep}
-									{@const parentH = parent.metadata?.height ?? config.nodeHeightDefault}
-									{@const pathD = getConnectionPath(
-										parentX,
-										parentY,
-										config.nodeWidth,
-										parentH,
-										nodeX,
-										nodeY,
-										config.nodeWidth,
-										nodeH
-									)}
-									{@const isOnAncestorPath =
-										ancestorPath.length >= 2 &&
-										ancestorPath.some(
-											(_, i) =>
-												i < ancestorPath.length - 1 &&
-												ancestorPath[i].id === parent.id &&
-												ancestorPath[i + 1].id === node.id
-										)}
-									{#if !isOnAncestorPath}
-										<path class="connection" d={pathD} />
-									{/if}
-								{/if}
-							{/each}
-						{/if}
-					{/each}
-
-					{#each engine.nodes as node}
-						{#if node.parentIds.length > 0 && node.type !== 'thought'}
-							{@const nodeX = (node.metadata?.x ?? 0) * config.gridStep}
-							{@const nodeY = (node.metadata?.y ?? 0) * config.gridStep}
-							{@const nodeH = node.metadata?.height ?? config.nodeHeightDefault}
-							{@const ancestorPath = engine.contextPath()}
-							{#each node.parentIds as pid}
-								{@const parent = engine.nodes.find((n) => n.id === pid)}
-								{#if parent}
-									{@const parentX = (parent.metadata?.x ?? 0) * config.gridStep}
-									{@const parentY = (parent.metadata?.y ?? 0) * config.gridStep}
-									{@const parentH = parent.metadata?.height ?? config.nodeHeightDefault}
-									{@const pathD = getConnectionPath(
-										parentX,
-										parentY,
-										config.nodeWidth,
-										parentH,
-										nodeX,
-										nodeY,
-										config.nodeWidth,
-										nodeH
-									)}
-									{@const isOnAncestorPath =
-										ancestorPath.length >= 2 &&
-										ancestorPath.some(
-											(_, i) =>
-												i < ancestorPath.length - 1 &&
-												ancestorPath[i].id === parent.id &&
-												ancestorPath[i + 1].id === node.id
-										)}
-									{#if isOnAncestorPath}
-										<path class="connection connection--highlight" d={pathD} />
-									{/if}
-								{/if}
-							{/each}
-						{/if}
-					{/each}
+					<ConnectionLayer
+						nodes={engine.nodes}
+						{config}
+						{activeAncestorIds}
+						{hoveredNodeId}
+						bind:hoveredConnection
+						{connectionDrag}
+						onDeleteConnection={(parentId, childId) => {
+							engine.removeConnection(parentId, childId);
+						}}
+					/>
 				</g>
 			</svg>
-
-			{#if engine.nodes.length === 0}
-				<div class="empty-state">
-					<div class="empty-state-content">
-						<div class="empty-state-title">Start a conversation</div>
-						<div class="empty-state-subtitle">Type a message below to begin</div>
-						<svg class="empty-state-arrow" width="24" height="48" viewBox="0 0 24 48" fill="none">
-							<path
-								d="M12 0L12 42M12 42L6 36M12 42L18 36"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							/>
-						</svg>
-					</div>
-				</div>
-			{/if}
 
 			{#each engine.nodes as node (node.id)}
 				{@const isActive = engine.activeNodeId === node.id}
@@ -967,6 +892,7 @@
 							gridStep={config.gridStep}
 							nodeWidth={config.nodeWidth}
 							{viewportResizeVersion}
+							{onRetry}
 						>
 							<ResolvedComponent {node} {engine} {isActive} {...uiData?.props ?? {}} />
 						</TraekNodeWrapper>
@@ -981,6 +907,7 @@
 						gridStep={config.gridStep}
 						nodeWidth={config.nodeWidth}
 						{viewportResizeVersion}
+						{onRetry}
 					>
 						<div class="node-card error">
 							<div class="role-tag">{node.type}</div>
@@ -990,24 +917,39 @@
 				{/if}
 			{/each}
 
-			{#if engine.activeNodeId && registry}
+			{#if engine.activeNodeId && activeNodeActions.length > 0}
 				{@const activeNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
 				{#if activeNode}
-					{@const activeDef = registry.get(activeNode.type)}
-					{#if activeDef?.actions && activeDef.actions.length > 0}
-						{@const step = config.gridStep}
-						<NodeToolbar
-							actions={activeDef.actions}
-							node={activeNode}
-							{engine}
-							x={(activeNode.metadata?.x ?? 0) * step}
-							y={(activeNode.metadata?.y ?? 0) * step - 40}
-							nodeWidth={config.nodeWidth}
-						/>
-					{/if}
+					{@const step = config.gridStep}
+					<NodeToolbar
+						actions={activeNodeActions}
+						node={activeNode}
+						{engine}
+						x={(activeNode.metadata?.x ?? 0) * step}
+						y={(activeNode.metadata?.y ?? 0) * step - 40}
+						nodeWidth={config.nodeWidth}
+					/>
 				{/if}
 			{/if}
 		</div>
+
+		{#if engine.nodes.length === 0}
+			<div class="empty-state">
+				<div class="empty-state-content">
+					<div class="empty-state-title">Start a conversation</div>
+					<div class="empty-state-subtitle">Type a message below to begin</div>
+					<svg class="empty-state-arrow" width="24" height="48" viewBox="0 0 24 48" fill="none">
+						<path
+							d="M12 0L12 42M12 42L6 36M12 42L18 36"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						/>
+					</svg>
+				</div>
+			</div>
+		{/if}
 
 		{#if showIntroOverlay && initialOverlay}
 			<div class="overlay-root" transition:fade>
@@ -1149,18 +1091,6 @@
 			cursor: pointer;
 		}
 
-		.node-card.active {
-			border-color: var(--traek-node-active-border, #00d8ff);
-			box-shadow: 0 0 20px var(--traek-node-active-glow, rgba(0, 216, 255, 0.15));
-		}
-
-		.node-card.user {
-			border-top: 3px solid var(--traek-node-user-border-top, #00d8ff);
-		}
-		.node-card.assistant {
-			border-top: 3px solid var(--traek-node-assistant-border-top, #ff3e00);
-		}
-
 		.role-tag {
 			font-size: 10px;
 			text-transform: uppercase;
@@ -1189,9 +1119,8 @@
 			overflow: visible;
 		}
 
-		.connection--highlight {
-			stroke: var(--traek-connection-highlight, #00d8ff);
-			stroke-width: 2.5;
+		.viewport.connection-drag-active {
+			cursor: crosshair;
 		}
 
 		/* FLOATING INPUT STYLES */

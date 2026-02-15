@@ -9,7 +9,6 @@
 		type AddNodePayload,
 		type ActionDefinition,
 		type ResolveActions,
-		type Node,
 		createDefaultRegistry
 	} from '$lib';
 	import ExampleCustomComponent from '$lib/ExampleCustomComponent.svelte';
@@ -30,29 +29,13 @@
 		type: 'debugNode',
 		label: 'Debug',
 		component: ExampleCustomComponent,
-		icon: '🧪',
-		actions: [
-			{
-				id: 'delete',
-				label: 'Delete',
-				icon: '🗑️',
-				handler: (node: Node, engine: TraekEngine) => engine.deleteNode(node.id)
-			}
-		]
+		icon: '🧪'
 	});
 	registry.register({
 		type: 'image',
 		label: 'Image',
 		component: ImageDemoNode,
-		icon: '🖼️',
-		actions: [
-			{
-				id: 'delete',
-				label: 'Delete',
-				icon: '🗑️',
-				handler: (node: Node, engine: TraekEngine) => engine.deleteNode(node.id)
-			}
-		]
+		icon: '🖼️'
 	});
 
 	let engine = $state<TraekEngine | null>(null);
@@ -209,6 +192,39 @@
 			viewport: lastViewport ?? conv.viewport,
 			activeNodeId: eng.activeNodeId
 		};
+	}
+
+	function handleRetry(nodeId: string) {
+		if (!engine) return;
+		const assistantNode = engine.nodes.find(
+			(n: { id: string }) => n.id === nodeId
+		);
+		if (!assistantNode) return;
+		const userParentId = assistantNode.parentIds[0];
+		if (!userParentId) return;
+		const userNode = engine.nodes.find(
+			(n: { id: string }) => n.id === userParentId
+		) as MessageNode | undefined;
+		if (!userNode) return;
+		// Delete the assistant node and its descendants
+		engine.deleteNodeAndDescendants(nodeId);
+		// Re-send with the original user message
+		const userContent = userNode.content ?? '';
+		const actions = (userNode.data as { actions?: string[] })?.actions;
+		onSendMessage(userContent, userNode, actions);
+	}
+
+	function handleEditNode(nodeId: string) {
+		if (!engine) return;
+		const node = engine.nodes.find(
+			(n: { id: string }) => n.id === nodeId
+		) as MessageNode | undefined;
+		if (!node) return;
+		const newContent = window.prompt('Edit message:', node.content ?? '');
+		if (newContent !== null && newContent !== node.content) {
+			engine.updateNode(nodeId, { content: newContent });
+			persist(engine);
+		}
 	}
 
 	async function onSendMessage(input: string, userNode: MessageNode, action?: string | string[]) {
@@ -412,6 +428,8 @@
 					? { x: conv.viewport.offsetX, y: conv.viewport.offsetY }
 					: undefined}
 				{onSendMessage}
+				onRetry={handleRetry}
+				onEditNode={handleEditNode}
 				onNodesChanged={() => engine && persist(engine)}
 				onViewportChange={(v) => {
 					lastViewport = { scale: v.scale, offsetX: v.offset.x, offsetY: v.offset.y };

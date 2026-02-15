@@ -1,11 +1,19 @@
 import type { Node, TraekEngine } from '../TraekEngine.svelte';
 
+/** A variant option shown when an action supports multiple behaviors. */
+export interface ActionVariant {
+	label: string;
+	handler: (node: Node, engine: TraekEngine) => void;
+}
+
 /** Action shown in the floating toolbar for a node type. */
 export interface NodeTypeAction {
 	id: string;
 	label: string;
 	icon?: string;
 	handler: (node: Node, engine: TraekEngine) => void;
+	/** When defined and returns non-null, clicking shows variant options instead of running handler directly. */
+	variants?: (node: Node, engine: TraekEngine) => ActionVariant[] | null;
 }
 
 /** Full definition for a registered node type. */

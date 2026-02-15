@@ -3,6 +3,7 @@
  * Receives user input + action definitions, returns matching action IDs.
  */
 
+import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit.js';
 import { z } from 'zod';
@@ -17,7 +18,7 @@ const resolveActionsRequestSchema = z.object({
 	)
 });
 
-const DEFAULT_DAILY_LIMIT = 100;
+const DEFAULT_DAILY_LIMIT = dev ? 10000 : 100;
 
 export async function POST({ request, getClientAddress }) {
 	const apiKey = env.OPENAI_API_KEY;
@@ -33,7 +34,7 @@ export async function POST({ request, getClientAddress }) {
 	const limit = Math.max(
 		1,
 		parseInt(env.RESOLVE_ACTIONS_DAILY_LIMIT ?? String(DEFAULT_DAILY_LIMIT), 10) ||
-			DEFAULT_DAILY_LIMIT
+		DEFAULT_DAILY_LIMIT
 	);
 	const rate = checkDailyLimit(ip, limit);
 	if (!rate.allowed) {

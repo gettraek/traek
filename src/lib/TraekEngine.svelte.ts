@@ -502,6 +502,132 @@ export class TraekEngine {
 		}
 	}
 
+	/** Count visible descendants of a node via BFS (excludes thought nodes). */
+	getDescendantCount(nodeId: string): number {
+		const descendants = new Set<string>();
+		const queue = [nodeId];
+		while (queue.length > 0) {
+			const currentId = queue.shift()!;
+			for (const n of this.nodes) {
+				if (n.parentIds.includes(currentId) && !descendants.has(n.id)) {
+					if (n.type !== 'thought') {
+						descendants.add(n.id);
+					}
+					queue.push(n.id);
+				}
+			}
+		}
+		return descendants.size;
+	}
+
+	/** Delete a node and all its descendants. Navigate to the deleted node's first parent if needed. */
+	deleteNodeAndDescendants(nodeId: string) {
+		// Collect all descendants via BFS
+		const toDelete = new Set<string>([nodeId]);
+		const queue = [nodeId];
+		while (queue.length > 0) {
+			const currentId = queue.shift()!;
+			for (const n of this.nodes) {
+				if (n.parentIds.includes(currentId) && !toDelete.has(n.id)) {
+					toDelete.add(n.id);
+					queue.push(n.id);
+				}
+			}
+		}
+
+		// Fire onNodeDeleting for each
+		for (const id of toDelete) {
+			const node = this.nodes.find((n) => n.id === id);
+			if (node) this.onNodeDeleting?.(node);
+		}
+
+		// Find the deleted node's first parent before removal (for navigation)
+		const deletedNode = this.nodes.find((n) => n.id === nodeId);
+		const firstParentId = deletedNode?.parentIds[0] ?? null;
+
+		// Clean up parentIds references on surviving nodes
+		for (const n of this.nodes) {
+			if (!toDelete.has(n.id)) {
+				const filtered = n.parentIds.filter((pid) => !toDelete.has(pid));
+				if (filtered.length !== n.parentIds.length) {
+					n.parentIds = filtered;
+				}
+			}
+		}
+
+		// Remove all in one pass
+		this.nodes = this.nodes.filter((n) => !toDelete.has(n.id));
+
+		// Navigate if activeNodeId was deleted
+		if (this.activeNodeId && toDelete.has(this.activeNodeId)) {
+			if (firstParentId && this.nodes.some((n) => n.id === firstParentId)) {
+				this.activeNodeId = firstParentId;
+			} else {
+				this.activeNodeId = null;
+			}
+		}
+
+		this.flushLayoutFromRoot();
+	}
+
+	/** Create a sibling copy of a node with the same parents, role, type, and content. */
+	duplicateNode(nodeId: string): Node | null {
+		const source = this.nodes.find((n) => n.id === nodeId);
+		if (!source) return null;
+
+		const step = this.config.gridStep;
+		const offsetGrid = this.config.layoutGapX / step;
+		const sourceX = source.metadata?.x ?? 0;
+		const sourceY = source.metadata?.y ?? 0;
+
+		// Check if it's a MessageNode (has content)
+		const sourceMsg = source as MessageNode;
+		if (typeof sourceMsg.content === 'string') {
+			const newNode = this.addNode(sourceMsg.content, source.role, {
+				type: source.type,
+				parentIds: [...source.parentIds],
+				x: sourceX + offsetGrid,
+				y: sourceY,
+				data: source.data != null ? structuredClone(source.data) : undefined
+			});
+			// Clear manual position so layout can reposition it properly
+			if (newNode.metadata) {
+				delete newNode.metadata.manualPosition;
+			}
+			const primaryParentId = source.parentIds[0];
+			if (primaryParentId) {
+				this.layoutChildren(primaryParentId);
+			}
+			return newNode;
+		}
+
+		// Non-message node: create manually
+		const newNode: Node = {
+			id: crypto.randomUUID(),
+			parentIds: [...source.parentIds],
+			role: source.role,
+			type: source.type,
+			createdAt: Date.now(),
+			metadata: {
+				x: sourceX + offsetGrid,
+				y: sourceY,
+				height: source.metadata?.height ?? this.config.nodeHeightDefault
+			},
+			data: source.data != null ? structuredClone(source.data) : undefined
+		};
+
+		this.nodes.push(newNode);
+		this.activeNodeId = newNode.id;
+		this.onNodeCreated?.(newNode);
+
+		const primaryParentId = source.parentIds[0];
+		if (primaryParentId) {
+			this.layoutChildren(primaryParentId);
+		}
+
+		return newNode;
+	}
+
 	/** Move a node by (dx, dy) in canvas pixels; converts to grid and re-layouts subtree. */
 	moveNodeAndDescendants(nodeId: string, dx: number, dy: number) {
 		const node = this.nodes.find((n) => n.id === nodeId);
@@ -619,6 +745,28 @@ export class TraekEngine {
 			this.layoutChildren(child.id);
 			currentX += childSubtreeW + gapXGrid;
 		}
+	}
+
+	/**
+	 * Returns an array of all ancestor node IDs reachable from the given node,
+	 * traversing ALL parents (full DAG).
+	 * The array includes the given node itself.
+	 */
+	getAncestorPath(nodeId: string): string[] {
+		const visited = new Set<string>();
+		const stack = [nodeId];
+		while (stack.length > 0) {
+			const currentId = stack.pop()!;
+			if (visited.has(currentId)) continue;
+			visited.add(currentId);
+			const node = this.nodes.find((n) => n.id === currentId);
+			if (node) {
+				for (const pid of node.parentIds) {
+					stack.push(pid);
+				}
+			}
+		}
+		return Array.from(visited);
 	}
 
 	branchFrom(nodeId: string) {

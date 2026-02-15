@@ -4,6 +4,7 @@
  * Rate limit: CHAT_DAILY_LIMIT_PER_IP requests per IP per day (default 50).
  */
 
+import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit.js';
 import { z } from 'zod';
@@ -19,7 +20,7 @@ const chatRequestSchema = z.object({
 		.min(1)
 });
 
-const DEFAULT_DAILY_LIMIT = 50;
+const DEFAULT_DAILY_LIMIT = dev ? 1000 : 50;
 
 export async function POST({ request, getClientAddress }) {
 	const apiKey = env.OPENAI_API_KEY;

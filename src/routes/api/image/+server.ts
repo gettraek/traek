@@ -4,10 +4,11 @@
  * Rate limit: IMAGE_DAILY_LIMIT_PER_IP requests per IP per day (default 25).
  */
 
+import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit.js';
 
-const DEFAULT_DAILY_LIMIT = 25;
+const DEFAULT_DAILY_LIMIT = dev ? 1000 : 25;
 
 export async function POST({ request, getClientAddress }) {
 	const apiKey = env.OPENAI_API_KEY;
@@ -23,7 +24,7 @@ export async function POST({ request, getClientAddress }) {
 	const limit = Math.max(
 		1,
 		parseInt(env.IMAGE_DAILY_LIMIT_PER_IP ?? String(DEFAULT_DAILY_LIMIT), 10) ||
-			DEFAULT_DAILY_LIMIT
+		DEFAULT_DAILY_LIMIT
 	);
 	const rate = checkDailyLimit(ip, limit);
 	if (!rate.allowed) {

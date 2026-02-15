@@ -143,6 +143,23 @@
 	</button>
 	{#if node.status === 'error'}
 		<div class="error-banner" role="alert">
+			<svg
+				class="error-banner-icon"
+				width="16"
+				height="16"
+				viewBox="0 0 16 16"
+				fill="none"
+				aria-hidden="true"
+			>
+				<path
+					d="M8 1L15 14H1L8 1Z"
+					stroke="currentColor"
+					stroke-width="1.5"
+					stroke-linejoin="round"
+				/>
+				<path d="M8 6V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+				<circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
+			</svg>
 			<span class="error-banner-message">
 				{node.errorMessage || 'An error occurred'}
 			</span>
@@ -233,6 +250,18 @@
 	<div class="message-node-content">
 		{@render children()}
 	</div>
+
+	<!-- Connection ports -->
+	<div
+		class="connection-port connection-port--input"
+		data-port-node-id={node.id}
+		data-port-type="input"
+	></div>
+	<div
+		class="connection-port connection-port--output"
+		data-port-node-id={node.id}
+		data-port-type="output"
+	></div>
 </div>
 
 <style>
@@ -246,7 +275,7 @@
 			background: var(--traek-thought-panel-bg, rgba(22, 22, 22, 0.9));
 			border: 1px solid var(--traek-thought-panel-border, #333333);
 			border-radius: 14px;
-			overflow: hidden;
+			overflow: visible;
 			transition:
 				transform 0.2s,
 				border-color 0.2s,
@@ -273,6 +302,7 @@
 			background: var(--traek-thought-header-bg, rgba(255, 255, 255, 0.03));
 			border: none;
 			border-bottom: 1px solid var(--traek-thought-header-border, #222222);
+			border-radius: 14px 14px 0 0;
 			font-family: 'Inter', sans-serif;
 			font-size: 10px;
 			text-transform: uppercase;
@@ -531,8 +561,10 @@
 			flex: 1;
 			min-width: 0;
 			min-height: 0;
+			overflow: hidden;
 			user-select: text;
 			cursor: text;
+			border-radius: 0 0 14px 14px;
 		}
 
 		/* Child node cards are positioned by this wrapper, not by themselves */
@@ -544,19 +576,24 @@
 
 		/* Error state */
 		.message-node-wrapper.error {
-			border-color: var(--traek-error-border, #ff3e00);
-			box-shadow: 0 0 20px var(--traek-error-glow, rgba(255, 62, 0, 0.2));
+			border: 2px solid var(--traek-error-border, #ff3e00);
+			box-shadow: 0 0 20px var(--traek-error-glow, rgba(255, 62, 0, 0.3));
 		}
 
 		.error-banner {
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
 			gap: 8px;
-			padding: 8px 14px;
+			padding: 12px;
 			background: var(--traek-error-banner-bg, rgba(255, 62, 0, 0.1));
-			border-bottom: 1px solid var(--traek-error-border, rgba(255, 62, 0, 0.3));
+			border-radius: 8px;
+			margin: 8px;
 			font-size: 12px;
+			color: var(--traek-error-text, #ff6b4a);
+		}
+
+		.error-banner-icon {
+			flex-shrink: 0;
 			color: var(--traek-error-text, #ff6b4a);
 		}
 
@@ -604,6 +641,52 @@
 
 		.error-banner-dismiss:hover {
 			background: rgba(255, 62, 0, 0.1);
+		}
+
+		/* Connection ports */
+		.connection-port {
+			position: absolute;
+			left: 50%;
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+			background: var(--traek-thought-panel-border, #333333);
+			border: 2px solid var(--traek-thought-panel-bg, rgba(22, 22, 22, 0.9));
+			transform: translateX(-50%);
+			cursor: crosshair;
+			opacity: 0;
+			transition:
+				opacity 0.15s,
+				transform 0.15s,
+				background 0.15s,
+				box-shadow 0.15s;
+			z-index: 10;
+			pointer-events: auto;
+		}
+
+		.connection-port--input {
+			top: -6px;
+		}
+
+		.connection-port--output {
+			bottom: -6px;
+		}
+
+		.message-node-wrapper:hover .connection-port,
+		:global(.connection-drag-active) .connection-port {
+			opacity: 1;
+		}
+
+		.connection-port:hover {
+			transform: translateX(-50%) scale(1.4);
+			background: var(--traek-thought-tag-cyan, #00d8ff);
+			box-shadow: 0 0 8px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.4));
+		}
+
+		.connection-port:global(.port-drop-target) {
+			transform: translateX(-50%) scale(1.6);
+			background: var(--traek-thought-tag-cyan, #00d8ff);
+			box-shadow: 0 0 16px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.6));
 		}
 
 		/* Mobile touch target improvements */
