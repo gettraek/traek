@@ -242,6 +242,8 @@
 		transform: translateX(-50%);
 		min-width: 280px;
 		max-width: 320px;
+		max-height: 150px;
+		overflow-y: auto;
 		background: rgba(0, 0, 0, 0.95);
 		backdrop-filter: blur(16px);
 		border: 1px solid var(--traek-input-border, #444444);

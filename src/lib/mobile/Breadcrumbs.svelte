@@ -71,8 +71,8 @@
 					>
 						<span class="role-icon">{node.role === 'user' ? '👤' : '🤖'}</span>
 						<span class="crumb-text">
-							{(node as MessageNode).content?.slice(0, 20) ?? 'Nachricht'}
-							{(node as MessageNode).content && (node as MessageNode).content.length > 20
+							{(node as MessageNode).content?.slice(0, 15) ?? 'Nachricht'}
+							{(node as MessageNode).content && (node as MessageNode).content.length > 15
 								? '...'
 								: ''}
 						</span>
@@ -165,7 +165,7 @@
 	}
 
 	.crumb-text {
-		max-width: 120px;
+		max-width: 80px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}

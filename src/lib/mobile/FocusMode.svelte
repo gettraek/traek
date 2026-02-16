@@ -24,6 +24,7 @@
 		type FocusModeConfig,
 		type SwipeDirection
 	} from './focusModeTypes';
+	import { hapticTap, hapticBoundary, hapticSelect } from './haptics';
 
 	let {
 		engine,
@@ -129,6 +130,9 @@
 			}
 		}
 
+		// Haptic feedback on successful navigation
+		hapticTap();
+
 		lastDirection = direction;
 		currentNodeId = nodeId;
 		engine.activeNodeId = nodeId;
@@ -141,6 +145,9 @@
 			left: 'Keine vorherige Alternative',
 			right: 'Keine weitere Alternative'
 		};
+
+		// Haptic feedback for boundary
+		hapticBoundary();
 
 		toastMessage = messages[direction];
 		showToast = true;
@@ -173,6 +180,7 @@
 
 				// Item 9: Bei mehreren Kindern → ChildSelector anzeigen
 				if (children.length > 1) {
+					hapticSelect();
 					showChildSelector = true;
 					break;
 				}
@@ -492,6 +500,9 @@
 							: ''}
 					{/if}
 				</span>
+				<span class="context-chevron" aria-hidden="true">
+					{contextExpanded ? '▴' : '▾'}
+				</span>
 			</div>
 		{/if}
 
@@ -686,6 +697,18 @@
 	.input-context.expanded .context-preview {
 		white-space: pre-wrap;
 		word-break: break-word;
+	}
+
+	.context-chevron {
+		margin-left: auto;
+		flex-shrink: 0;
+		font-size: 14px;
+		opacity: 0.6;
+		transition: opacity 0.2s ease;
+	}
+
+	.input-context:hover .context-chevron {
+		opacity: 1;
 	}
 
 	/* Input */
