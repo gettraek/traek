@@ -259,18 +259,18 @@
 - **Status**: ✅ Vorgezogen und abgeschlossen (Mobile Focus Mode, 10 Komponenten, UX-Score 9.2/10)
 - **Commits**: `5666327`, `42162df`, `b55a146`, `26004da`, `5519d2d`
 
-### 4.5 Backlog (nach Phase 4, priorisiert)
+### 4.5 Backlog (nach Phase 4, priorisiert) ✅ KOMPLETT
 
-| Item                                              | Aufwand  | Abhängig von |
-| ------------------------------------------------- | -------- | ------------ |
-| Keyboard Phase 2: Chords, Quick-Jump, Fuzzy-Suche | S (2d)   | 2.5          |
-| Tag-System + Filter                               | M (3d)   | 2.6, 2.7     |
-| Replay-Modus UI                                   | S (2-3d) | 2.6          |
-| Ghost-Preview                                     | S (1-2d) | -            |
-| Theme-Presets + Custom Accent-Farbe               | M (3d)   | 4.2          |
-| Node Edit & Re-Generate                           | M (3d)   | 1.3          |
-| Connection-Lines aufwerten                        | S (2d)   | 3.1          |
-| Storybook-Grundausstattung                        | M (3d)   | 2.1          |
+| Item                                              | Aufwand  | Abhängig von | Status |
+| ------------------------------------------------- | -------- | ------------ | ------ |
+| Keyboard Phase 2: Chords, Quick-Jump, Fuzzy-Suche | S (2d)   | 2.5          | ✅     |
+| Tag-System + Filter                               | M (3d)   | 2.6, 2.7     | ✅     |
+| Replay-Modus UI                                   | S (2-3d) | 2.6          | ✅     |
+| Ghost-Preview                                     | S (1-2d) | -            | ✅     |
+| Theme-Presets + Custom Accent-Farbe               | M (3d)   | 4.2          | ✅     |
+| Node Edit & Re-Generate                           | M (3d)   | 1.3          | ✅     |
+| Connection-Lines aufwerten                        | S (2d)   | 3.1          | ✅     |
+| Storybook-Grundausstattung                        | M (3d)   | 2.1          | ✅     |
 
 ---
 
