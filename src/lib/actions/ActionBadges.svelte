@@ -15,7 +15,7 @@
 </script>
 
 {#if actions.length > 0}
-	<div class="action-badges">
+	<div class="action-badges" role="group" aria-label="Message actions">
 		{#each actions as action (action.id)}
 			{@const isSuggested = suggestedIds.includes(action.id)}
 			{@const isSelected = selectedIds.includes(action.id)}
@@ -25,6 +25,7 @@
 				class:suggested={isSuggested && !isSelected}
 				class:selected={isSelected}
 				class:inactive={!isSuggested && !isSelected}
+				aria-pressed={isSelected}
 				title={action.description}
 				onclick={() => onToggle(action.id)}
 			>
@@ -47,8 +48,8 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
-		padding: 4px 10px;
-		border: 1px solid var(--traek-badge-border, #444444);
+		padding: 5px 10px;
+		border: 1px solid var(--traek-node-border, #444444);
 		border-radius: 999px;
 		background: var(--traek-badge-bg, rgba(255, 255, 255, 0.06));
 		color: var(--traek-badge-text, #cccccc);
@@ -70,8 +71,8 @@
 	}
 
 	.action-badge:hover {
-		background: var(--traek-badge-bg-hover, rgba(255, 255, 255, 0.1));
-		border-color: var(--traek-badge-border-hover, #666666);
+		background: rgba(255, 255, 255, 0.1);
+		border-color: #666666;
 	}
 
 	.action-badge.suggested {
@@ -81,8 +82,8 @@
 
 	.action-badge.selected {
 		opacity: 1;
-		background: var(--traek-badge-bg-active, rgba(0, 216, 255, 0.15));
-		border-color: var(--traek-badge-border-active, #00d8ff);
+		background: rgba(0, 216, 255, 0.15);
+		border-color: var(--traek-input-button-bg, #00d8ff);
 		color: var(--traek-badge-text-active, #00d8ff);
 	}
 

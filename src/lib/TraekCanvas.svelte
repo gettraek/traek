@@ -1290,11 +1290,15 @@
 			box-shadow: 0 20px 40px var(--traek-input-shadow, rgba(0, 0, 0, 0.4));
 		}
 
+		.input-wrapper:focus-within {
+			border-color: var(--traek-input-button-bg, #00d8ff);
+		}
+
 		textarea {
 			flex: 1;
 			background: transparent;
 			border: none;
-			color: white;
+			color: var(--traek-input-text, #ffffff);
 			padding: 12px;
 			outline: none;
 			font-size: 16px;
@@ -1326,6 +1330,13 @@
 		button:disabled {
 			opacity: 0.3;
 			cursor: not-allowed;
+		}
+
+		@media (max-width: 768px) {
+			button {
+				width: 44px;
+				height: 44px;
+			}
 		}
 
 		.context-info {

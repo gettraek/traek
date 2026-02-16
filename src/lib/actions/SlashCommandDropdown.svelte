@@ -78,13 +78,13 @@
 		margin-bottom: 4px;
 		padding: 4px;
 		background: var(--traek-slash-dropdown-bg, rgba(30, 30, 30, 0.98));
-		backdrop-filter: blur(20px);
-		border: 1px solid var(--traek-slash-dropdown-border, #444444);
-		border-radius: 12px;
+		backdrop-filter: blur(16px);
+		border: 1px solid var(--traek-input-border, #444444);
+		border-radius: 16px;
 		box-shadow: 0 -8px 24px var(--traek-slash-dropdown-shadow, rgba(0, 0, 0, 0.3));
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 4px;
 		z-index: 110;
 	}
 
@@ -95,10 +95,10 @@
 		width: 100%;
 		padding: 8px 10px;
 		border: none;
-		border-radius: 8px;
+		border-radius: 10px;
 		background: transparent;
 		color: var(--traek-slash-dropdown-text, #dddddd);
-		font-size: 13px;
+		font-size: 12px;
 		text-align: left;
 		cursor: pointer;
 		transition: background 0.1s;
@@ -107,6 +107,11 @@
 	.slash-item:hover,
 	.slash-item.active {
 		background: var(--traek-slash-dropdown-item-active, rgba(255, 255, 255, 0.08));
+	}
+
+	.slash-item:focus-visible {
+		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+		outline-offset: 2px;
 	}
 
 	.slash-item-icon {

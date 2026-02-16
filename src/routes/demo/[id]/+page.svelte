@@ -415,10 +415,12 @@
 	.back {
 		padding: 0.4rem 0.75rem;
 		background: var(--traek-conv-back-bg, #0b0b0b);
+		border: 1px solid var(--traek-conv-back-border, transparent);
 		border-radius: 0.25rem;
 		color: var(--traek-conv-back-text, #dddddd);
 		text-decoration: none;
 		font-size: 0.9rem;
+		backdrop-filter: blur(8px);
 	}
 
 	@media (max-width: 768px) {

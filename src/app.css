@@ -326,12 +326,66 @@
 	--traek-demo-list-bg-hover: rgba(0, 0, 0, 0.04);
 
 	--traek-conv-bg: #fafafa;
-	--traek-conv-back-bg: #1a1a1a;
-	--traek-conv-back-text: #e5e5e5;
+	--traek-conv-back-bg: rgba(255, 255, 255, 0.9);
+	--traek-conv-back-border: rgba(0, 0, 0, 0.1);
+	--traek-conv-back-text: #3f3f46;
 	--traek-error-text: #b30000;
 	--traek-loading-bg: #f5f5f5;
+	--traek-loading-top: #525252;
 	--traek-spinner-border: rgba(0, 0, 0, 0.1);
 	--traek-spinner-top: #525252;
+
+	/* Save indicator */
+	--traek-save-indicator-bg: rgba(255, 255, 255, 0.9);
+	--traek-save-indicator-text: #3f3f46;
+	--traek-save-indicator-success: #16a34a;
+	--traek-save-indicator-error: #dc2626;
+
+	/* NodeToolbar */
+	--traek-toolbar-bg: rgba(255, 255, 255, 0.95);
+	--traek-toolbar-shadow: rgba(0, 0, 0, 0.1);
+	--traek-toolbar-text: #3f3f46;
+	--traek-toolbar-text-hover: #18181b;
+
+	/* ActionBadges */
+	--traek-badge-text: #3f3f46;
+	--traek-badge-text-active: #0099cc;
+
+	/* SlashCommandDropdown */
+	--traek-slash-dropdown-bg: rgba(255, 255, 255, 0.96);
+	--traek-slash-dropdown-shadow: rgba(0, 0, 0, 0.12);
+	--traek-slash-dropdown-text: #18181b;
+	--traek-slash-dropdown-item-active: rgba(0, 0, 0, 0.06);
+	--traek-slash-dropdown-command: #0099cc;
+	--traek-slash-dropdown-desc: #71717a;
+
+	/* Chat list */
+	--traek-chatlist-bg: transparent;
+	--traek-chatlist-text: #18181b;
+	--traek-chatlist-border: rgba(0, 0, 0, 0.08);
+	--traek-chatlist-new-bg: rgba(0, 0, 0, 0.04);
+	--traek-chatlist-new-text: #18181b;
+	--traek-chatlist-new-border: rgba(0, 0, 0, 0.12);
+	--traek-chatlist-new-bg-hover: rgba(0, 0, 0, 0.08);
+	--traek-chatlist-new-border-hover: rgba(0, 0, 0, 0.18);
+	--traek-chatlist-empty-text: #71717a;
+	--traek-chatlist-group-title: #71717a;
+	--traek-chatlist-item-bg: rgba(255, 255, 255, 0.7);
+	--traek-chatlist-item-border: rgba(0, 0, 0, 0.06);
+	--traek-chatlist-item-bg-hover: rgba(0, 0, 0, 0.04);
+	--traek-chatlist-item-border-hover: rgba(0, 0, 0, 0.12);
+	--traek-chatlist-item-title: #09090b;
+	--traek-chatlist-item-meta: #71717a;
+	--traek-chatlist-item-preview: #3f3f46;
+	--traek-chatlist-action-text: #71717a;
+	--traek-chatlist-action-bg-hover: rgba(0, 0, 0, 0.06);
+	--traek-chatlist-action-text-hover: #18181b;
+	--traek-chatlist-delete-bg-hover: rgba(239, 68, 68, 0.12);
+	--traek-chatlist-delete-text-hover: #dc2626;
+	--traek-chatlist-edit-bg: #ffffff;
+	--traek-chatlist-edit-text: #18181b;
+	--traek-chatlist-edit-border: rgba(0, 0, 0, 0.15);
+	--traek-chatlist-edit-border-focus: rgba(0, 0, 0, 0.3);
 
 	--traek-gravity-dot: #a3a3a3;
 	--traek-gravity-tendril: rgba(82, 82, 82, 0.35);

@@ -65,7 +65,7 @@
 {#if expandedActionId}
 	<div
 		class="traek-toolbar-backdrop"
-		role="button"
+		role="presentation"
 		tabindex="-1"
 		onclick={closeVariants}
 		onkeydown={(e) => {
@@ -77,6 +77,8 @@
 {#if actions.length > 0}
 	<div
 		class="traek-node-toolbar"
+		role="toolbar"
+		aria-label="Node actions"
 		style:left="{x}px"
 		style:top="{y}px"
 		style:max-width="{nodeWidth}px"
@@ -129,12 +131,12 @@
 		display: flex;
 		flex-wrap: nowrap;
 		gap: 4px;
-		padding: 4px;
+		padding: 6px;
 		background: var(--traek-toolbar-bg, rgba(30, 30, 30, 0.95));
-		backdrop-filter: blur(12px);
-		border: 1px solid var(--traek-toolbar-border, #444444);
-		border-radius: 20px;
-		box-shadow: 0 4px 12px var(--traek-toolbar-shadow, rgba(0, 0, 0, 0.3));
+		backdrop-filter: blur(16px);
+		border: 1px solid var(--traek-node-border, #444444);
+		border-radius: 16px;
+		box-shadow: 0 4px 16px var(--traek-toolbar-shadow, rgba(0, 0, 0, 0.3));
 		pointer-events: auto;
 		z-index: 10;
 		overflow-x: auto;
@@ -151,12 +153,12 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
-		padding: 3px 10px;
+		padding: 5px 10px;
 		border: 1px solid var(--traek-toolbar-badge-border, rgba(255, 255, 255, 0.08));
-		border-radius: 14px;
+		border-radius: 999px;
 		background: var(--traek-toolbar-badge-bg, rgba(255, 255, 255, 0.06));
 		color: var(--traek-toolbar-text, #cccccc);
-		font-size: 11px;
+		font-size: 12px;
 		cursor: pointer;
 		white-space: nowrap;
 		transition:
@@ -199,7 +201,8 @@
 	@media (max-width: 768px) {
 		.traek-toolbar-badge {
 			padding: 6px 12px;
-			min-height: 36px;
+			min-height: 44px;
+			min-width: 44px;
 		}
 	}
 </style>

@@ -1108,6 +1108,7 @@ export class TraekEngine {
 		if (validated.activeNodeId != null) {
 			if (engine.getNode(validated.activeNodeId)) {
 				engine.activeNodeId = validated.activeNodeId;
+				engine.pendingFocusNodeId = validated.activeNodeId;
 			}
 		}
 		return engine;

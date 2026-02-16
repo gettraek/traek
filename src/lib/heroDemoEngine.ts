@@ -53,15 +53,29 @@ Here’s how to make your chat with the expert effective.
 		parentIds: [rootQuestion.id]
 	});
 
+	// Thought node attached to overview — shows reasoning panel
+	engine.addNode(
+		'The user is asking a general productivity question. I should break this into actionable phases (before / during / after) and end with a concrete next-step prompt to keep the conversation going.',
+		'assistant',
+		{ parentIds: [overview.id], type: 'thought' }
+	);
+
 	// Branch A: focus on framing the main question
-	const framingUser = engine.addNode('Let’s focus on framing my main question first.', 'user', {
+	const framingUser = engine.addNode(`Let's focus on framing my main question first.`, 'user', {
 		parentIds: [overview.id]
 	});
 
 	const framingAnswer = engine.addNode(
-		'Good idea. Start with: (1) What decision or outcome you need help with, (2) What you’ve already tried or considered, (3) Any constraints (time, budget). One clear sentence per part usually is enough to get a strong first answer.',
+		`Good idea. Start with: (1) What decision or outcome you need help with, (2) What you've already tried or considered, (3) Any constraints (time, budget). One clear sentence per part usually is enough to get a strong first answer.`,
 		'assistant',
 		{ parentIds: [framingUser.id] }
+	);
+
+	// Thought node on framing answer
+	engine.addNode(
+		'User chose the framing path. I should give a simple 3-part template they can fill in right away.',
+		'assistant',
+		{ parentIds: [framingAnswer.id], type: 'thought' }
 	);
 
 	// Branch B: focus on adding context + custom UI component

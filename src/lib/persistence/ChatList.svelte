@@ -453,7 +453,7 @@
 
 	.new-chat:hover {
 		background: var(--traek-chatlist-new-bg-hover, rgba(255, 255, 255, 0.16));
-		border-color: rgba(255, 255, 255, 0.22);
+		border-color: var(--traek-chatlist-new-border-hover, rgba(255, 255, 255, 0.22));
 	}
 
 	.new-chat svg {
