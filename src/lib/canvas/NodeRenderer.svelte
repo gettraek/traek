@@ -2,7 +2,6 @@
 	import type {
 		TraekEngine,
 		TraekEngineConfig,
-		Node,
 		NodeComponentMap,
 		CustomTraekNode
 	} from '../TraekEngine.svelte';
@@ -20,7 +19,8 @@
 		onEditSave,
 		onEditCancel,
 		onEditNode,
-		onRetry
+		onRetry,
+		focusedNodeId = null
 	}: {
 		engine: TraekEngine;
 		config: TraekEngineConfig;
@@ -33,11 +33,13 @@
 		onEditCancel: () => void;
 		onEditNode: (nodeId: string) => void;
 		onRetry?: (nodeId: string) => void;
+		focusedNodeId?: string | null;
 	} = $props();
 </script>
 
 {#each engine.nodes as node (node.id)}
 	{@const isActive = engine.activeNodeId === node.id}
+	{@const isFocused = focusedNodeId === node.id}
 	{@const isNodeHidden = engine.isInCollapsedSubtree(node.id)}
 	{#if !isNodeHidden}
 		{@const typeDef = registry?.get(node.type)}
@@ -49,6 +51,7 @@
 				<ResolvedComponent
 					{node}
 					{isActive}
+					{isFocused}
 					{engine}
 					viewportRoot={viewportEl}
 					gridStep={config.gridStep}
@@ -64,6 +67,7 @@
 				<TraekNodeWrapper
 					{node}
 					{isActive}
+					{isFocused}
 					{engine}
 					viewportRoot={viewportEl}
 					gridStep={config.gridStep}
@@ -79,6 +83,7 @@
 			<TraekNodeWrapper
 				{node}
 				{isActive}
+				{isFocused}
 				{engine}
 				viewportRoot={viewportEl}
 				gridStep={config.gridStep}

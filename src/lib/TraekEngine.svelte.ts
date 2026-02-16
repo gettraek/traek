@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import type { Component } from 'svelte';
 import { conversationSnapshotSchema } from './persistence/schemas.js';
+import { searchNodes as searchNodesUtil } from './search/searchUtils.js';
 
 export type NodeStatus = 'streaming' | 'done' | 'error';
 
@@ -129,6 +130,12 @@ export class TraekEngine {
 	activeNodeId = $state<string | null>(null);
 	/** Set of collapsed node IDs. When a node is collapsed, its descendants are hidden from view. */
 	collapsedNodes = $state(new Set<string>());
+	/** Search state: current query */
+	searchQuery = $state<string>('');
+	/** Search state: array of matching node IDs */
+	searchMatches = $state<string[]>([]);
+	/** Search state: current match index (0-based) */
+	currentSearchIndex = $state<number>(0);
 	private config: TraekEngineConfig;
 	private pendingHeightLayoutRafId: number | null = null;
 	/** Maps node ID → index in nodes array for O(1) lookup. */
@@ -1101,6 +1108,99 @@ export class TraekEngine {
 		}
 		this.flushLayoutFromRoot();
 		return true;
+	}
+
+	/**
+	 * Search nodes by content query (case-insensitive).
+	 * Updates searchQuery, searchMatches, and currentSearchIndex.
+	 * Automatically expands collapsed subtrees containing matches.
+	 */
+	searchNodesMethod(query: string): void {
+		this.searchQuery = query.trim();
+
+		if (this.searchQuery === '') {
+			this.searchMatches = [];
+			this.currentSearchIndex = 0;
+			return;
+		}
+
+		// Find all matching nodes
+		const matches = searchNodesUtil(this.nodes, this.searchQuery);
+		this.searchMatches = matches;
+		this.currentSearchIndex = matches.length > 0 ? 0 : 0;
+
+		// Auto-expand collapsed subtrees containing matches
+		for (const matchId of matches) {
+			this.expandAncestorsIfCollapsed(matchId);
+		}
+
+		// Focus on first match if available
+		if (matches.length > 0) {
+			this.focusOnNode(matches[0]);
+		}
+	}
+
+	/**
+	 * Navigate to the next search match.
+	 */
+	nextSearchMatch(): void {
+		if (this.searchMatches.length === 0) return;
+
+		this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchMatches.length;
+		const nodeId = this.searchMatches[this.currentSearchIndex];
+		if (nodeId) {
+			this.focusOnNode(nodeId);
+		}
+	}
+
+	/**
+	 * Navigate to the previous search match.
+	 */
+	previousSearchMatch(): void {
+		if (this.searchMatches.length === 0) return;
+
+		this.currentSearchIndex =
+			(this.currentSearchIndex - 1 + this.searchMatches.length) % this.searchMatches.length;
+		const nodeId = this.searchMatches[this.currentSearchIndex];
+		if (nodeId) {
+			this.focusOnNode(nodeId);
+		}
+	}
+
+	/**
+	 * Clear search state.
+	 */
+	clearSearch(): void {
+		this.searchQuery = '';
+		this.searchMatches = [];
+		this.currentSearchIndex = 0;
+	}
+
+	/**
+	 * Expand all collapsed ancestors of a node so it becomes visible.
+	 */
+	private expandAncestorsIfCollapsed(nodeId: string): void {
+		let current = this.getNode(nodeId);
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const visited = new Set<string>();
+
+		while (current) {
+			if (visited.has(current.id)) break;
+			visited.add(current.id);
+
+			const primaryParentId = current.parentIds[0];
+			if (!primaryParentId) break;
+
+			// If parent is collapsed, expand it
+			if (this.collapsedNodes.has(primaryParentId)) {
+				this.collapsedNodes.delete(primaryParentId);
+			}
+
+			current = this.getNode(primaryParentId);
+		}
+
+		// Force reactivity update
+		this.collapsedNodes = new Set(this.collapsedNodes);
 	}
 
 	/**

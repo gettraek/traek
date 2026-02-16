@@ -92,9 +92,21 @@ export const copyBranchAction: NodeTypeAction = {
 	}
 };
 
+export function createCompareAction(onCompare: (nodeId: string) => void): NodeTypeAction {
+	return {
+		id: 'compare',
+		label: 'Compare branches',
+		icon: 'solar:code-file-linear',
+		handler: (node: Node) => {
+			onCompare(node.id);
+		}
+	};
+}
+
 export interface DefaultNodeActionCallbacks {
 	onRetry?: (nodeId: string) => void;
 	onEditNode?: (nodeId: string) => void;
+	onCompare?: (nodeId: string) => void;
 }
 
 export function createDefaultNodeActions(callbacks: DefaultNodeActionCallbacks): NodeTypeAction[] {
@@ -104,6 +116,9 @@ export function createDefaultNodeActions(callbacks: DefaultNodeActionCallbacks):
 	}
 	if (callbacks.onEditNode) {
 		actions.push(createEditAction(callbacks.onEditNode));
+	}
+	if (callbacks.onCompare) {
+		actions.push(createCompareAction(callbacks.onCompare));
 	}
 	return actions;
 }

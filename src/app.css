@@ -53,6 +53,10 @@
 	--traek-scrollbar-thumb-hover: #444444;
 	--traek-typing-cursor: #ff3e00;
 
+	/* Search */
+	--traek-search-match-border: rgba(255, 235, 59, 0.5);
+	--traek-search-dimmed-opacity: 0.4;
+
 	/* Thought / message wrapper */
 	--traek-thought-panel-bg: rgba(22, 22, 22, 0.9);
 	--traek-thought-panel-border: #333333;
@@ -224,6 +228,10 @@
 	--traek-scrollbar-thumb: #d4d4d4;
 	--traek-scrollbar-thumb-hover: #a3a3a3;
 	--traek-typing-cursor: #e03a00;
+
+	/* Search */
+	--traek-search-match-border: rgba(255, 193, 7, 0.6);
+	--traek-search-dimmed-opacity: 0.3;
 
 	--traek-thought-panel-bg: rgba(255, 255, 255, 0.95);
 	--traek-thought-panel-border: #d4d4d4;
@@ -425,4 +433,16 @@ pre {
 .hljs {
 	background-color: var(--traek-code-bg, rgba(0, 0, 0, 0.2)) !important;
 	border-radius: 12px !important;
+}
+
+/* Search highlights */
+.search-highlight {
+	background-color: rgba(255, 235, 59, 0.4);
+	color: inherit;
+	padding: 2px 0;
+	border-radius: 2px;
+}
+
+[data-theme='light'] .search-highlight {
+	background-color: rgba(255, 235, 59, 0.6);
 }

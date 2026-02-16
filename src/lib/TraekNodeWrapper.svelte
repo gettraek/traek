@@ -9,6 +9,7 @@
 	let {
 		node,
 		isActive,
+		isFocused = false,
 		engine,
 		viewportRoot = null,
 		gridStep = 20,
@@ -19,6 +20,7 @@
 	}: {
 		node: Node;
 		isActive: boolean;
+		isFocused?: boolean;
 		engine?: TraekEngine;
 		viewportRoot?: HTMLElement | null;
 		gridStep?: number;
@@ -128,11 +130,13 @@
 <div
 	bind:this={wrapper}
 	data-node-id={node.id}
-	class="message-node-wrapper {node.role} {isActive ? 'active' : ''} {node.status === 'error'
-		? 'error'
-		: ''} {!isInView ? 'message-node-wrapper--placeholder' : ''} {showCompletePulse
-		? 'stream-complete'
-		: ''}"
+	role="treeitem"
+	aria-selected={isActive}
+	class="message-node-wrapper {node.role} {isActive ? 'active' : ''} {isFocused
+		? 'keyboard-focused'
+		: ''} {node.status === 'error' ? 'error' : ''} {!isInView
+		? 'message-node-wrapper--placeholder'
+		: ''} {showCompletePulse ? 'stream-complete' : ''}"
 	style:left="{(node.metadata?.x ?? 0) * gridStep}px"
 	style:top="{(node.metadata?.y ?? 0) * gridStep}px"
 	style:width="{nodeWidth}px"
@@ -379,12 +383,27 @@
 			.message-node-wrapper.stream-complete {
 				animation: none;
 			}
+			.message-node-wrapper.keyboard-focused {
+				outline: 2px solid var(--traek-keyboard-focus-ring, #ff9500);
+			}
 		}
 
 		.message-node-wrapper.active {
 			border-color: var(--traek-thought-panel-border-active, #00d8ff);
 			box-shadow: 0 0 30px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.15));
 			transform: scale(1.02);
+		}
+
+		/* Keyboard focus ring - distinct from active state */
+		.message-node-wrapper.keyboard-focused {
+			outline: 3px solid var(--traek-keyboard-focus-ring, #ff9500);
+			outline-offset: 2px;
+		}
+
+		/* Both active and keyboard-focused */
+		.message-node-wrapper.active.keyboard-focused {
+			outline: 3px solid var(--traek-keyboard-focus-ring, #ff9500);
+			outline-offset: 2px;
 		}
 
 		.message-node-wrapper--placeholder {

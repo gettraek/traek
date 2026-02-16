@@ -118,6 +118,55 @@ export class ViewportManager {
 		}, 300);
 	}
 
+	/** Fit all nodes into view with optional padding. Centers and scales to show entire tree. */
+	fitAll(nodes: Node[], padding: number = 50) {
+		if (!this.viewportEl) return;
+		const laidOut = nodes.filter((n) => n.type !== 'thought');
+		if (laidOut.length === 0) return;
+
+		const w = this.viewportEl.clientWidth;
+		const h = this.viewportEl.clientHeight;
+		if (w <= 0 || h <= 0) return;
+
+		const defaultH = this.#config.nodeHeightDefault;
+		const step = this.#config.gridStep;
+
+		let minX = Infinity;
+		let maxX = -Infinity;
+		let minY = Infinity;
+		let maxY = -Infinity;
+
+		for (const node of laidOut) {
+			const xPx = (node.metadata?.x ?? 0) * step;
+			const yPx = (node.metadata?.y ?? 0) * step;
+			const nodeH = node.metadata?.height ?? defaultH;
+			minX = Math.min(minX, xPx);
+			maxX = Math.max(maxX, xPx + this.#config.nodeWidth);
+			minY = Math.min(minY, yPx);
+			maxY = Math.max(maxY, yPx + nodeH);
+		}
+
+		const contentW = maxX - minX;
+		const contentH = maxY - minY;
+
+		// Calculate scale to fit with padding
+		const scaleX = (w - padding * 2) / contentW;
+		const scaleY = (h - padding * 2) / contentH;
+		const targetScale = Math.min(scaleX, scaleY, this.#config.scaleMax);
+		const clampedScale = Math.max(targetScale, this.#config.scaleMin);
+
+		this.scale = clampedScale;
+
+		// Center the content
+		const centerX = minX + contentW / 2;
+		const centerY = minY + contentH / 2;
+		this.offset.x = w / 2 - centerX * this.scale;
+		this.offset.y = h / 2 - centerY * this.scale;
+
+		this.clampOffset(nodes);
+		this.notifyViewportChange();
+	}
+
 	destroy() {
 		cancelAnimationFrame(this.#focusAnimationId);
 		if (this.#viewportChangeTimeoutId) clearTimeout(this.#viewportChangeTimeoutId);

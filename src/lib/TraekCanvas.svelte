@@ -26,6 +26,13 @@
 	import { CanvasInteraction } from './canvas/CanvasInteraction.svelte';
 	import NodeRenderer from './canvas/NodeRenderer.svelte';
 	import InputForm from './canvas/InputForm.svelte';
+	import { KeyboardNavigator } from './keyboard/KeyboardNavigator.svelte';
+	import KeyboardHelpOverlay from './keyboard/KeyboardHelpOverlay.svelte';
+	import LiveRegion from './a11y/LiveRegion.svelte';
+	import SearchBar from './search/SearchBar.svelte';
+	import ZoomControls from './canvas/ZoomControls.svelte';
+	import Minimap from './canvas/Minimap.svelte';
+	import BranchCompare from './compare/BranchCompare.svelte';
 
 	type InputActionsContext = {
 		engine: TraekEngine;
@@ -119,6 +126,17 @@
 	$effect(() => {
 		if (!engine || !viewport) return;
 		interaction = new CanvasInteraction(viewport, engine, config, onNodesChanged);
+	});
+
+	// Keyboard navigator for desktop
+	let keyboardNavigator = $state<KeyboardNavigator | null>(null);
+	let liveRegionMessage = $state('');
+	$effect(() => {
+		if (!engine || resolvedMode !== 'canvas') return;
+		keyboardNavigator = new KeyboardNavigator(engine, (message) => {
+			liveRegionMessage = message;
+		});
+		return () => keyboardNavigator?.destroy();
 	});
 
 	// Viewport-based mode detection
@@ -243,6 +261,12 @@
 	let celebratedBranches = $state(new Set<string>());
 	let branchCelebration = $state<string | null>(null);
 
+	// Branch comparison
+	let comparingNodeId = $state<string | null>(null);
+
+	// Search state
+	let showSearchBar = $state(false);
+
 	// Action resolver
 	let resolver = $state<ActionResolver | null>(null);
 	$effect(() => {
@@ -283,6 +307,40 @@
 		rafId = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(rafId);
 	});
+
+	// Global keyboard shortcut handler for search
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+
+		const handleKeydown = (e: KeyboardEvent) => {
+			// Ctrl+F / Cmd+F to open search
+			if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+				e.preventDefault();
+				showSearchBar = true;
+			}
+		};
+
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
+	});
+
+	// Search handlers
+	function handleSearchQuery(query: string) {
+		engine.searchNodesMethod(query);
+	}
+
+	function handleSearchNext() {
+		engine.nextSearchMatch();
+	}
+
+	function handleSearchPrevious() {
+		engine.previousSearchMatch();
+	}
+
+	function handleSearchClose() {
+		showSearchBar = false;
+		engine.clearSearch();
+	}
 
 	function sendMessage(messageOptions?: SendMessageOptions) {
 		if (!userInput.trim() || !viewport) return;
@@ -365,6 +423,10 @@
 		editingNodeId = null;
 	}
 
+	function handleCompare(nodeId: string) {
+		comparingNodeId = nodeId;
+	}
+
 	const activeNodeActions = $derived.by(() => {
 		if (!engine?.activeNodeId) return [];
 		const activeNode = engine.nodes.find((n: Node) => n.id === engine.activeNodeId);
@@ -374,7 +436,8 @@
 			defaultNodeActionsProp ??
 			createDefaultNodeActions({
 				onRetry,
-				onEditNode: onEditNode ?? handleBuiltInEdit
+				onEditNode: onEditNode ?? handleBuiltInEdit,
+				onCompare: handleCompare
 			});
 
 		const typeDef = registry?.get(activeNode.type);
@@ -405,8 +468,9 @@
 	{:else}
 		<div
 			bind:this={viewport.viewportEl}
-			role="grid"
-			tabindex="-1"
+			role="tree"
+			aria-label="Conversation tree"
+			tabindex="0"
 			class="viewport"
 			class:dragging-canvas={interaction?.isDragging || interaction?.isTouchPanning}
 			class:grabbing={interaction?.isDragging || interaction?.draggingNodeId}
@@ -419,6 +483,11 @@
 				viewport.scale
 			).toFixed(1)}px, transparent {Math.max(0.1, viewport.scale).toFixed(1)}px)"
 			onkeydown={(e) => {
+				// Handle keyboard navigation first
+				if (keyboardNavigator?.handleKeyDown(e)) {
+					return;
+				}
+				// Fallback to existing handlers
 				if (e.key === 'Escape') {
 					if (editingNodeId) {
 						editingNodeId = null;
@@ -480,6 +549,7 @@
 					onEditCancel={handleEditCancel}
 					onEditNode={onEditNode ?? handleBuiltInEdit}
 					{onRetry}
+					focusedNodeId={keyboardNavigator?.focusedNodeId}
 				/>
 
 				{#if engine.activeNodeId && activeNodeActions.length > 0}
@@ -550,35 +620,42 @@
 				/>
 			{/if}
 
-			{#if showStats}
+			{#if showStats && showFps}
 				<div class="stats">
-					{#if showFps}
-						<span class="stats-fps">{fps} FPS</span>
-						<span class="stats-sep">|</span>
-					{/if}
-					<span
-						class="stats-zoom"
-						onclick={() => {
-							if (!viewport) return;
-							viewport.scale = 1;
-							viewport.clampOffset(engine.nodes);
-							viewport.scheduleViewportChange();
-						}}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' && viewport) {
-								viewport.scale = 1;
-								viewport.clampOffset(engine.nodes);
-								viewport.scheduleViewportChange();
-							}
-						}}
-						title="Reset zoom to 100%"
-						role="button"
-						tabindex="0">{Math.round(viewport.scale * 100)}%</span
-					>
+					<span class="stats-fps">{fps} FPS</span>
 				</div>
 			{/if}
 
+			<ZoomControls {viewport} nodes={engine.nodes} {config} />
+			<Minimap {viewport} nodes={engine.nodes} {config} />
+
+			{#if showSearchBar}
+				<SearchBar
+					onClose={handleSearchClose}
+					onSearch={handleSearchQuery}
+					onNext={handleSearchNext}
+					onPrevious={handleSearchPrevious}
+					currentIndex={engine.currentSearchIndex}
+					totalMatches={engine.searchMatches.length}
+				/>
+			{/if}
+
 			<ToastContainer />
+
+			<!-- Keyboard Help Overlay -->
+			{#if keyboardNavigator?.showHelp}
+				<KeyboardHelpOverlay
+					onClose={() => keyboardNavigator && (keyboardNavigator.showHelp = false)}
+				/>
+			{/if}
+
+			<!-- ARIA Live Region -->
+			<LiveRegion bind:message={liveRegionMessage} politeness="polite" />
+
+			<!-- Branch Comparison Overlay -->
+			{#if comparingNodeId}
+				<BranchCompare {engine} nodeId={comparingNodeId} onClose={() => (comparingNodeId = null)} />
+			{/if}
 		</div>
 	{/if}
 {/if}
@@ -594,6 +671,10 @@
 			overflow: hidden;
 			position: relative;
 			cursor: grab;
+			outline: none;
+		}
+		.viewport:focus-visible {
+			box-shadow: inset 0 0 0 2px var(--traek-input-button-bg, #00d8ff);
 		}
 		.viewport.grabbing {
 			cursor: grabbing;
@@ -633,26 +714,6 @@
 			right: 20px;
 			color: var(--traek-stats-text, #555555);
 			font-family: monospace;
-		}
-
-		.stats-sep {
-			margin: 0 6px;
-		}
-
-		.stats-zoom {
-			cursor: pointer;
-			border-radius: 4px;
-			padding: 2px 4px;
-			transition: color 0.15s;
-		}
-
-		.stats-zoom:hover {
-			color: var(--traek-input-button-bg, #00d8ff);
-		}
-
-		.stats-zoom:focus-visible {
-			outline: 2px solid var(--traek-input-button-bg, #00d8ff);
-			outline-offset: 2px;
 		}
 
 		.overlay-root {
