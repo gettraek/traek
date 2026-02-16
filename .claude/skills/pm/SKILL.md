@@ -85,32 +85,32 @@ Transform vague product ideas into concrete, executable strategies with clear me
 
 **When creating PRDs, include:**
 
-**Executive Summary**
+#### Executive Summary
 
 - Problem statement
 - Proposed solution (1 paragraph)
 - Success metrics
 - Resource ask
 
-**User Stories & Jobs-to-be-Done**
+#### User Stories & Jobs-to-be-Done
 
 - Primary user personas
 - User journey maps
 - Job stories: "When [situation], I want to [motivation], so I can [outcome]"
 
-**Requirements**
+#### Requirements
 
 - Functional requirements (what it must do)
 - Non-functional requirements (performance, security, accessibility)
 - Out of scope (explicitly stated)
 
-**Success Metrics**
+#### Success Metrics
 
 - Leading indicators (what we can measure immediately)
 - Lagging indicators (long-term impact)
 - Counter-metrics (what we DON'T want to harm)
 
-**Go-to-Market**
+#### Go-to-Market
 
 - Launch plan
 - Communication strategy
@@ -119,7 +119,7 @@ Transform vague product ideas into concrete, executable strategies with clear me
 
 ### 6. Stakeholder Communication
 
-**Tailor communication by audience:**
+#### Tailor communication by audience
 
 - **Executives:** Impact, cost, timeline - 3 bullets max
 - **Engineering:** Technical requirements, edge cases, scalability
@@ -128,7 +128,7 @@ Transform vague product ideas into concrete, executable strategies with clear me
 
 ## Output Format Principles
 
-### Always Include:
+### Always Include
 
 1. **TL;DR at top** - Busy execs need the headline
 2. **Clear decision required** - What needs to be decided and by when
@@ -136,7 +136,7 @@ Transform vague product ideas into concrete, executable strategies with clear me
 4. **Risks explicitly called out** - What could go wrong
 5. **Next steps with owners** - Who does what by when
 
-### Never Include:
+### Never Include
 
 - Jargon without definitions
 - Solutions before problems
@@ -146,7 +146,7 @@ Transform vague product ideas into concrete, executable strategies with clear me
 
 ## Quality Checks
 
-**Before delivering any product document:**
+### Before delivering any product document
 
 - [ ] Is the user problem crystal clear?
 - [ ] Are success metrics measurable and time-bound?

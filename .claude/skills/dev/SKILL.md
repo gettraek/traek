@@ -35,7 +35,7 @@ A skill for writing production-grade Svelte and TypeScript code that exemplifies
 
 ### 4. Code Organization
 
-```
+```shell
 src/
 ├── lib/
 │   ├── components/
@@ -123,46 +123,46 @@ src/
 import { writable, type Readable } from 'svelte/store';
 
 interface CounterState {
-	readonly count: number;
-	readonly history: readonly number[];
+ readonly count: number;
+ readonly history: readonly number[];
 }
 
 interface CounterStore extends Readable<CounterState> {
-	increment: () => void;
-	decrement: () => void;
-	reset: () => void;
-	setCount: (value: number) => void;
+ increment: () => void;
+ decrement: () => void;
+ reset: () => void;
+ setCount: (value: number) => void;
 }
 
 function createCounter(initialValue = 0): CounterStore {
-	const { subscribe, update } = writable<CounterState>({
-		count: initialValue,
-		history: [initialValue]
-	});
+ const { subscribe, update } = writable<CounterState>({
+  count: initialValue,
+  history: [initialValue]
+ });
 
-	return {
-		subscribe,
-		increment: () =>
-			update((state) => ({
-				count: state.count + 1,
-				history: [...state.history, state.count + 1]
-			})),
-		decrement: () =>
-			update((state) => ({
-				count: state.count - 1,
-				history: [...state.history, state.count - 1]
-			})),
-		reset: () =>
-			update(() => ({
-				count: initialValue,
-				history: [initialValue]
-			})),
-		setCount: (value: number) =>
-			update((state) => ({
-				count: value,
-				history: [...state.history, value]
-			}))
-	};
+ return {
+  subscribe,
+  increment: () =>
+   update((state) => ({
+    count: state.count + 1,
+    history: [...state.history, state.count + 1]
+   })),
+  decrement: () =>
+   update((state) => ({
+    count: state.count - 1,
+    history: [...state.history, state.count - 1]
+   })),
+  reset: () =>
+   update(() => ({
+    count: initialValue,
+    history: [initialValue]
+   })),
+  setCount: (value: number) =>
+   update((state) => ({
+    count: value,
+    history: [...state.history, value]
+   }))
+ };
 }
 
 export const counter = createCounter();
@@ -177,25 +177,25 @@ import { users } from './users';
 import { filters } from './filters';
 
 interface FilteredUser {
-	readonly id: string;
-	readonly name: string;
-	readonly active: boolean;
+ readonly id: string;
+ readonly name: string;
+ readonly active: boolean;
 }
 
 export const filteredUsers: Readable<readonly FilteredUser[]> = derived(
-	[users, filters],
-	([$users, $filters]) => {
-		return $users.filter((user) => {
-			if ($filters.activeOnly && !user.active) return false;
-			if (
-				$filters.searchTerm &&
-				!user.name.toLowerCase().includes($filters.searchTerm.toLowerCase())
-			) {
-				return false;
-			}
-			return true;
-		});
-	}
+ [users, filters],
+ ([$users, $filters]) => {
+  return $users.filter((user) => {
+   if ($filters.activeOnly && !user.active) return false;
+   if (
+    $filters.searchTerm &&
+    !user.name.toLowerCase().includes($filters.searchTerm.toLowerCase())
+   ) {
+    return false;
+   }
+   return true;
+  });
+ }
 );
 ```
 
@@ -208,30 +208,30 @@ export const filteredUsers: Readable<readonly FilteredUser[]> = derived(
 import type { Action } from 'svelte/action';
 
 interface ClickOutsideParams {
-	enabled?: boolean;
-	callback: () => void;
+ enabled?: boolean;
+ callback: () => void;
 }
 
 export const clickOutside: Action<HTMLElement, ClickOutsideParams> = (node, params) => {
-	const { enabled = true, callback } = params;
+ const { enabled = true, callback } = params;
 
-	function handleClick(event: MouseEvent) {
-		if (!enabled) return;
-		if (node && !node.contains(event.target as Node)) {
-			callback();
-		}
-	}
+ function handleClick(event: MouseEvent) {
+  if (!enabled) return;
+  if (node && !node.contains(event.target as Node)) {
+   callback();
+  }
+ }
 
-	document.addEventListener('click', handleClick, true);
+ document.addEventListener('click', handleClick, true);
 
-	return {
-		update(newParams) {
-			params = newParams;
-		},
-		destroy() {
-			document.removeEventListener('click', handleClick, true);
-		}
-	};
+ return {
+  update(newParams) {
+   params = newParams;
+  },
+  destroy() {
+   document.removeEventListener('click', handleClick, true);
+  }
+ };
 };
 ```
 
@@ -256,7 +256,7 @@ export type AtLeastOne<T, U = { [K in keyof T]: Pick<T, K> }> = Partial<T> & U[k
 
 // Create discriminated union from object
 export type DiscriminatedUnion<T extends Record<string, unknown>> = {
-	[K in keyof T]: { type: K; payload: T[K] };
+ [K in keyof T]: { type: K; payload: T[K] };
 }[keyof T];
 ```
 
@@ -396,28 +396,28 @@ import { writable, type Writable } from 'svelte/store';
 const THEME_KEY = Symbol('theme');
 
 export interface ThemeContext {
-	theme: Writable<'light' | 'dark'>;
-	toggle: () => void;
+ theme: Writable<'light' | 'dark'>;
+ toggle: () => void;
 }
 
 export function setThemeContext(): ThemeContext {
-	const theme = writable<'light' | 'dark'>('light');
+ const theme = writable<'light' | 'dark'>('light');
 
-	const context: ThemeContext = {
-		theme,
-		toggle: () => theme.update((t) => (t === 'light' ? 'dark' : 'light'))
-	};
+ const context: ThemeContext = {
+  theme,
+  toggle: () => theme.update((t) => (t === 'light' ? 'dark' : 'light'))
+ };
 
-	setContext(THEME_KEY, context);
-	return context;
+ setContext(THEME_KEY, context);
+ return context;
 }
 
 export function getThemeContext(): ThemeContext {
-	const context = getContext<ThemeContext>(THEME_KEY);
-	if (!context) {
-		throw new Error('Theme context not found. Did you forget to call setThemeContext?');
-	}
-	return context;
+ const context = getContext<ThemeContext>(THEME_KEY);
+ if (!context) {
+  throw new Error('Theme context not found. Did you forget to call setThemeContext?');
+ }
+ return context;
 }
 ```
 
@@ -430,44 +430,44 @@ import { writable, derived, type Readable } from 'svelte/store';
 type ValidationRule<T> = (value: T) => string | null;
 
 interface FieldState<T> {
-	value: T;
-	error: string | null;
-	touched: boolean;
+ value: T;
+ error: string | null;
+ touched: boolean;
 }
 
 export function createFormField<T>(initialValue: T, validators: readonly ValidationRule<T>[] = []) {
-	const state = writable<FieldState<T>>({
-		value: initialValue,
-		error: null,
-		touched: false
-	});
+ const state = writable<FieldState<T>>({
+  value: initialValue,
+  error: null,
+  touched: false
+ });
 
-	const { subscribe, update } = state;
+ const { subscribe, update } = state;
 
-	function validate(value: T): string | null {
-		for (const validator of validators) {
-			const error = validator(value);
-			if (error) return error;
-		}
-		return null;
-	}
+ function validate(value: T): string | null {
+  for (const validator of validators) {
+   const error = validator(value);
+   if (error) return error;
+  }
+  return null;
+ }
 
-	return {
-		subscribe,
-		setValue: (value: T) =>
-			update((s) => ({
-				...s,
-				value,
-				error: validate(value)
-			})),
-		touch: () => update((s) => ({ ...s, touched: true })),
-		reset: () =>
-			update(() => ({
-				value: initialValue,
-				error: null,
-				touched: false
-			}))
-	};
+ return {
+  subscribe,
+  setValue: (value: T) =>
+   update((s) => ({
+    ...s,
+    value,
+    error: validate(value)
+   })),
+  touch: () => update((s) => ({ ...s, touched: true })),
+  reset: () =>
+   update(() => ({
+    value: initialValue,
+    error: null,
+    touched: false
+   }))
+ };
 }
 ```
 
@@ -512,36 +512,36 @@ When writing Svelte code, always:
 
 ````svelte
 <script lang="ts">
-	/**
-	 * [Component description]
-	 *
-	 * @example
-	 * ```svelte
-	 * <ComponentName prop1="value" on:event={handler} />
-	 * ```
-	 */
+ /**
+  * [Component description]
+  *
+  * @example
+  * ```svelte
+  * <ComponentName prop1="value" on:event={handler} />
+  * ```
+  */
 
-	import type { ComponentType } from 'svelte';
+ import type { ComponentType } from 'svelte';
 
-	interface Props {
-		// Define all props with types
-	}
+ interface Props {
+  // Define all props with types
+ }
 
-	let {
-		// Destructure with defaults
-	}: Props = $props();
+ let {
+  // Destructure with defaults
+ }: Props = $props();
 
-	// Derived state
+ // Derived state
 
-	// Event handlers
+ // Event handlers
 
-	// Lifecycle (if needed)
+ // Lifecycle (if needed)
 </script>
 
 <!-- Template -->
 
 <style>
-	/* Scoped styles */
+ /* Scoped styles */
 </style>
 ````
 
@@ -562,24 +562,24 @@ When writing Svelte code, always:
 import { writable, type Readable } from 'svelte/store';
 
 interface State {
-	// Define state shape
+ // Define state shape
 }
 
 interface Store extends Readable<State> {
-	// Define methods
+ // Define methods
 }
 
 function createStore(initialState: State): Store {
-	const { subscribe, update, set } = writable<State>(initialState);
+ const { subscribe, update, set } = writable<State>(initialState);
 
-	return {
-		subscribe
-		// Implement methods
-	};
+ return {
+  subscribe
+  // Implement methods
+ };
 }
 
 export const myStore = createStore({
-	// Initial state
+ // Initial state
 });
 ````
 
@@ -590,35 +590,35 @@ import type { Meta, StoryObj } from '@storybook/svelte';
 import ComponentName from './ComponentName.svelte';
 
 const meta = {
-	title: 'Domain/ComponentName',
-	component: ComponentName,
-	tags: ['autodocs'],
-	argTypes: {
-		// Define controls for props
-		variant: {
-			control: { type: 'select' },
-			options: ['primary', 'secondary']
-		},
-		disabled: { control: 'boolean' }
-	}
+ title: 'Domain/ComponentName',
+ component: ComponentName,
+ tags: ['autodocs'],
+ argTypes: {
+  // Define controls for props
+  variant: {
+   control: { type: 'select' },
+   options: ['primary', 'secondary']
+  },
+  disabled: { control: 'boolean' }
+ }
 } satisfies Meta<ComponentName>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-	args: {
-		// Default props
-		label: 'Button',
-		disabled: false
-	}
+ args: {
+  // Default props
+  label: 'Button',
+  disabled: false
+ }
 };
 
 export const WithVariant: Story = {
-	args: {
-		label: 'Secondary Button',
-		variant: 'secondary'
-	}
+ args: {
+  label: 'Secondary Button',
+  variant: 'secondary'
+ }
 };
 ```
 
@@ -666,10 +666,10 @@ export const WithVariant: Story = {
 
 Here's how all patterns come together:
 
-```
+```shell
 lib/features/todo/
 ├── components/
-│   ├── TodoList.svelte          # Container component
+│   ├── TodoList.svelte           # Container component
 │   ├── TodoItem.svelte           # Presentational component
 │   └── TodoForm.svelte           # Form component
 ├── stores/

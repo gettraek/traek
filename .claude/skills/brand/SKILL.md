@@ -31,7 +31,7 @@ This skill **extends** the UX Design Skill by adding:
 
 Every brand exists on these spectrums:
 
-```
+```bash
 Playful ←→ Serious
 Minimal ←→ Ornate
 Modern ←→ Classic
@@ -55,7 +55,7 @@ The visual design must speak the same language as the brand:
 
 #### Color Psychology
 
-```
+```bash
 Red: Energy, urgency, passion, danger
 Orange: Creativity, enthusiasm, warmth
 Yellow: Optimism, clarity, attention
@@ -73,59 +73,59 @@ Gray: Balance, neutrality, timelessness
 ```typescript
 // Extended palette structure
 export const brandColors = {
-	// Core brand colors
-	primary: {
-		50: '#eff6ff', // Lightest tint
-		100: '#dbeafe',
-		200: '#bfdbfe',
-		300: '#93c5fd',
-		400: '#60a5fa',
-		500: '#3b82f6', // Base color
-		600: '#2563eb',
-		700: '#1d4ed8',
-		800: '#1e40af',
-		900: '#1e3a8a', // Darkest shade
-		950: '#172554' // Extra dark for text on light
-	},
+ // Core brand colors
+ primary: {
+  50: '#eff6ff', // Lightest tint
+  100: '#dbeafe',
+  200: '#bfdbfe',
+  300: '#93c5fd',
+  400: '#60a5fa',
+  500: '#3b82f6', // Base color
+  600: '#2563eb',
+  700: '#1d4ed8',
+  800: '#1e40af',
+  900: '#1e3a8a', // Darkest shade
+  950: '#172554' // Extra dark for text on light
+ },
 
-	// Supporting brand color
-	secondary: {
-		// Same structure...
-	},
+ // Supporting brand color
+ secondary: {
+  // Same structure...
+ },
 
-	// Accent colors (1-2 max)
-	accent: {
-		// For highlights, special elements
-	},
+ // Accent colors (1-2 max)
+ accent: {
+  // For highlights, special elements
+ },
 
-	// Semantic colors (inherit from brand or custom)
-	success: {
-		/* green shades */
-	},
-	warning: {
-		/* amber/orange shades */
-	},
-	error: {
-		/* red shades */
-	},
-	info: {
-		/* blue shades */
-	},
+ // Semantic colors (inherit from brand or custom)
+ success: {
+  /* green shades */
+ },
+ warning: {
+  /* amber/orange shades */
+ },
+ error: {
+  /* red shades */
+ },
+ info: {
+  /* blue shades */
+ },
 
-	// Neutrals (8-10 shades minimum)
-	gray: {
-		50: '#f9fafb',
-		100: '#f3f4f6',
-		200: '#e5e7eb',
-		300: '#d1d5db',
-		400: '#9ca3af',
-		500: '#6b7280', // Mid-point for borders
-		600: '#4b5563',
-		700: '#374151',
-		800: '#1f2937',
-		900: '#111827', // Text on light backgrounds
-		950: '#030712' // Deepest black
-	}
+ // Neutrals (8-10 shades minimum)
+ gray: {
+  50: '#f9fafb',
+  100: '#f3f4f6',
+  200: '#e5e7eb',
+  300: '#d1d5db',
+  400: '#9ca3af',
+  500: '#6b7280', // Mid-point for borders
+  600: '#4b5563',
+  700: '#374151',
+  800: '#1f2937',
+  900: '#111827', // Text on light backgrounds
+  950: '#030712' // Deepest black
+ }
 };
 ```
 
@@ -139,7 +139,7 @@ export const brandColors = {
 
 #### Color Application Strategy
 
-```
+```bash
 60% - Dominant (usually neutral background)
 30% - Secondary (brand color, content areas)
 10% - Accent (CTAs, highlights, important elements)
@@ -149,7 +149,7 @@ export const brandColors = {
 
 #### Typeface Selection Strategy
 
-```
+```bash
 Display/Headline Font: Brand personality carrier
 - Serif: Traditional, trustworthy, editorial
 - Sans-serif: Modern, clean, tech-forward
@@ -176,32 +176,32 @@ Body Font: Readability first
 ```typescript
 // Example: 1.250 (Major Third) scale
 export const typography = {
-	// Display sizes (headlines, heroes)
-	display: {
-		xl: '4.5rem', // 72px - Hero headlines
-		lg: '3.75rem', // 60px - Page headlines
-		md: '3rem', // 48px - Section headlines
-		sm: '2.25rem' // 36px - Subsection headlines
-	},
+ // Display sizes (headlines, heroes)
+ display: {
+  xl: '4.5rem', // 72px - Hero headlines
+  lg: '3.75rem', // 60px - Page headlines
+  md: '3rem', // 48px - Section headlines
+  sm: '2.25rem' // 36px - Subsection headlines
+ },
 
-	// Heading sizes (content hierarchy)
-	heading: {
-		h1: '2.25rem', // 36px
-		h2: '1.875rem', // 30px
-		h3: '1.5rem', // 24px
-		h4: '1.25rem', // 20px
-		h5: '1.125rem', // 18px
-		h6: '1rem' // 16px
-	},
+ // Heading sizes (content hierarchy)
+ heading: {
+  h1: '2.25rem', // 36px
+  h2: '1.875rem', // 30px
+  h3: '1.5rem', // 24px
+  h4: '1.25rem', // 20px
+  h5: '1.125rem', // 18px
+  h6: '1rem' // 16px
+ },
 
-	// Body sizes
-	body: {
-		xl: '1.25rem', // 20px - Large body, intro paragraphs
-		lg: '1.125rem', // 18px - Comfortable reading
-		md: '1rem', // 16px - Default body text
-		sm: '0.875rem', // 14px - Secondary text, captions
-		xs: '0.75rem' // 12px - Fine print, labels
-	}
+ // Body sizes
+ body: {
+  xl: '1.25rem', // 20px - Large body, intro paragraphs
+  lg: '1.125rem', // 18px - Comfortable reading
+  md: '1rem', // 16px - Default body text
+  sm: '0.875rem', // 14px - Secondary text, captions
+  xs: '0.75rem' // 12px - Fine print, labels
+ }
 };
 ```
 
@@ -218,30 +218,30 @@ export const typography = {
 
 ```typescript
 export const space = {
-	// Micro spacing (within components)
-	px: '1px',
-	0.5: '2px',
-	1: '4px',
-	1.5: '6px',
-	2: '8px',
-	2.5: '10px',
-	3: '12px',
-	3.5: '14px',
-	4: '16px',
-	5: '20px',
-	6: '24px',
+ // Micro spacing (within components)
+ px: '1px',
+ 0.5: '2px',
+ 1: '4px',
+ 1.5: '6px',
+ 2: '8px',
+ 2.5: '10px',
+ 3: '12px',
+ 3.5: '14px',
+ 4: '16px',
+ 5: '20px',
+ 6: '24px',
 
-	// Macro spacing (between sections)
-	8: '32px',
-	10: '40px',
-	12: '48px',
-	16: '64px',
-	20: '80px',
-	24: '96px',
-	32: '128px',
-	40: '160px',
-	48: '192px',
-	64: '256px'
+ // Macro spacing (between sections)
+ 8: '32px',
+ 10: '40px',
+ 12: '48px',
+ 16: '64px',
+ 20: '80px',
+ 24: '96px',
+ 32: '128px',
+ 40: '160px',
+ 48: '192px',
+ 64: '256px'
 };
 ```
 
@@ -276,14 +276,14 @@ export const space = {
 
 ```typescript
 export const radius = {
-	none: '0',
-	sm: '0.25rem', // 4px - Subtle rounding
-	md: '0.5rem', // 8px - Default for most elements
-	lg: '0.75rem', // 12px - Cards, containers
-	xl: '1rem', // 16px - Prominent elements
-	'2xl': '1.5rem', // 24px - Hero elements
-	'3xl': '2rem', // 32px - Extra large
-	full: '9999px' // Pills, circular elements
+ none: '0',
+ sm: '0.25rem', // 4px - Subtle rounding
+ md: '0.5rem', // 8px - Default for most elements
+ lg: '0.75rem', // 12px - Cards, containers
+ xl: '1rem', // 16px - Prominent elements
+ '2xl': '1.5rem', // 24px - Hero elements
+ '3xl': '2rem', // 32px - Extra large
+ full: '9999px' // Pills, circular elements
 };
 ```
 
@@ -298,16 +298,16 @@ export const radius = {
 
 ```css
 .glass-effect {
-	background: rgba(255, 255, 255, 0.1);
-	backdrop-filter: blur(10px);
-	border: 1px solid rgba(255, 255, 255, 0.2);
+ background: rgba(255, 255, 255, 0.1);
+ backdrop-filter: blur(10px);
+ border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .neumorphism {
-	background: #e0e0e0;
-	box-shadow:
-		20px 20px 60px #bebebe,
-		-20px -20px 60px #ffffff;
+ background: #e0e0e0;
+ box-shadow:
+  20px 20px 60px #bebebe,
+  -20px -20px 60px #ffffff;
 }
 ```
 
@@ -323,7 +323,7 @@ export const radius = {
 
 #### Icon Families
 
-```
+```bash
 System icons: Navigation, actions (outline style)
 Product icons: Features, services (filled or duotone)
 Decorative icons: Illustrations, embellishments
@@ -342,19 +342,19 @@ Decorative icons: Illustrations, embellishments
 
 ```typescript
 export const easing = {
-	// Natural motion (most common)
-	easeOut: 'cubic-bezier(0.33, 1, 0.68, 1)', // Decelerating
-	easeIn: 'cubic-bezier(0.32, 0, 0.67, 0)', // Accelerating
-	easeInOut: 'cubic-bezier(0.65, 0, 0.35, 1)', // Both
+ // Natural motion (most common)
+ easeOut: 'cubic-bezier(0.33, 1, 0.68, 1)', // Decelerating
+ easeIn: 'cubic-bezier(0.32, 0, 0.67, 0)', // Accelerating
+ easeInOut: 'cubic-bezier(0.65, 0, 0.35, 1)', // Both
 
-	// Playful/bouncy (friendly brands)
-	bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+ // Playful/bouncy (friendly brands)
+ bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
 
-	// Sharp/technical (professional brands)
-	sharp: 'cubic-bezier(0.4, 0, 0.6, 1)',
+ // Sharp/technical (professional brands)
+ sharp: 'cubic-bezier(0.4, 0, 0.6, 1)',
 
-	// Elastic (attention-grabbing)
-	elastic: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)'
+ // Elastic (attention-grabbing)
+ elastic: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)'
 };
 ```
 
@@ -362,12 +362,12 @@ export const easing = {
 
 ```typescript
 export const duration = {
-	instant: '50ms', // Color changes, opacity
-	fast: '100ms', // Hover states
-	normal: '200ms', // Most transitions
-	slow: '300ms', // Large movements, modals
-	slower: '500ms', // Page transitions
-	slowest: '1000ms' // Hero animations, onboarding
+ instant: '50ms', // Color changes, opacity
+ fast: '100ms', // Hover states
+ normal: '200ms', // Most transitions
+ slow: '300ms', // Large movements, modals
+ slower: '500ms', // Page transitions
+ slowest: '1000ms' // Hero animations, onboarding
 };
 ```
 
@@ -385,24 +385,24 @@ export const duration = {
 ```typescript
 // Micro-interactions
 const buttonPress = {
-	transform: 'scale(0.98)',
-	transition: 'transform 100ms ease-out'
+ transform: 'scale(0.98)',
+ transition: 'transform 100ms ease-out'
 };
 
 // Enter animations
 const fadeInUp = {
-	from: { opacity: 0, transform: 'translateY(20px)' },
-	to: { opacity: 1, transform: 'translateY(0)' },
-	duration: '400ms',
-	easing: 'ease-out'
+ from: { opacity: 0, transform: 'translateY(20px)' },
+ to: { opacity: 1, transform: 'translateY(0)' },
+ duration: '400ms',
+ easing: 'ease-out'
 };
 
 // Page transitions
 const slideIn = {
-	from: { transform: 'translateX(100%)' },
-	to: { transform: 'translateX(0)' },
-	duration: '300ms',
-	easing: 'cubic-bezier(0.33, 1, 0.68, 1)'
+ from: { transform: 'translateX(100%)' },
+ to: { transform: 'translateX(0)' },
+ duration: '300ms',
+ easing: 'cubic-bezier(0.33, 1, 0.68, 1)'
 };
 ```
 
@@ -410,10 +410,10 @@ const slideIn = {
 
 ```css
 @media (prefers-reduced-motion: reduce) {
-	* {
-		animation-duration: 0.01ms !important;
-		transition-duration: 0.01ms !important;
-	}
+ * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+ }
 }
 ```
 
@@ -428,7 +428,7 @@ const slideIn = {
 
 #### Illustration Style Spectrum
 
-```
+```bash
 Flat ←→ Dimensional
 Geometric ←→ Organic
 Minimal ←→ Detailed
@@ -453,27 +453,27 @@ Playful ←→ Professional
 
 // Bold/Energetic brand
 const boldButton = {
-	background: 'linear-gradient(135deg, primary-500, primary-600)',
-	transform: 'hover:scale(1.05)',
-	boxShadow: '0 4px 14px rgba(primary, 0.4)',
-	fontWeight: '700'
+ background: 'linear-gradient(135deg, primary-500, primary-600)',
+ transform: 'hover:scale(1.05)',
+ boxShadow: '0 4px 14px rgba(primary, 0.4)',
+ fontWeight: '700'
 };
 
 // Minimal/Elegant brand
 const minimalButton = {
-	background: 'white',
-	border: '1px solid gray-900',
-	color: 'gray-900',
-	transform: 'hover:translate-y(-2px)',
-	transition: 'all 200ms ease-out'
+ background: 'white',
+ border: '1px solid gray-900',
+ color: 'gray-900',
+ transform: 'hover:translate-y(-2px)',
+ transition: 'all 200ms ease-out'
 };
 
 // Friendly/Approachable brand
 const friendlyButton = {
-	background: 'primary-500',
-	borderRadius: '9999px', // Pill shape
-	padding: '12px 32px',
-	boxShadow: '0 2px 8px rgba(primary, 0.25)'
+ background: 'primary-500',
+ borderRadius: '9999px', // Pill shape
+ padding: '12px 32px',
+ boxShadow: '0 2px 8px rgba(primary, 0.25)'
 };
 ```
 
@@ -484,24 +484,24 @@ const friendlyButton = {
 
 // Tech/Modern
 const modernCard = {
-	background: 'white',
-	border: '1px solid gray-200',
-	borderRadius: '12px',
-	boxShadow: 'none',
-	hover: {
-		borderColor: 'primary-500',
-		transform: 'translateY(-4px)',
-		boxShadow: 'shadow-lg'
-	}
+ background: 'white',
+ border: '1px solid gray-200',
+ borderRadius: '12px',
+ boxShadow: 'none',
+ hover: {
+  borderColor: 'primary-500',
+  transform: 'translateY(-4px)',
+  boxShadow: 'shadow-lg'
+ }
 };
 
 // Premium/Luxury
 const luxuryCard = {
-	background: 'gradient-to-br from-gray-50 to-white',
-	border: 'none',
-	borderRadius: '8px',
-	boxShadow: 'shadow-2xl',
-	padding: '48px'
+ background: 'gradient-to-br from-gray-50 to-white',
+ border: 'none',
+ borderRadius: '8px',
+ boxShadow: 'shadow-2xl',
+ padding: '48px'
 };
 ```
 
@@ -512,32 +512,32 @@ const luxuryCard = {
 ```typescript
 // Light mode
 const light = {
-	bg: {
-		primary: 'white',
-		secondary: 'gray-50',
-		tertiary: 'gray-100'
-	},
-	text: {
-		primary: 'gray-900',
-		secondary: 'gray-600',
-		tertiary: 'gray-500'
-	},
-	border: 'gray-200'
+ bg: {
+  primary: 'white',
+  secondary: 'gray-50',
+  tertiary: 'gray-100'
+ },
+ text: {
+  primary: 'gray-900',
+  secondary: 'gray-600',
+  tertiary: 'gray-500'
+ },
+ border: 'gray-200'
 };
 
 // Dark mode (NOT just inverted!)
 const dark = {
-	bg: {
-		primary: 'gray-900', // Not pure black
-		secondary: 'gray-850', // Slight variation
-		tertiary: 'gray-800'
-	},
-	text: {
-		primary: 'gray-100', // Not pure white (easier on eyes)
-		secondary: 'gray-400',
-		tertiary: 'gray-500'
-	},
-	border: 'gray-700' // Subtle borders
+ bg: {
+  primary: 'gray-900', // Not pure black
+  secondary: 'gray-850', // Slight variation
+  tertiary: 'gray-800'
+ },
+ text: {
+  primary: 'gray-100', // Not pure white (easier on eyes)
+  secondary: 'gray-400',
+  tertiary: 'gray-500'
+ },
+ border: 'gray-700' // Subtle borders
 };
 ```
 
@@ -553,7 +553,7 @@ const dark = {
 
 #### Logo Adaptations
 
-```
+```bash
 Full logo: Desktop, ample space
 Logomark only: Mobile, small spaces
 Horizontal: Wide containers
@@ -563,7 +563,7 @@ Monochrome: Single-color applications
 
 #### Breakpoint-Specific Adjustments
 
-```
+```bash
 Mobile (< 768px):
 - Larger touch targets (44×44px)
 - Simplified navigation
@@ -586,7 +586,7 @@ Desktop (> 1024px):
 
 #### Color Contrast Requirements
 
-```
+```bash
 WCAG AA (Minimum):
 - Normal text (< 18px): 4.5:1
 - Large text (≥ 18px): 3:1
@@ -602,14 +602,14 @@ WCAG AAA (Enhanced):
 ```typescript
 // Always test with contrast checker
 const accessiblePairs = {
-	// Text on backgrounds
-	'gray-900 on white': '20.8:1', // Excellent
-	'gray-700 on white': '11.4:1', // Excellent
-	'primary-600 on white': '7.1:1', // AAA
-	'primary-500 on white': '4.8:1', // AA (minimum)
+ // Text on backgrounds
+ 'gray-900 on white': '20.8:1', // Excellent
+ 'gray-700 on white': '11.4:1', // Excellent
+ 'primary-600 on white': '7.1:1', // AAA
+ 'primary-500 on white': '4.8:1', // AA (minimum)
 
-	// Interactive elements
-	'primary-600 on gray-100': '6.2:1' // Good for buttons
+ // Interactive elements
+ 'primary-600 on gray-100': '6.2:1' // Good for buttons
 };
 ```
 
@@ -668,7 +668,7 @@ DON'T: Use multiple primary buttons in same context
 
 When implementing brand design:
 
-**Visual Consistency**
+#### Visual Consistency
 
 - [ ] Color palette applied correctly
 - [ ] Typography scale maintained
@@ -677,14 +677,14 @@ When implementing brand design:
 - [ ] Shadow system applied appropriately
 - [ ] Icons from same family
 
-**Brand Voice**
+#### Brand Voice
 
 - [ ] Visual elements reflect brand personality
 - [ ] Tone matches across touchpoints
 - [ ] Emotional response appropriate
 - [ ] Differentiation from competitors clear
 
-**Motion & Interaction**
+#### Motion & Interaction
 
 - [ ] Animation timing consistent
 - [ ] Easing functions brand-appropriate
@@ -692,7 +692,7 @@ When implementing brand design:
 - [ ] Micro-interactions polished
 - [ ] Loading states branded
 
-**Responsive & Adaptive**
+#### Responsive & Adaptive
 
 - [ ] Logo scales appropriately
 - [ ] Color contrast maintained at all sizes
@@ -700,7 +700,7 @@ When implementing brand design:
 - [ ] Content hierarchy clear on all screens
 - [ ] Dark mode considered and implemented
 
-**Accessibility**
+#### Accessibility
 
 - [ ] Color contrast meets WCAG AA minimum
 - [ ] Focus states visible and on-brand
@@ -712,7 +712,7 @@ When implementing brand design:
 
 ### The Innovator (Tech, Startups)
 
-```
+```bash
 Colors: Blue/purple gradients, electric accents
 Typography: Geometric sans-serif (Inter, Satoshi)
 Spacing: Generous, breathing room
@@ -723,7 +723,7 @@ Animation: Smooth, fluid, slightly bouncy
 
 ### The Authority (Finance, Legal, Enterprise)
 
-```
+```bash
 Colors: Navy, gray, minimal accent
 Typography: Classic serif (Tiempos) + clean sans (Suisse)
 Spacing: Structured, grid-based
@@ -734,7 +734,7 @@ Animation: Minimal, purposeful, smooth
 
 ### The Creator (Design, Art, Agency)
 
-```
+```bash
 Colors: Bold, unexpected combinations
 Typography: Display fonts, artistic choices
 Spacing: Asymmetric, dynamic
@@ -745,7 +745,7 @@ Animation: Playful, attention-grabbing
 
 ### The Caregiver (Health, Education, Non-profit)
 
-```
+```bash
 Colors: Warm, approachable (greens, soft blues)
 Typography: Humanist sans (Open Sans, Nunito)
 Spacing: Comfortable, not cramped
@@ -766,7 +766,7 @@ Animation: Gentle, reassuring
 
 ### Decision Framework
 
-```
+```bash
 When UX and Brand conflict:
 
 Question 1: Is the brand element essential to identity?

@@ -31,7 +31,7 @@ This skill guides Claude to operate as a top 0.001% UX designer with exceptional
 
 ### 3. Color System
 
-```
+```bash
 Primary: Brand identity, CTAs
 Secondary: Supporting actions
 Neutral: Text, borders, backgrounds (8-10 shades)
@@ -54,7 +54,7 @@ Semantic: Success, Warning, Error, Info
 
 #### Buttons
 
-```
+```bash
 Primary: High emphasis, main action
 Secondary: Medium emphasis
 Tertiary/Ghost: Low emphasis
@@ -137,21 +137,21 @@ Sizes: sm (32px), md (40px), lg (48px) heights
 ```typescript
 // colors.ts
 export const colors = {
-	primary: {
-		50: '#f0f9ff',
-		500: '#3b82f6',
-		900: '#1e3a8a'
-	}
-	// ...
+  primary: {
+    50: '#f0f9ff',
+    500: '#3b82f6',
+    900: '#1e3a8a'
+  }
+  // ...
 };
 
 // spacing.ts
 export const spacing = {
-	xs: '4px',
-	sm: '8px',
-	md: '16px',
-	lg: '24px',
-	xl: '32px'
+  xs: '4px',
+  sm: '8px',
+  md: '16px',
+  lg: '24px',
+  xl: '32px'
 };
 ```
 
@@ -176,7 +176,7 @@ export const spacing = {
 
 When creating a component or design:
 
-**Visual Design**
+### Visual Design
 
 - [ ] Clear visual hierarchy established
 - [ ] Consistent spacing scale used
@@ -184,7 +184,7 @@ When creating a component or design:
 - [ ] Color contrast verified (use contrast checker)
 - [ ] Focus states visible and clear
 
-**Accessibility**
+### Accessibility
 
 - [ ] Semantic HTML used
 - [ ] ARIA labels where needed
@@ -193,14 +193,14 @@ When creating a component or design:
 - [ ] Alt text for images
 - [ ] Form labels properly associated
 
-**Responsive**
+### Responsive
 
 - [ ] Mobile layout considered first
 - [ ] Touch targets adequate size
 - [ ] Works on 320px width minimum
 - [ ] Tested at multiple breakpoints
 
-**Interaction**
+### Interaction
 
 - [ ] Loading states defined
 - [ ] Error states designed
@@ -208,7 +208,7 @@ When creating a component or design:
 - [ ] Success feedback clear
 - [ ] Disabled states visible
 
-**Code Quality**
+### Code Quality
 
 - [ ] Reusable component structure
 - [ ] Props clearly defined
