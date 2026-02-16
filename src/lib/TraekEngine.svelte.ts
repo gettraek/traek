@@ -915,6 +915,93 @@ export class TraekEngine {
 		return Array.from(visited);
 	}
 
+	/** Get the primary parent of a node (first in parentIds). Null for root or not found. */
+	getParent(nodeId: string): Node | null {
+		const node = this.getNode(nodeId);
+		if (!node) return null;
+		const primaryParentId = node.parentIds[0];
+		if (!primaryParentId) return null;
+		return this.getNode(primaryParentId) ?? null;
+	}
+
+	/** Get siblings of a node (children of the same primary parent). Filters thought nodes. Includes self. */
+	getSiblings(nodeId: string): Node[] {
+		const node = this.getNode(nodeId);
+		if (!node) return [];
+		const primaryParentId = node.parentIds[0] ?? null;
+		const children = this.getChildren(primaryParentId);
+		return children.filter((c) => c.type !== 'thought');
+	}
+
+	/** Get depth of a node following primary parent chain. Root = 0, not found = -1. */
+	getDepth(nodeId: string): number {
+		let depth = 0;
+		let current = this.getNode(nodeId);
+		if (!current) return -1;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const visited = new Set<string>();
+		while (current) {
+			// Cycle detection
+			if (visited.has(current.id)) {
+				console.warn(`Cycle detected in getDepth from node ${nodeId}`);
+				return depth;
+			}
+			visited.add(current.id);
+			const primaryParentId = current.parentIds[0];
+			if (!primaryParentId) return depth;
+			current = this.getNode(primaryParentId);
+			depth++;
+		}
+		return depth;
+	}
+
+	/** Get the maximum depth across all leaf nodes. -1 for empty tree. */
+	getMaxDepth(): number {
+		if (this.nodes.length === 0) return -1;
+		let max = 0;
+		for (const node of this.nodes) {
+			if (node.type === 'thought') continue;
+			const children = this.getChildren(node.id).filter((c) => c.type !== 'thought');
+			if (children.length === 0) {
+				const d = this.getDepth(node.id);
+				if (d > max) max = d;
+			}
+		}
+		return max;
+	}
+
+	/** Follow children downward from a node. Uses lastVisitedChildren hints, otherwise first child. Returns the leaf. */
+	getActiveLeaf(nodeId: string, lastVisitedChildren?: Map<string, string>): Node | undefined {
+		let current: Node | undefined = this.getNode(nodeId);
+		if (!current) return undefined;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const visited = new Set<string>();
+		while (current) {
+			// Cycle detection
+			if (visited.has(current.id)) {
+				console.warn(`Cycle detected in getActiveLeaf from node ${nodeId}`);
+				return current;
+			}
+			visited.add(current.id);
+			const kids: Node[] = this.getChildren(current.id).filter((c: Node) => c.type !== 'thought');
+			if (kids.length === 0) return current;
+			const hintId: string | undefined = lastVisitedChildren?.get(current.id);
+			const hintChild: Node | undefined = hintId
+				? kids.find((c: Node) => c.id === hintId)
+				: undefined;
+			current = hintChild ?? kids[0];
+		}
+		return current;
+	}
+
+	/** Get the index of a node among its siblings. Returns { index, total }. { -1, 0 } if not found. */
+	getSiblingIndex(nodeId: string): { index: number; total: number } {
+		const siblings = this.getSiblings(nodeId);
+		if (siblings.length === 0) return { index: -1, total: 0 };
+		const idx = siblings.findIndex((s) => s.id === nodeId);
+		return { index: idx, total: siblings.length };
+	}
+
 	branchFrom(nodeId: string) {
 		this.activeNodeId = nodeId;
 	}

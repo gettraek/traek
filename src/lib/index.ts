@@ -59,6 +59,12 @@ export {
 	type Toast as ToastData
 } from './toast/toastStore.svelte';
 
+// Mobile / Focus Mode
+export { default as FocusMode } from './mobile/FocusMode.svelte';
+export { default as PositionIndicator } from './mobile/PositionIndicator.svelte';
+export { focusModeConfigSchema, DEFAULT_FOCUS_MODE_CONFIG } from './mobile/focusModeTypes.js';
+export type { FocusModeConfig, SwipeDirection } from './mobile/focusModeTypes.js';
+
 // Schemas (Zod)
 export { serializedNodeSchema, conversationSnapshotSchema } from './persistence/schemas.js';
 export { traekEngineConfigSchema, addNodePayloadSchema } from './schemas.js';

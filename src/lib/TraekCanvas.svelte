@@ -28,6 +28,8 @@
 	import ConnectionLayer from './canvas/ConnectionLayer.svelte';
 	import ToastContainer from './toast/ToastContainer.svelte';
 	import { toastUndo } from './toast/toastStore.svelte';
+	import FocusMode from './mobile/FocusMode.svelte';
+	import type { FocusModeConfig } from './mobile/focusModeTypes.js';
 
 	type InputActionsContext = {
 		engine: TraekEngine;
@@ -60,7 +62,10 @@
 		onRetry,
 		defaultNodeActions: defaultNodeActionsProp,
 		filterNodeActions: filterNodeActionsProp,
-		onEditNode
+		onEditNode,
+		mode = 'auto',
+		mobileBreakpoint = 768,
+		focusConfig
 	}: {
 		engine?: TraekEngine | null;
 		config?: Partial<TraekEngineConfig>;
@@ -105,6 +110,12 @@
 		filterNodeActions?: (node: Node, actions: NodeTypeAction[]) => NodeTypeAction[];
 		/** Called when the user clicks Edit on a user node. */
 		onEditNode?: (nodeId: string) => void;
+		/** Display mode: 'auto' detects viewport width, 'canvas' forces desktop, 'focus' forces mobile focus mode. */
+		mode?: 'auto' | 'canvas' | 'focus';
+		/** Viewport width breakpoint for auto mode (default 768). */
+		mobileBreakpoint?: number;
+		/** Configuration for focus mode (swipe thresholds, transition duration, etc.). */
+		focusConfig?: Partial<FocusModeConfig>;
 	} = $props();
 
 	const config = $derived({
@@ -119,6 +130,24 @@
 		}
 	});
 	const engine = $derived(engineProp ?? (defaultEngine as TraekEngine));
+
+	// Viewport-based mode detection
+	let viewportWidth = $state(typeof window !== 'undefined' ? window.innerWidth : 1024);
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const onResize = () => {
+			viewportWidth = window.innerWidth;
+		};
+		window.addEventListener('resize', onResize);
+		window.addEventListener('orientationchange', onResize);
+		return () => {
+			window.removeEventListener('resize', onResize);
+			window.removeEventListener('orientationchange', onResize);
+		};
+	});
+	const resolvedMode = $derived(
+		mode === 'auto' ? (viewportWidth < mobileBreakpoint ? 'focus' : 'canvas') : mode
+	);
 
 	// Wire registry lifecycle hooks into the engine
 	$effect(() => {
@@ -865,89 +894,114 @@
 </script>
 
 {#if engine}
-	<div
-		bind:this={viewportEl}
-		role="grid"
-		tabindex="-1"
-		class="viewport"
-		class:dragging-canvas={isDragging || !!touchStartPan || !!pinchStart}
-		class:grabbing={isDragging || draggingNodeId}
-		class:connection-drag-active={!!connectionDrag}
-		style:background-position="{offset.x}px {offset.y}px"
-		style:background-size="{config.gridStep * scale}px {config.gridStep * scale}px"
-		style:background-image="radial-gradient(circle, var(--traek-canvas-dot, #333333) {Math.max(
-			0.1,
-			scale
-		).toFixed(1)}px, transparent {Math.max(0.1, scale).toFixed(1)}px)"
-		onkeydown={(e) => {
-			if (e.key === 'Escape') {
-				if (editingNodeId) {
-					editingNodeId = null;
-				} else {
-					engine.activeNodeId = null;
-				}
-			}
-		}}
-		onwheel={handleWheel}
-		onmousedown={handleMouseDown}
-		onmousemove={handleMouseMove}
-		onmouseup={handleMouseUp}
-		onmouseleave={handleMouseUp}
-	>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<!-- svelte-ignore a11y_mouse_events_have_key_events -->
+	{#if resolvedMode === 'focus'}
+		<FocusMode
+			{engine}
+			{componentMap}
+			{registry}
+			{focusConfig}
+			onSendMessage={(input, userNode) => onSendMessage?.(input, userNode)}
+			{onRetry}
+		/>
+	{:else}
 		<div
-			class="canvas-space"
-			style:transform="translate({offset.x}px, {offset.y}px) scale({scale})"
-			onmouseover={(e) => {
-				const nodeEl = (e.target as HTMLElement).closest?.('[data-node-id]');
-				hoveredNodeId = nodeEl ? nodeEl.getAttribute('data-node-id') : null;
+			bind:this={viewportEl}
+			role="grid"
+			tabindex="-1"
+			class="viewport"
+			class:dragging-canvas={isDragging || !!touchStartPan || !!pinchStart}
+			class:grabbing={isDragging || draggingNodeId}
+			class:connection-drag-active={!!connectionDrag}
+			style:background-position="{offset.x}px {offset.y}px"
+			style:background-size="{config.gridStep * scale}px {config.gridStep * scale}px"
+			style:background-image="radial-gradient(circle, var(--traek-canvas-dot, #333333) {Math.max(
+				0.1,
+				scale
+			).toFixed(1)}px, transparent {Math.max(0.1, scale).toFixed(1)}px)"
+			onkeydown={(e) => {
+				if (e.key === 'Escape') {
+					if (editingNodeId) {
+						editingNodeId = null;
+					} else {
+						engine.activeNodeId = null;
+					}
+				}
 			}}
-			onmouseout={(e) => {
-				const related = (e.relatedTarget as HTMLElement)?.closest?.('[data-node-id]');
-				if (!related) hoveredNodeId = null;
-			}}
+			onwheel={handleWheel}
+			onmousedown={handleMouseDown}
+			onmousemove={handleMouseMove}
+			onmouseup={handleMouseUp}
+			onmouseleave={handleMouseUp}
 		>
-			<svg class="connections">
-				<g transform="translate(25000, 25000)">
-					<ConnectionLayer
-						nodes={engine.nodes}
-						{config}
-						{activeAncestorIds}
-						{hoveredNodeId}
-						bind:hoveredConnection
-						{connectionDrag}
-						onDeleteConnection={(parentId, childId) => {
-							engine.removeConnection(parentId, childId);
-						}}
-					/>
-				</g>
-			</svg>
-
-			{#each engine.nodes as node (node.id)}
-				{@const isActive = engine.activeNodeId === node.id}
-				{@const typeDef = registry?.get(node.type)}
-				{@const uiData = node as CustomTraekNode}
-				{@const ResolvedComponent =
-					typeDef?.component ?? uiData?.component ?? componentMap[node.type]}
-				{#if ResolvedComponent}
-					{#if typeDef?.selfWrapping}
-						<!-- Self-wrapping registry component (e.g. TextNode) -->
-						<ResolvedComponent
-							{node}
-							{isActive}
-							{engine}
-							viewportRoot={viewportEl}
-							gridStep={config.gridStep}
-							nodeWidth={config.nodeWidth}
-							{viewportResizeVersion}
-							{editingNodeId}
-							onEditSave={handleEditSave}
-							onEditCancel={handleEditCancel}
-							onStartEdit={onEditNode ?? handleBuiltInEdit}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_mouse_events_have_key_events -->
+			<div
+				class="canvas-space"
+				style:transform="translate({offset.x}px, {offset.y}px) scale({scale})"
+				onmouseover={(e) => {
+					const nodeEl = (e.target as HTMLElement).closest?.('[data-node-id]');
+					hoveredNodeId = nodeEl ? nodeEl.getAttribute('data-node-id') : null;
+				}}
+				onmouseout={(e) => {
+					const related = (e.relatedTarget as HTMLElement)?.closest?.('[data-node-id]');
+					if (!related) hoveredNodeId = null;
+				}}
+			>
+				<svg class="connections">
+					<g transform="translate(25000, 25000)">
+						<ConnectionLayer
+							nodes={engine.nodes}
+							{config}
+							{activeAncestorIds}
+							{hoveredNodeId}
+							bind:hoveredConnection
+							{connectionDrag}
+							onDeleteConnection={(parentId, childId) => {
+								engine.removeConnection(parentId, childId);
+							}}
 						/>
-					{:else}
-						<!-- Wrapped component (registry, node.component, or componentMap) -->
+					</g>
+				</svg>
+
+				{#each engine.nodes as node (node.id)}
+					{@const isActive = engine.activeNodeId === node.id}
+					{@const typeDef = registry?.get(node.type)}
+					{@const uiData = node as CustomTraekNode}
+					{@const ResolvedComponent =
+						typeDef?.component ?? uiData?.component ?? componentMap[node.type]}
+					{#if ResolvedComponent}
+						{#if typeDef?.selfWrapping}
+							<!-- Self-wrapping registry component (e.g. TextNode) -->
+							<ResolvedComponent
+								{node}
+								{isActive}
+								{engine}
+								viewportRoot={viewportEl}
+								gridStep={config.gridStep}
+								nodeWidth={config.nodeWidth}
+								{viewportResizeVersion}
+								{editingNodeId}
+								onEditSave={handleEditSave}
+								onEditCancel={handleEditCancel}
+								onStartEdit={onEditNode ?? handleBuiltInEdit}
+							/>
+						{:else}
+							<!-- Wrapped component (registry, node.component, or componentMap) -->
+							<TraekNodeWrapper
+								{node}
+								{isActive}
+								{engine}
+								viewportRoot={viewportEl}
+								gridStep={config.gridStep}
+								nodeWidth={config.nodeWidth}
+								{viewportResizeVersion}
+								{onRetry}
+							>
+								<ResolvedComponent {node} {engine} {isActive} {...uiData?.props ?? {}} />
+							</TraekNodeWrapper>
+						{/if}
+					{:else if node.type !== 'thought'}
+						<!-- Fallback if no component found -->
 						<TraekNodeWrapper
 							{node}
 							{isActive}
@@ -958,193 +1012,180 @@
 							{viewportResizeVersion}
 							{onRetry}
 						>
-							<ResolvedComponent {node} {engine} {isActive} {...uiData?.props ?? {}} />
+							<div class="node-card error">
+								<div class="role-tag">{node.type}</div>
+								<div class="node-card-content">Missing component for {node.type} node.</div>
+							</div>
 						</TraekNodeWrapper>
 					{/if}
-				{:else if node.type !== 'thought'}
-					<!-- Fallback if no component found -->
-					<TraekNodeWrapper
-						{node}
-						{isActive}
-						{engine}
-						viewportRoot={viewportEl}
-						gridStep={config.gridStep}
-						nodeWidth={config.nodeWidth}
-						{viewportResizeVersion}
-						{onRetry}
-					>
-						<div class="node-card error">
-							<div class="role-tag">{node.type}</div>
-							<div class="node-card-content">Missing component for {node.type} node.</div>
-						</div>
-					</TraekNodeWrapper>
-				{/if}
-			{/each}
+				{/each}
 
-			{#if engine.activeNodeId && activeNodeActions.length > 0}
-				{@const activeNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
-				{#if activeNode}
-					{@const step = config.gridStep}
-					<NodeToolbar
-						actions={activeNodeActions}
-						node={activeNode}
-						{engine}
-						x={(activeNode.metadata?.x ?? 0) * step}
-						y={(activeNode.metadata?.y ?? 0) * step - 40}
-						nodeWidth={config.nodeWidth}
-					/>
-				{/if}
-			{/if}
-		</div>
-
-		{#if engine.nodes.length === 0}
-			<div class="empty-state">
-				<div class="empty-state-content">
-					<div class="empty-state-title">Start a conversation</div>
-					<div class="empty-state-subtitle">Type a message below to begin</div>
-					<svg class="empty-state-arrow" width="24" height="48" viewBox="0 0 24 48" fill="none">
-						<path
-							d="M12 0L12 42M12 42L6 36M12 42L18 36"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
+				{#if engine.activeNodeId && activeNodeActions.length > 0}
+					{@const activeNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
+					{#if activeNode}
+						{@const step = config.gridStep}
+						<NodeToolbar
+							actions={activeNodeActions}
+							node={activeNode}
+							{engine}
+							x={(activeNode.metadata?.x ?? 0) * step}
+							y={(activeNode.metadata?.y ?? 0) * step - 40}
+							nodeWidth={config.nodeWidth}
 						/>
-					</svg>
-				</div>
-			</div>
-		{/if}
-
-		{#if showIntroOverlay && initialOverlay}
-			<div class="overlay-root" transition:fade>
-				{@render initialOverlay()}
-			</div>
-		{/if}
-
-		<div class="floating-input-container" transition:fade>
-			{#if inputActions}
-				{@render inputActions({
-					engine,
-					activeNode: engine.nodes.find((n) => n.id === engine.activeNodeId) ?? null,
-					userInput,
-					setUserInput: (value: string) => (userInput = value),
-					sendMessage,
-					resolver
-				})}
-			{:else}
-				{#if branchCelebration}
-					<div class="branch-celebration" transition:fade>
-						<span class="celebration-icon">🌿</span>
-						{branchCelebration}
-					</div>
-				{/if}
-				<div class="context-info">
-					{#if engine.activeNodeId}
-						{@const ctxNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
-						{@const childCount = ctxNode
-							? engine.nodes.filter((n) => n.parentIds.includes(ctxNode.id) && n.type !== 'thought')
-									.length
-							: 0}
-						<span class="dot"></span>
-						{#if childCount > 0}
-							Branching from selected message
-						{:else}
-							Replying to selected message
-						{/if}
-					{:else}
-						<span class="dot gray"></span> Starting a new conversation
 					{/if}
-				</div>
-				{#if resolver && actionsProp}
-					<ActionBadges
-						actions={actionsProp}
-						suggestedIds={resolver.suggestedIds}
-						selectedIds={resolver.selectedIds}
-						onToggle={(id) => resolver?.toggleAction(id)}
-					/>
 				{/if}
-				<form
-					onsubmit={(e) => {
-						e.preventDefault();
-						sendMessage();
-					}}
-					class="input-wrapper"
-					class:send-flash={sendFlash}
-				>
-					{#if resolver && actionsProp && resolver.slashFilter !== null}
-						<SlashCommandDropdown
-							bind:this={slashDropdownRef}
+			</div>
+
+			{#if engine.nodes.length === 0}
+				<div class="empty-state">
+					<div class="empty-state-content">
+						<div class="empty-state-title">Start a conversation</div>
+						<div class="empty-state-subtitle">Type a message below to begin</div>
+						<svg class="empty-state-arrow" width="24" height="48" viewBox="0 0 24 48" fill="none">
+							<path
+								d="M12 0L12 42M12 42L6 36M12 42L18 36"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					</div>
+				</div>
+			{/if}
+
+			{#if showIntroOverlay && initialOverlay}
+				<div class="overlay-root" transition:fade>
+					{@render initialOverlay()}
+				</div>
+			{/if}
+
+			<div class="floating-input-container" transition:fade>
+				{#if inputActions}
+					{@render inputActions({
+						engine,
+						activeNode: engine.nodes.find((n) => n.id === engine.activeNodeId) ?? null,
+						userInput,
+						setUserInput: (value: string) => (userInput = value),
+						sendMessage,
+						resolver
+					})}
+				{:else}
+					{#if branchCelebration}
+						<div class="branch-celebration" transition:fade>
+							<span class="celebration-icon">🌿</span>
+							{branchCelebration}
+						</div>
+					{/if}
+					<div class="context-info">
+						{#if engine.activeNodeId}
+							{@const ctxNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
+							{@const childCount = ctxNode
+								? engine.nodes.filter(
+										(n) => n.parentIds.includes(ctxNode.id) && n.type !== 'thought'
+									).length
+								: 0}
+							<span class="dot"></span>
+							{#if childCount > 0}
+								Branching from selected message
+							{:else}
+								Replying to selected message
+							{/if}
+						{:else}
+							<span class="dot gray"></span> Starting a new conversation
+						{/if}
+					</div>
+					{#if resolver && actionsProp}
+						<ActionBadges
 							actions={actionsProp}
-							filter={resolver.slashFilter}
-							onSelect={(id) => {
-								if (resolver) {
-									userInput = resolver.selectSlashCommand(id, userInput);
+							suggestedIds={resolver.suggestedIds}
+							selectedIds={resolver.selectedIds}
+							onToggle={(id) => resolver?.toggleAction(id)}
+						/>
+					{/if}
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							sendMessage();
+						}}
+						class="input-wrapper"
+						class:send-flash={sendFlash}
+					>
+						{#if resolver && actionsProp && resolver.slashFilter !== null}
+							<SlashCommandDropdown
+								bind:this={slashDropdownRef}
+								actions={actionsProp}
+								filter={resolver.slashFilter}
+								onSelect={(id) => {
+									if (resolver) {
+										userInput = resolver.selectSlashCommand(id, userInput);
+									}
+								}}
+								onDismiss={() => {
+									if (resolver) resolver.slashFilter = null;
+								}}
+							/>
+						{/if}
+						<textarea
+							bind:value={userInput}
+							placeholder="Ask the expert..."
+							spellcheck="false"
+							rows="1"
+							oninput={(e) => {
+								const target = e.currentTarget;
+								target.style.height = 'auto';
+								target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+							}}
+							onkeydown={(e) => {
+								if (resolver?.slashFilter !== null && slashDropdownRef) {
+									slashDropdownRef.handleKeydown(e);
+									return;
+								}
+								if (e.key === 'Enter' && !e.shiftKey) {
+									e.preventDefault();
+									sendMessage();
 								}
 							}}
-							onDismiss={() => {
-								if (resolver) resolver.slashFilter = null;
-							}}
-						/>
-					{/if}
-					<textarea
-						bind:value={userInput}
-						placeholder="Ask the expert..."
-						spellcheck="false"
-						rows="1"
-						oninput={(e) => {
-							const target = e.currentTarget;
-							target.style.height = 'auto';
-							target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-						}}
-						onkeydown={(e) => {
-							if (resolver?.slashFilter !== null && slashDropdownRef) {
-								slashDropdownRef.handleKeydown(e);
-								return;
-							}
-							if (e.key === 'Enter' && !e.shiftKey) {
-								e.preventDefault();
-								sendMessage();
-							}
-						}}
-					></textarea>
-					<button type="submit" disabled={!userInput.trim()} aria-label="Send message">
-						<svg viewBox="0 0 24 24" width="18" height="18"
-							><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg
-						>
-					</button>
-				</form>
-			{/if}
-		</div>
-
-		{#if showStats}
-			<div class="stats">
-				{#if showFps}
-					<span class="stats-fps">{fps} FPS</span>
-					<span class="stats-sep">|</span>
+						></textarea>
+						<button type="submit" disabled={!userInput.trim()} aria-label="Send message">
+							<svg viewBox="0 0 24 24" width="18" height="18"
+								><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg
+							>
+						</button>
+					</form>
 				{/if}
-				<span
-					class="stats-zoom"
-					onclick={() => {
-						scale = 1;
-						clampOffset();
-						scheduleViewportChange();
-					}}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
+			</div>
+
+			{#if showStats}
+				<div class="stats">
+					{#if showFps}
+						<span class="stats-fps">{fps} FPS</span>
+						<span class="stats-sep">|</span>
+					{/if}
+					<span
+						class="stats-zoom"
+						onclick={() => {
 							scale = 1;
 							clampOffset();
 							scheduleViewportChange();
-						}
-					}}
-					title="Reset zoom to 100%"
-					role="button"
-					tabindex="0">{Math.round(scale * 100)}%</span
-				>
-			</div>
-		{/if}
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								scale = 1;
+								clampOffset();
+								scheduleViewportChange();
+							}
+						}}
+						title="Reset zoom to 100%"
+						role="button"
+						tabindex="0">{Math.round(scale * 100)}%</span
+					>
+				</div>
+			{/if}
 
-		<ToastContainer />
-	</div>
+			<ToastContainer />
+		</div>
+	{/if}
 {/if}
 
 <style>
