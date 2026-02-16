@@ -120,7 +120,8 @@
 		align-items: center;
 		gap: 8px;
 		padding: 6px 12px;
-		min-height: 32px;
+		min-height: 44px;
+		min-width: 44px;
 		background: transparent;
 		border: none;
 		border-radius: 8px;
@@ -131,10 +132,14 @@
 		transition: all 0.15s ease;
 	}
 
-	.breadcrumb-item:not(:disabled):hover,
-	.breadcrumb-item:not(:disabled):focus-visible {
+	.breadcrumb-item:not(:disabled):hover {
 		background: rgba(255, 255, 255, 0.1);
 		color: var(--traek-node-text, #dddddd);
+	}
+
+	.breadcrumb-item:focus-visible {
+		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+		outline-offset: 2px;
 	}
 
 	.breadcrumb-item.active {
@@ -160,7 +165,7 @@
 	}
 
 	.role-dot.user-dot {
-		background: var(--traek-accent, #ff6b35);
+		background: var(--traek-node-user-border-top, #ff3e00);
 	}
 
 	.separator {
@@ -176,13 +181,19 @@
 		color: var(--traek-input-context-text, #888888);
 		font-size: 16px;
 		cursor: pointer;
-		min-height: 32px;
+		min-height: 44px;
+		min-width: 44px;
 		border-radius: 8px;
 		transition: all 0.15s ease;
 	}
 
 	.expand-button:hover {
 		background: rgba(255, 255, 255, 0.1);
+	}
+
+	.expand-button:focus-visible {
+		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
+		outline-offset: 2px;
 	}
 
 	.crumb-text {
@@ -192,31 +203,30 @@
 	}
 
 	/* Light mode support */
-	:global(html.light) .breadcrumbs {
+	:global([data-theme='light']) .breadcrumbs {
 		background: var(--traek-input-context-bg, rgba(255, 255, 255, 0.85));
 		border-color: var(--traek-node-border, rgba(0, 0, 0, 0.1));
 	}
 
-	:global(html.light) .breadcrumb-item {
+	:global([data-theme='light']) .breadcrumb-item {
 		color: var(--traek-input-context-text, #666666);
 	}
 
-	:global(html.light) .breadcrumb-item:not(:disabled):hover,
-	:global(html.light) .breadcrumb-item:not(:disabled):focus-visible {
+	:global([data-theme='light']) .breadcrumb-item:not(:disabled):hover {
 		background: rgba(0, 0, 0, 0.05);
 		color: var(--traek-node-text, #111111);
 	}
 
-	:global(html.light) .breadcrumb-item.active {
+	:global([data-theme='light']) .breadcrumb-item.active {
 		color: var(--traek-node-text, #111111);
 	}
 
-	:global(html.light) .separator,
-	:global(html.light) .expand-button {
+	:global([data-theme='light']) .separator,
+	:global([data-theme='light']) .expand-button {
 		color: var(--traek-input-context-text, #666666);
 	}
 
-	:global(html.light) .expand-button:hover {
+	:global([data-theme='light']) .expand-button:hover {
 		background: rgba(0, 0, 0, 0.05);
 	}
 

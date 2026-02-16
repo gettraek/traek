@@ -44,23 +44,38 @@
 		{@const uiData = node as CustomTraekNode}
 		{@const ResolvedComponent = typeDef?.component ?? uiData?.component ?? componentMap[node.type]}
 		{#if ResolvedComponent}
-		{#if typeDef?.selfWrapping}
-			<!-- Self-wrapping registry component (e.g. TextNode) -->
-			<ResolvedComponent
-				{node}
-				{isActive}
-				{engine}
-				viewportRoot={viewportEl}
-				gridStep={config.gridStep}
-				nodeWidth={config.nodeWidth}
-				{viewportResizeVersion}
-				{editingNodeId}
-				{onEditSave}
-				{onEditCancel}
-				onStartEdit={onEditNode}
-			/>
-		{:else}
-			<!-- Wrapped component (registry, node.component, or componentMap) -->
+			{#if typeDef?.selfWrapping}
+				<!-- Self-wrapping registry component (e.g. TextNode) -->
+				<ResolvedComponent
+					{node}
+					{isActive}
+					{engine}
+					viewportRoot={viewportEl}
+					gridStep={config.gridStep}
+					nodeWidth={config.nodeWidth}
+					{viewportResizeVersion}
+					{editingNodeId}
+					{onEditSave}
+					{onEditCancel}
+					onStartEdit={onEditNode}
+				/>
+			{:else}
+				<!-- Wrapped component (registry, node.component, or componentMap) -->
+				<TraekNodeWrapper
+					{node}
+					{isActive}
+					{engine}
+					viewportRoot={viewportEl}
+					gridStep={config.gridStep}
+					nodeWidth={config.nodeWidth}
+					{viewportResizeVersion}
+					{onRetry}
+				>
+					<ResolvedComponent {node} {engine} {isActive} {...uiData?.props ?? {}} />
+				</TraekNodeWrapper>
+			{/if}
+		{:else if node.type !== 'thought'}
+			<!-- Fallback if no component found -->
 			<TraekNodeWrapper
 				{node}
 				{isActive}
@@ -71,26 +86,11 @@
 				{viewportResizeVersion}
 				{onRetry}
 			>
-				<ResolvedComponent {node} {engine} {isActive} {...uiData?.props ?? {}} />
+				<div class="node-card error">
+					<div class="role-tag">{node.type}</div>
+					<div class="node-card-content">Missing component for {node.type} node.</div>
+				</div>
 			</TraekNodeWrapper>
-		{/if}
-	{:else if node.type !== 'thought'}
-		<!-- Fallback if no component found -->
-		<TraekNodeWrapper
-			{node}
-			{isActive}
-			{engine}
-			viewportRoot={viewportEl}
-			gridStep={config.gridStep}
-			nodeWidth={config.nodeWidth}
-			{viewportResizeVersion}
-			{onRetry}
-		>
-			<div class="node-card error">
-				<div class="role-tag">{node.type}</div>
-				<div class="node-card-content">Missing component for {node.type} node.</div>
-			</div>
-		</TraekNodeWrapper>
 		{/if}
 	{/if}
 {/each}

@@ -305,7 +305,8 @@
 			const effectiveWidth = window.innerWidth - initialPlacementPadding.left;
 			const centerX = initialPlacementPadding.left + effectiveWidth / 2;
 			const xPx = (centerX - viewport.offset.x) / viewport.scale + config.rootNodeOffsetX;
-			const yPx = (window.innerHeight / 2 - viewport.offset.y) / viewport.scale + config.rootNodeOffsetY;
+			const yPx =
+				(window.innerHeight / 2 - viewport.offset.y) / viewport.scale + config.rootNodeOffsetY;
 			const step = config.gridStep;
 			position = {
 				x: Math.round(xPx / step),
@@ -411,7 +412,8 @@
 			class:grabbing={interaction?.isDragging || interaction?.draggingNodeId}
 			class:connection-drag-active={!!interaction?.connectionDrag}
 			style:background-position="{viewport.offset.x}px {viewport.offset.y}px"
-			style:background-size="{config.gridStep * viewport.scale}px {config.gridStep * viewport.scale}px"
+			style:background-size="{config.gridStep * viewport.scale}px {config.gridStep *
+				viewport.scale}px"
 			style:background-image="radial-gradient(circle, var(--traek-canvas-dot, #333333) {Math.max(
 				0.1,
 				viewport.scale

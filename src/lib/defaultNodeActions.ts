@@ -74,7 +74,8 @@ export const copyBranchAction: NodeTypeAction = {
 		// Format as Markdown
 		const markdown = path
 			.map((n) => {
-				const roleHeader = n.role === 'user' ? '## User' : n.role === 'assistant' ? '## Assistant' : '## System';
+				const roleHeader =
+					n.role === 'user' ? '## User' : n.role === 'assistant' ? '## Assistant' : '## System';
 				const content = (n as MessageNode).content ?? '';
 				return `${roleHeader}\n${content}`;
 			})

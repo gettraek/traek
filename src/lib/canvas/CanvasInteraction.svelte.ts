@@ -321,8 +321,10 @@ export class CanvasInteraction {
 		}
 		if (this.#touchStartPan) {
 			e.preventDefault();
-			this.#viewport.offset.x = this.#touchStartPan.offsetX + (one.clientX - this.#touchStartPan.clientX);
-			this.#viewport.offset.y = this.#touchStartPan.offsetY + (one.clientY - this.#touchStartPan.clientY);
+			this.#viewport.offset.x =
+				this.#touchStartPan.offsetX + (one.clientX - this.#touchStartPan.clientX);
+			this.#viewport.offset.y =
+				this.#touchStartPan.offsetY + (one.clientY - this.#touchStartPan.clientY);
 			this.#viewport.clampOffset(this.#engine.nodes);
 		}
 	};
@@ -382,8 +384,12 @@ export class CanvasInteraction {
 			const mouseInViewportX = e.clientX - rect.left;
 			const mouseInViewportY = e.clientY - rect.top;
 
-			this.#viewport.offset.x = mouseInViewportX - (mouseInViewportX - this.#viewport.offset.x) * (newScale / this.#viewport.scale);
-			this.#viewport.offset.y = mouseInViewportY - (mouseInViewportY - this.#viewport.offset.y) * (newScale / this.#viewport.scale);
+			this.#viewport.offset.x =
+				mouseInViewportX -
+				(mouseInViewportX - this.#viewport.offset.x) * (newScale / this.#viewport.scale);
+			this.#viewport.offset.y =
+				mouseInViewportY -
+				(mouseInViewportY - this.#viewport.offset.y) * (newScale / this.#viewport.scale);
 
 			this.#viewport.scale = newScale;
 			this.#viewport.clampOffset(this.#engine.nodes);

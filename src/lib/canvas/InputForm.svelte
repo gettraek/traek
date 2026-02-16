@@ -38,7 +38,8 @@
 		{#if engine.activeNodeId}
 			{@const ctxNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
 			{@const childCount = ctxNode
-				? engine.nodes.filter((n) => n.parentIds.includes(ctxNode.id) && n.type !== 'thought').length
+				? engine.nodes.filter((n) => n.parentIds.includes(ctxNode.id) && n.type !== 'thought')
+						.length
 				: 0}
 			<span class="dot"></span>
 			{#if childCount > 0}
