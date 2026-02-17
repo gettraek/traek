@@ -19,39 +19,72 @@
  *   traek://component/{name}  — Component API reference
  *   traek://guide/{name}      — Integration guide
  *   traek://snippet/{name}    — Code snippet
+ *
+ * Transports:
+ *   stdio (default)  — for Claude Desktop, Claude Code, etc.
+ *   HTTP (PORT env)  — Streamable HTTP for hosted/Docker deployments
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { createServer } from 'node:http';
 import { docTools } from './tools/docs';
 import { scaffoldTools } from './tools/scaffold';
 import { resourceHandlers } from './resources/docs';
 
-const server = new McpServer({
-	name: 'traek-mcp',
-	version: '0.1.0'
-});
+function buildServer(): McpServer {
+	const server = new McpServer({ name: 'traek-mcp', version: '0.1.0' });
 
-// Register documentation and search tools
-for (const tool of docTools) {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	server.tool(tool.name, tool.description, tool.inputSchema as any, tool.handler as any);
-}
+	for (const tool of docTools) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		server.tool(tool.name, tool.description, tool.inputSchema as any, tool.handler as any);
+	}
 
-// Register scaffolding tools
-for (const tool of scaffoldTools) {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	server.tool(tool.name, tool.description, tool.inputSchema as any, tool.handler as any);
-}
+	for (const tool of scaffoldTools) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		server.tool(tool.name, tool.description, tool.inputSchema as any, tool.handler as any);
+	}
 
-// Register URI-addressable resources
-for (const resource of resourceHandlers) {
-	server.resource(resource.name, resource.uri, resource.handler);
+	for (const resource of resourceHandlers) {
+		server.resource(resource.name, resource.uri, resource.handler);
+	}
+
+	return server;
 }
 
 async function main() {
-	const transport = new StdioServerTransport();
-	await server.connect(transport);
-	console.error('Træk MCP developer assistant running on stdio');
+	const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 0;
+
+	if (port) {
+		// HTTP mode: Streamable HTTP transport for hosted/Docker deployments
+		const httpServer = createServer(async (req, res) => {
+			let body: unknown;
+			if (req.method === 'POST') {
+				const chunks: Buffer[] = [];
+				for await (const chunk of req) chunks.push(chunk);
+				const raw = Buffer.concat(chunks).toString();
+				if (raw) {
+					try {
+						body = JSON.parse(raw);
+					} catch {}
+				}
+			}
+
+			const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+			await buildServer().connect(transport);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			await transport.handleRequest(req as any, res as any, body);
+		});
+
+		httpServer.listen(port, '0.0.0.0', () => {
+			console.error(`Træk MCP server running on HTTP port ${port}`);
+		});
+	} else {
+		// Stdio mode (default): for Claude Desktop, Claude Code, etc.
+		const transport = new StdioServerTransport();
+		await buildServer().connect(transport);
+		console.error('Træk MCP developer assistant running on stdio');
+	}
 }
 
 main().catch((err) => {

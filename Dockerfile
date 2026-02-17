@@ -1,17 +1,16 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+RUN corepack enable
 
 COPY . .
-# Build the SvelteKit app only (skip prepack / library build)
-RUN npx vite build
+RUN pnpm install --frozen-lockfile
+RUN pnpm exec turbo build --filter=@traek/web... --no-daemon
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -19,10 +18,7 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
-COPY --from=builder /app/build ./build
+COPY --from=builder /app/apps/web/build ./build
 
 EXPOSE 3000
 
