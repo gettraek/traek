@@ -581,6 +581,7 @@
 			{componentMap}
 			{registry}
 			{focusConfig}
+			disableOnboarding={tourDelay < 0}
 			onSendMessage={(input, userNode) => onSendMessage?.(input, userNode)}
 		/>
 	{:else}

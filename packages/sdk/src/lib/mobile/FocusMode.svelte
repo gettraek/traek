@@ -31,12 +31,14 @@
 		componentMap = {},
 		registry,
 		focusConfig,
+		disableOnboarding = false,
 		onSendMessage
 	}: {
 		engine: TraekEngine;
 		componentMap?: NodeComponentMap;
 		registry?: NodeTypeRegistry;
 		focusConfig?: Partial<FocusModeConfig>;
+		disableOnboarding?: boolean;
 		onSendMessage?: (input: string, userNode: MessageNode) => void;
 	} = $props();
 
@@ -104,6 +106,7 @@
 
 	// Check onboarding on mount
 	onMount(() => {
+		if (disableOnboarding) return;
 		if (typeof localStorage !== 'undefined') {
 			const seen = localStorage.getItem(ONBOARDING_SEEN_KEY);
 			if (!seen) {
