@@ -86,7 +86,7 @@ npm install traek
 			</div>
 
 			<div class="hero-cta-row">
-				<a href={resolve('/demo')} class="btn primary" data-umami-event="landing-cta-demo"
+				<a href={resolve('/demo', {})} class="btn primary" data-umami-event="landing-cta-demo"
 					>Open interactive demo</a
 				>
 				<a
@@ -234,8 +234,10 @@ npm install traek
 				spatial AI conversations feel.
 			</p>
 			<div class="hero-cta-row">
-				<a href={resolve('/demo')} class="btn primary" data-umami-event="landing-cta-demo-bottom"
-					>Open interactive demo</a
+				<a
+					href={resolve('/demo', {})}
+					class="btn primary"
+					data-umami-event="landing-cta-demo-bottom">Open interactive demo</a
 				>
 				<a
 					href="https://github.com/gettraek/traek"

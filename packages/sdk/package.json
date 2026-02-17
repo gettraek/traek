@@ -30,6 +30,7 @@
 		"build": "svelte-kit sync && svelte-package -i src && publint",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write . && eslint . --fix",
 		"test:unit": "vitest run",
 		"test": "vitest run"
 	},
@@ -52,6 +53,7 @@
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@testing-library/svelte": "^5.3.1",
 		"@types/node": "^24",
+		"@vitest/coverage-v8": "^4.0.18",
 		"eslint": "^9.39.2",
 		"eslint-config-prettier": "10.1.8",
 		"eslint-plugin-svelte": "3.14.0",

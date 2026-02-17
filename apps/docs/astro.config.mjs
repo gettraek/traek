@@ -7,9 +7,7 @@ export default defineConfig({
 			title: 'Træk',
 			description: 'Spatial tree-chat UI for AI agents',
 			head: [],
-			social: [
-				{ icon: 'github', label: 'GitHub', href: 'https://github.com/gettraek/traek' },
-			],
+			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/gettraek/traek' }],
 			sidebar: [
 				{
 					label: 'Getting Started',

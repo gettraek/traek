@@ -14,12 +14,12 @@
 	async function newChat() {
 		track('demo-new-chat');
 		const id = await store.create('New chat');
-		goto(resolve(`/demo/${id}`));
+		goto(resolve('/demo/[id]', { id }));
 	}
 
 	function open(id: string) {
 		track('demo-open-conversation', { conversationId: id });
-		goto(resolve(`/demo/${id}`));
+		goto(resolve('/demo/[id]', { id }));
 	}
 </script>
 
@@ -45,7 +45,7 @@
 			<ChatList {store} onSelect={open} onCreate={newChat} />
 		</div>
 		<p class="home">
-			<a href={resolve('/')} data-umami-event="demo-nav-home">← Home</a>
+			<a href={resolve('/', {})} data-umami-event="demo-nav-home">← Home</a>
 		</p>
 	</div>
 </div>

@@ -356,7 +356,7 @@
 
 {#if engine}
 	<div class="chat-layout">
-		<HeaderBar backHref={resolve('/demo')} {store} />
+		<HeaderBar backHref={resolve('/demo', {})} {store} />
 		<div class="canvas-wrap">
 			<TraekCanvas
 				{engine}

@@ -8,5 +8,5 @@ export const collections = {
 				...data,
 				head: (data as { head?: unknown }).head ?? []
 			}))
-	}),
+	})
 };
