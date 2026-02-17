@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import ThemeProvider from '$lib/theme/ThemeProvider.svelte';
+	import { ThemeProvider } from '@traek/sdk';
 </script>
 
 <svelte:head>
