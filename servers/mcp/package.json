@@ -1,7 +1,7 @@
 {
 	"name": "@traek/mcp",
 	"version": "0.0.1",
-	"description": "MCP server for Træk - exposes conversation tree operations",
+	"description": "MCP server for Træk - developer integration assistant for Claude Code",
 	"author": "Nico Hülscher",
 	"license": "MIT",
 	"type": "module",
