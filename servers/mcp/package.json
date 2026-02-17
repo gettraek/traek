@@ -1,0 +1,31 @@
+{
+	"name": "@traek/mcp",
+	"version": "0.0.1",
+	"description": "MCP server for Træk - developer integration assistant for Claude Code",
+	"author": "Nico Hülscher",
+	"license": "MIT",
+	"type": "module",
+	"main": "dist/index.js",
+	"bin": {
+		"traek-mcp": "dist/index.js"
+	},
+	"scripts": {
+		"dev": "tsx watch src/index.ts",
+		"build": "tsup src/index.ts --format esm --out-dir dist --clean",
+		"start": "node dist/index.js",
+		"lint": "prettier --check .",
+		"clean": "rm -rf node_modules dist .svelte-kit coverage build .turbo",
+		"format": "prettier --write .",
+		"check": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.12.0",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"tsup": "^8.4.0",
+		"tsx": "^4.19.0",
+		"typescript": "^5.9.3"
+	}
+}

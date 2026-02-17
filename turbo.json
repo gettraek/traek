@@ -1,0 +1,33 @@
+{
+	"$schema": "https://turbo.build/schema.json",
+	"ui": "tui",
+	"tasks": {
+		"build": {
+			"dependsOn": ["^build"],
+			"inputs": ["$TURBO_DEFAULT$", ".env*"],
+			"outputs": ["dist/**", ".svelte-kit/**", "build/**"]
+		},
+		"dev": {
+			"cache": false,
+			"persistent": true,
+			"env": ["OPENAI_API_KEY", "CHAT_DAILY_LIMIT_PER_IP"]
+		},
+		"check": {
+			"dependsOn": ["^build"]
+		},
+		"clean": {},
+		"format": {},
+		"lint": {
+			"dependsOn": ["^lint"]
+		},
+		"test": {
+			"dependsOn": ["^build"]
+		},
+		"test:unit": {
+			"dependsOn": ["^build"]
+		},
+		"test:e2e": {
+			"dependsOn": ["build"]
+		}
+	}
+}

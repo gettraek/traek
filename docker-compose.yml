@@ -1,0 +1,28 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHAT_DAILY_LIMIT_PER_IP=${CHAT_DAILY_LIMIT_PER_IP:-50}
+
+  docs:
+    build:
+      context: .
+      dockerfile: docker/docs.Dockerfile
+    ports:
+      - '4321:80'
+
+  mcp:
+    build:
+      context: .
+      dockerfile: docker/mcp.Dockerfile
+    ports:
+      - '3010:3010'
+    environment:
+      - PORT=3010

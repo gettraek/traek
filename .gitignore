@@ -30,3 +30,17 @@ coverage
 
 *storybook.log
 storybook-static
+
+# Turborepo
+.turbo
+
+# Package manager
+.pnpm-store
+
+# App build outputs
+apps/*/dist
+apps/*/.svelte-kit
+packages/*/dist
+servers/*/dist
+build/
+.astro/

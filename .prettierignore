@@ -10,3 +10,10 @@ bun.lockb
 
 # Markdown files
 **/*.md
+
+# Build outputs
+dist
+.svelte-kit
+apps/*/dist
+packages/*/dist
+servers/*/dist

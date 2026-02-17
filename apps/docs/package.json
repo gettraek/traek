@@ -1,0 +1,20 @@
+{
+	"name": "@traek/docs",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview",
+		"clean": "rm -rf node_modules dist coverage build .turbo"
+	},
+	"dependencies": {
+		"@astrojs/starlight": "^0.37.6",
+		"astro": "^5.6.1",
+		"sharp": "^0.34.2"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}
