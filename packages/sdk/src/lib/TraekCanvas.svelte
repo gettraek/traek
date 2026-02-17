@@ -166,10 +166,13 @@
 		return () => keyboardNavigator?.destroy();
 	});
 
-	// Auto-focus viewport so keyboard navigation works immediately
+	// Auto-focus viewport so keyboard navigation works immediately.
+	// Delay slightly so scoped CSS is applied before focus (avoids native focus ring flash).
 	$effect(() => {
 		if (viewport?.viewportEl && resolvedMode === 'canvas') {
-			viewport.viewportEl.focus({ preventScroll: true });
+			const el = viewport.viewportEl;
+			const timer = setTimeout(() => el.focus({ preventScroll: true }), 50);
+			return () => clearTimeout(timer);
 		}
 	});
 
@@ -856,10 +859,12 @@
 			cursor: grab;
 			outline: none;
 		}
+		.viewport:focus,
 		.viewport:focus-visible {
 			/* No visible focus ring on the viewport itself — keyboard focus is shown
 			   on individual nodes via the .keyboard-focused class */
 			box-shadow: none;
+			outline: none;
 		}
 		.viewport.grabbing {
 			cursor: grabbing;
