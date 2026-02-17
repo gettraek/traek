@@ -72,7 +72,7 @@
 	{#if typeof window !== 'undefined'}
 		{@const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG)}
 		{@const node = engine.addNode('Streaming content...', 'assistant')}
-		{@const _ = engine.updateNode(node.id, { status: 'streaming' })}
+		{@const _r = engine.updateNode(node.id, { status: 'streaming' })}
 		<div style="width: 350px; padding: 20px; background: var(--traek-canvas-bg);">
 			<TraekNodeWrapper {node} isActive={true} {engine}>
 				<div
@@ -89,7 +89,10 @@
 	{#if typeof window !== 'undefined'}
 		{@const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG)}
 		{@const node = engine.addNode('', 'assistant')}
-		{@const _ = engine.updateNode(node.id, { status: 'error', errorMessage: 'Failed to generate' })}
+		{@const _r = engine.updateNode(node.id, {
+			status: 'error',
+			errorMessage: 'Failed to generate'
+		})}
 		<div style="width: 350px; padding: 20px; background: var(--traek-canvas-bg);">
 			<TraekNodeWrapper
 				{node}
@@ -143,7 +146,7 @@
 	{#if typeof window !== 'undefined'}
 		{@const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG)}
 		{@const node = engine.addNode('Node with children', 'user')}
-		{@const _ = engine.addNode('Child node', 'assistant')}
+		{@const _r = engine.addNode('Child node', 'assistant')}
 		<div style="width: 350px; padding: 20px; background: var(--traek-canvas-bg);">
 			<TraekNodeWrapper {node} isActive={true} {engine}>
 				<div

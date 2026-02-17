@@ -104,7 +104,7 @@ Regular text after the image.`;
 	{#if typeof window !== 'undefined'}
 		{@const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG)}
 		{@const node = engine.addNode(STREAMING_CONTENT, 'assistant')}
-		{@const _ = engine.updateNode(node.id, { status: 'streaming' })}
+		{@const _r = engine.updateNode(node.id, { status: 'streaming' })}
 		<div style="width: 350px; padding: 20px; background: var(--traek-canvas-bg);">
 			<TextNode {node} isActive={false} {engine} />
 		</div>
@@ -115,7 +115,7 @@ Regular text after the image.`;
 	{#if typeof window !== 'undefined'}
 		{@const engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG)}
 		{@const node = engine.addNode('', 'assistant')}
-		{@const _ = engine.updateNode(node.id, {
+		{@const _r = engine.updateNode(node.id, {
 			status: 'error',
 			errorMessage: 'Failed to generate response'
 		})}

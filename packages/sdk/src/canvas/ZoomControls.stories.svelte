@@ -43,7 +43,7 @@
 	{#if typeof window !== 'undefined'}
 		{@const viewport = createMockViewport()}
 		{@const engine = createMockEngine()}
-		{@const _ = viewport.scale = 2}
+		{@const _r = viewport.scale = 2}
 		<div style="padding: 20px; background: var(--traek-canvas-bg); height: 200px;">
 			<ZoomControls {viewport} nodes={engine.nodes} config={DEFAULT_TRACK_ENGINE_CONFIG} />
 		</div>
@@ -54,7 +54,7 @@
 	{#if typeof window !== 'undefined'}
 		{@const viewport = createMockViewport()}
 		{@const engine = createMockEngine()}
-		{@const _ = viewport.scale = 0.5}
+		{@const _r = viewport.scale = 0.5}
 		<div style="padding: 20px; background: var(--traek-canvas-bg); height: 200px;">
 			<ZoomControls {viewport} nodes={engine.nodes} config={DEFAULT_TRACK_ENGINE_CONFIG} />
 		</div>

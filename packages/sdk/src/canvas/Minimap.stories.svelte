@@ -67,7 +67,7 @@
 	{#if typeof window !== 'undefined'}
 		{@const viewport = createMockViewport()}
 		{@const engine = createLargeEngine()}
-		{@const _ = viewport.offset = { x: -500, y: -300 }}
+		{@const _r = viewport.offset = { x: -500, y: -300 }}
 		<div style="padding: 20px; background: var(--traek-canvas-bg); height: 200px;">
 			<Minimap {viewport} nodes={engine.nodes} config={DEFAULT_TRACK_ENGINE_CONFIG} />
 		</div>
