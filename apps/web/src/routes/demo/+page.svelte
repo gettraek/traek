@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { GravityDotsBackground, ChatList, ConversationStore, track } from '@traek/sdk';
+	import { ChatList, ConversationStore } from 'traek';
+	import GravityDotsBackground from '$lib/components/GravityDotsBackground.svelte';
+	import { track } from '$lib/umami';
 
 	const store = new ConversationStore();
 

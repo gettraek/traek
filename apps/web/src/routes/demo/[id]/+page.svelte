@@ -12,12 +12,12 @@
 		type ResolveActions,
 		createDefaultRegistry,
 		type ConversationSnapshot,
-		ExampleCustomComponent,
-		ImageDemoNode,
 		ConversationStore,
-		HeaderBar,
-		track
-	} from '@traek/sdk';
+		HeaderBar
+	} from 'traek';
+	import ExampleCustomComponent from '$lib/components/ExampleCustomComponent.svelte';
+	import ImageDemoNode from '$lib/components/ImageDemoNode.svelte';
+	import { track } from '$lib/umami';
 
 	const id = $derived(page.params.id);
 	const store = new ConversationStore();

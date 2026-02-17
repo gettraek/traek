@@ -5,10 +5,10 @@
 		DEFAULT_TRACK_ENGINE_CONFIG,
 		TraekCanvas,
 		DefaultLoadingOverlay,
-		createHeroEngine,
-		createDefaultRegistry,
-		GravityDotsBackground
-	} from '@traek/sdk';
+		createDefaultRegistry
+	} from 'traek';
+	import { createHeroEngine } from '$lib/heroDemoEngine';
+	import GravityDotsBackground from '$lib/components/GravityDotsBackground.svelte';
 	import highlightDarkUrl from 'highlight.js/styles/github-dark.css?url';
 	import highlightLightUrl from 'highlight.js/styles/github.css?url';
 	import { resolve } from '$app/paths';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Node, TraekEngine } from './TraekEngine.svelte.ts';
+	import type { Node, TraekEngine } from 'traek';
 
 	type ImageData = {
 		prompt?: string;

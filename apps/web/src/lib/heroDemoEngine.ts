@@ -1,9 +1,5 @@
-import {
-	TraekEngine,
-	DEFAULT_TRACK_ENGINE_CONFIG,
-	type TraekEngineConfig
-} from './TraekEngine.svelte';
-import ExampleCustomComponent from './ExampleCustomComponent.svelte';
+import { TraekEngine, DEFAULT_TRACK_ENGINE_CONFIG, type TraekEngineConfig } from 'traek';
+import ExampleCustomComponent from './components/ExampleCustomComponent.svelte';
 
 /**
  * Read‑only hero demo engine with a pre‑seeded, branching conversation.
@@ -18,7 +14,7 @@ export function createHeroEngine(
 
 	const RICH_BUBBLE_MARKDOWN = `## Expert session: getting the most out of it
 
-Here’s how to make your chat with the expert effective.
+Here's how to make your chat with the expert effective.
 
 ### Before the session
 
@@ -94,7 +90,7 @@ Here’s how to make your chat with the expert effective.
 	});
 
 	const finalReply = engine.addNode(
-		'**Narrow it:** Turn “How do I grow?” into “What should I prioritize first: content, outreach, or pricing?” or “What’s the first change you’d make in my situation?” The expert can then go deeper in follow-up messages.',
+		'**Narrow it:** Turn "How do I grow?" into "What should I prioritize first: content, outreach, or pricing?" or "What\'s the first change you\'d make in my situation?" The expert can then go deeper in follow-up messages.',
 		'assistant',
 		{
 			parentIds: [broadQuestionUser.id],
