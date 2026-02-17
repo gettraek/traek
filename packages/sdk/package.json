@@ -1,6 +1,6 @@
 {
-	"name": "@traek/sdk",
-	"version": "0.0.2",
+	"name": "traek",
+	"version": "0.0.3",
 	"description": "Spatial tree-chat UI for AI agents (Svelte 5)",
 	"author": "Nico Hülscher",
 	"license": "MIT",
@@ -11,10 +11,6 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"svelte": "./dist/index.js"
-		},
-		"./server": {
-			"types": "./dist/server/rate-limit.d.ts",
-			"default": "./dist/server/rate-limit.js"
 		}
 	},
 	"files": [
