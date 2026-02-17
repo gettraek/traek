@@ -15,5 +15,7 @@
 </svelte:head>
 
 <ThemeProvider>
-	<slot />
+	{#snippet children()}
+		<slot />
+	{/snippet}
 </ThemeProvider>

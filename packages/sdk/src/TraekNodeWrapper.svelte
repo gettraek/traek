@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import type { TraekEngine, MessageNode, Node } from './TraekEngine.svelte';
-	// @ts-expect-error - SVG-only Svelte component without script block
 	import Ghost from './Ghost.svelte';
 	import { getDetailLevel } from './canvas/AdaptiveRenderer.svelte';
 	import TagBadges from './tags/TagBadges.svelte';
