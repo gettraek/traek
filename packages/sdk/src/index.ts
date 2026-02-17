@@ -113,6 +113,14 @@ export { traekEngineConfigSchema, addNodePayloadSchema } from './schemas';
 export { actionDefinitionSchema } from './actions/schemas';
 export { nodeTypeActionSchema, nodeTypeDefinitionSchema } from './node-types/schemas';
 
+// Demo / App-specific components (used by apps/web)
+export { default as GravityDotsBackground } from './GravityDotsBackground.svelte';
+export { default as ExampleCustomComponent } from './ExampleCustomComponent.svelte';
+export { default as ImageDemoNode } from './ImageDemoNode.svelte';
+export { createHeroEngine } from './heroDemoEngine';
+export { markdownToHtml } from './utils';
+export { track } from './umami';
+
 // Theme System
 export { default as ThemeProvider, useTheme, applyThemeToRoot } from './theme/ThemeProvider.svelte';
 export { default as ThemePicker } from './theme/ThemePicker.svelte';

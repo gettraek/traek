@@ -6,7 +6,7 @@
 
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
-import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit.js';
+import { checkDailyLimit, pruneOldEntries } from '@traek/sdk/server';
 import { z } from 'zod';
 
 const chatRequestSchema = z.object({

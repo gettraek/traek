@@ -1,16 +1,19 @@
 <script lang="ts">
-	import { markdownToHtml } from '../lib/utils.ts';
-	import { useTheme } from '$lib/theme/ThemeProvider.svelte';
+	import {
+		markdownToHtml,
+		useTheme,
+		DEFAULT_TRACK_ENGINE_CONFIG,
+		TraekCanvas,
+		DefaultLoadingOverlay,
+		createHeroEngine,
+		GravityDotsBackground
+	} from '@traek/sdk';
 	import highlightDarkUrl from 'highlight.js/styles/github-dark.css?url';
 	import highlightLightUrl from 'highlight.js/styles/github.css?url';
 	import { resolve } from '$app/paths';
 
 	const themeContext = useTheme();
 	const currentTheme = $derived(themeContext.currentThemeName());
-
-	import { DEFAULT_TRACK_ENGINE_CONFIG, TraekCanvas, DefaultLoadingOverlay } from '$lib';
-	import { createHeroEngine } from '$lib/heroDemoEngine';
-	import GravityDotsBackground from '$lib/GravityDotsBackground.svelte';
 
 	// Read-only hero demo: pre-seeded engine, no user interaction
 	const heroEngine = createHeroEngine(DEFAULT_TRACK_ENGINE_CONFIG);

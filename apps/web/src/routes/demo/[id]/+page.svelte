@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import TraekCanvas from '$lib/TraekCanvas.svelte';
 	import {
+		TraekCanvas,
 		DefaultLoadingOverlay,
 		TraekEngine,
 		DEFAULT_TRACK_ENGINE_CONFIG,
@@ -11,13 +11,13 @@
 		type ActionDefinition,
 		type ResolveActions,
 		createDefaultRegistry,
-		type ConversationSnapshot
-	} from '$lib';
-	import ExampleCustomComponent from '$lib/ExampleCustomComponent.svelte';
-	import ImageDemoNode from '$lib/ImageDemoNode.svelte';
-	import { ConversationStore } from '$lib/persistence/ConversationStore.svelte.js';
-	import HeaderBar from '$lib/conversation/HeaderBar.svelte';
-	import { track } from '$lib/umami';
+		type ConversationSnapshot,
+		ExampleCustomComponent,
+		ImageDemoNode,
+		ConversationStore,
+		HeaderBar,
+		track
+	} from '@traek/sdk';
 
 	const id = $derived(page.params.id);
 	const store = new ConversationStore();
