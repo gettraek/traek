@@ -370,6 +370,9 @@
 					: undefined}
 				{onSendMessage}
 				onRetry={handleRetry}
+				tourDelay={60000}
+				minimapMinNodes={5}
+				breadcrumbMinNodes={3}
 			>
 				{#snippet initialOverlay()}
 					<DefaultLoadingOverlay />

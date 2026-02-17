@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Workflow
 
-This project uses a multi-agent team pattern where a team-lead agent delegates tasks to specialized sub-agents (/brand, /ux, /pm, /dev). When receiving a task via SendMessage from a team-lead, complete the full task and send results back before shutdown. Do not wait for additional prompts. For each agent, use the skill file in .claude/skills to guide the agent.
+This project uses a multi-agent team pattern where a team-lead agent delegates tasks to specialized sub-agents (/brand, /ux, /pm, /dev). When receiving a task via SendMessage from a team-lead, complete the full task and send results back before shutdown. Do not wait for additional prompts. For each agent, use the skill file in .claude/skills to guide the agent. All agents are started with permissions-mode acceptEdits.
 
 ## Quality Checks
 

@@ -13,7 +13,7 @@
 		config: TraekEngineConfig;
 	} = $props();
 
-	let isExpanded = $state(true);
+	let isExpanded = $state(false);
 	let isDragging = $state(false);
 
 	const WIDTH = 150;

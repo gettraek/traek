@@ -6,6 +6,7 @@
 		TraekCanvas,
 		DefaultLoadingOverlay,
 		createHeroEngine,
+		createDefaultRegistry,
 		GravityDotsBackground
 	} from '@traek/sdk';
 	import highlightDarkUrl from 'highlight.js/styles/github-dark.css?url';
@@ -17,6 +18,7 @@
 
 	// Read-only hero demo: pre-seeded engine, no user interaction
 	const heroEngine = createHeroEngine(DEFAULT_TRACK_ENGINE_CONFIG);
+	const heroRegistry = createDefaultRegistry();
 
 	const renderedContent = $derived(
 		markdownToHtml(
@@ -68,20 +70,17 @@ npm install traek
 		<div class="hero-copy">
 			<div class="eyebrow">spatial conversation engine</div>
 			<h1>træk — follow ideas, not threads.</h1>
-			<p class="tagline">
-				træk turns linear chats into a spatial canvas of branching conversations — built for
-				AI-native products where reasoning is not linear.
-			</p>
+			<p class="tagline">Every answer opens more questions. Give them space.</p>
 
 			<div class="hero-grid">
 				<div class="hero-pill">
-					<span class="dot"></span> Branch conversations without losing history
+					<span class="dot"></span> What if you'd asked it differently?
 				</div>
 				<div class="hero-pill">
-					<span class="dot"></span> Navigate discussions like a map, not a log
+					<span class="dot"></span> See where the thinking went.
 				</div>
 				<div class="hero-pill">
-					<span class="dot"></span> Streaming-first & markdown aware
+					<span class="dot"></span> Watch ideas grow in real time.
 				</div>
 			</div>
 
@@ -101,10 +100,19 @@ npm install traek
 		</div>
 
 		<div class="hero-demo">
-			<div class="hero-demo-label">Live topology preview (read-only)</div>
+			<div class="hero-demo-label">see it branch</div>
 			<div class="demo-frame">
 				{#if heroEngine}
-					<TraekCanvas engine={heroEngine} config={DEFAULT_TRACK_ENGINE_CONFIG} showStats={false}>
+					<TraekCanvas
+						engine={heroEngine}
+						config={DEFAULT_TRACK_ENGINE_CONFIG}
+						registry={heroRegistry}
+						showStats={false}
+						breadcrumbMinNodes={999}
+						minimapMinNodes={999}
+						tourDelay={999999}
+						initialScale={0.85}
+					>
 						{#snippet initialOverlay()}
 							<DefaultLoadingOverlay />
 						{/snippet}
@@ -119,16 +127,12 @@ npm install traek
 	<section class="section section--problem">
 		<div class="section-content section-split">
 			<div class="section-card">
-				<h2>The problem with classic chat UIs</h2>
+				<h2>Something always gets lost in the scroll.</h2>
 				<p>
-					Most AI products still present long-form reasoning as a single scrolling thread. That
-					works for quick answers — but breaks down as soon as conversations become exploratory,
-					multi-directional, iterative, agent-driven, and reasoning-heavy.
+					A good idea came up three replies ago. You scrolled past it. Two paths split. You had to
+					choose. That's not a conversation — that's a log.
 				</p>
-				<p>
-					Context gets buried, alternative paths are lost, and it becomes hard to see how a decision
-					was reached.
-				</p>
+				<p>The more complex the thinking, the worse a single thread represents it.</p>
 				<p class="punchline">
 					<strong>If AI thinking branches, your UI shouldn’t stay flat.</strong>
 				</p>
@@ -138,8 +142,7 @@ npm install traek
 				<div class="metric-number">∞</div>
 				<p class="metric-label">possible paths</p>
 				<p class="metric-copy">
-					træk treats conversations as a navigable graph instead of a frozen log — so branching
-					exploration is the default, not an edge-case.
+					Not an edge case. Not an afterthought.<br />Branching is the default.
 				</p>
 			</div>
 		</div>
@@ -148,36 +151,29 @@ npm install traek
 	<section class="section alt">
 		<div class="section-content two-column">
 			<div>
-				<h2>What træk gives you</h2>
+				<h2>A map, not a log.</h2>
 				<p>
-					træk replaces the scrolling timeline with a spatial mental model of the conversation. Each
-					message is a node; every reply is a direction you can branch, follow, or revisit.
+					Every message is a place. Every reply, a direction. Pan the canvas. Follow a thread.
+					Branch into the question you almost didn't ask.
 				</p>
 				<ul>
 					<li>
-						<strong>Branching conversations</strong> — explore alternatives without overwriting the main
-						path.
+						<strong>Branch anywhere</strong> — reply from any node; each path stays intact.
 					</li>
 					<li>
-						<strong>Readable layout</strong> — parents stay above, replies fan out horizontally as complexity
-						grows.
+						<strong>Spatial layout</strong> — ideas spread out instead of stacking up.
 					</li>
 					<li>
-						<strong>Pan &amp; zoom canvas</strong> — move through large dialogs like a diagram, not a
-						log.
+						<strong>Thought nodes</strong> — reasoning stays visible without cluttering the path.
 					</li>
 					<li>
-						<strong>Thought nodes</strong> — attach system / reasoning steps without polluting the visible
-						path.
-					</li>
-					<li>
-						<strong>Streaming-first</strong> — render tokens in place while keeping the topology intact.
+						<strong>Live streaming</strong> — watch tokens land in place as the model thinks.
 					</li>
 				</ul>
 			</div>
 
 			<div class="code-card">
-				<div class="code-card-label">Quick start</div>
+				<div class="code-card-label">Two components. That's it.</div>
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html renderedContent}
 			</div>
@@ -187,38 +183,29 @@ npm install traek
 	<section class="section section--stack">
 		<div class="section-content two-column">
 			<div class="section-card">
-				<h2>Engine + canvas, cleanly separated</h2>
-				<p>træk keeps the conversation graph and the UI as separate layers:</p>
+				<h2>Two layers. Your rules.</h2>
+				<p>træk keeps the graph and the UI separate — so you stay in control:</p>
 				<ul>
-					<li>
-						<strong>TraekEngine</strong> — owns nodes, relationships, layout logic, and state.
-					</li>
-					<li>
-						<strong>TraekCanvas</strong> — renders the spatial UI, pan/zoom, and interaction.
-					</li>
+					<li><strong>TraekEngine</strong> — nodes, relationships, layout, and state.</li>
+					<li><strong>TraekCanvas</strong> — the spatial UI, pan/zoom, and interaction.</li>
 				</ul>
-				<p>
-					You stay in control of message creation, streaming, persistence, and model orchestration.
-					træk keeps everything navigable and coherent.
-				</p>
+				<p>Bring your model, your streaming, your persistence. træk keeps everything navigable.</p>
 			</div>
 
 			<div class="stack-grid">
 				<div class="stack-item">
-					<h3>Built for</h3>
+					<h3>Made for when AI thinks out loud.</h3>
 					<ul>
-						<li>AI chat products</li>
-						<li>agent interfaces</li>
-						<li>prompt exploration tools</li>
-						<li>research assistants</li>
-						<li>reasoning-heavy workflows</li>
-						<li>multi-path generation UIs</li>
+						<li>agents with memory</li>
+						<li>prompts worth exploring</li>
+						<li>reasoning that branches</li>
+						<li>multi-path generation</li>
 					</ul>
 				</div>
 				<div class="stack-item stack-item--light">
-					<h3>Drop-in integration</h3>
+					<h3>Start in minutes.</h3>
 					<p>
-						Use TraekCanvas as a ready-made UI, or wire TraekEngine into your own components and
+						Use TraekCanvas as your full UI — or wire TraekEngine into your own components and
 						render messages your way.
 					</p>
 				</div>
@@ -228,10 +215,10 @@ npm install traek
 
 	<section class="section final">
 		<div class="section-content final-inner">
-			<h2>Stop designing AI conversations as a single thread.</h2>
+			<h2>Ideas deserve more space than a scroll.</h2>
 			<p>
-				træk is under active development. Try the demos, drop it into your product, and shape how
-				spatial AI conversations feel.
+				træk is actively growing. Drop it in, explore the demos, and help shape what spatial AI
+				conversation can be.
 			</p>
 			<div class="hero-cta-row">
 				<a href={resolve('/demo')} class="btn primary" data-umami-event="landing-cta-demo-bottom"
@@ -412,7 +399,9 @@ npm install traek
 		height: 100%;
 	}
 
-	.demo-frame :global(.floating-input-container) {
+	.demo-frame :global(.floating-input-container),
+	.demo-frame :global(.zoom-controls),
+	.demo-frame :global(.toast-container) {
 		display: none;
 	}
 

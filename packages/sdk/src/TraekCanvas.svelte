@@ -77,7 +77,10 @@
 		onEditNode,
 		mode = 'auto',
 		mobileBreakpoint = 768,
-		focusConfig
+		focusConfig,
+		tourDelay = 0,
+		minimapMinNodes = 0,
+		breadcrumbMinNodes = 0
 	}: {
 		engine?: TraekEngine | null;
 		config?: Partial<TraekEngineConfig>;
@@ -102,6 +105,12 @@
 		mode?: 'auto' | 'canvas' | 'focus';
 		mobileBreakpoint?: number;
 		focusConfig?: Partial<FocusModeConfig>;
+		/** Milliseconds to delay before showing the desktop tour. Default: 0 (immediate). */
+		tourDelay?: number;
+		/** Minimum non-thought nodes required before the minimap appears. Default: 0 (always). */
+		minimapMinNodes?: number;
+		/** Minimum nodes required before the context breadcrumb appears. Default: 0 (always). */
+		breadcrumbMinNodes?: number;
 	} = $props();
 
 	const config = $derived({
@@ -292,7 +301,14 @@
 		if (typeof localStorage === 'undefined' || resolvedMode !== 'canvas') return;
 		const tourCompleted = localStorage.getItem('traek-desktop-tour-completed');
 		if (!tourCompleted) {
-			showDesktopTour = true;
+			if (tourDelay > 0) {
+				const timer = setTimeout(() => {
+					showDesktopTour = true;
+				}, tourDelay);
+				return () => clearTimeout(timer);
+			} else {
+				showDesktopTour = true;
+			}
 		}
 	});
 
@@ -675,7 +691,7 @@
 				<GhostPreview {engine} {config} {userInput} />
 			</div>
 
-			{#if engine.activeNodeId}
+			{#if engine.activeNodeId && engine.nodes.length >= breadcrumbMinNodes}
 				<ContextBreadcrumb {engine} currentNodeId={engine.activeNodeId} />
 			{/if}
 
@@ -738,7 +754,9 @@
 			</div>
 
 			<ZoomControls {viewport} nodes={engine.nodes} {config} />
-			<Minimap {viewport} nodes={engine.nodes} {config} />
+			{#if engine.nodes.filter((n) => n.type !== 'thought').length >= minimapMinNodes}
+				<Minimap {viewport} nodes={engine.nodes} {config} />
+			{/if}
 
 			{#if showSearchBar}
 				<SearchBar

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import '../app.css';
 	import { ThemeProvider } from '@traek/sdk';
+	import type { Snippet } from 'svelte';
+
+	let { children }: { children: Snippet } = $props();
 </script>
 
 <svelte:head>
@@ -15,5 +18,5 @@
 </svelte:head>
 
 <ThemeProvider>
-	<slot />
+	{@render children()}
 </ThemeProvider>

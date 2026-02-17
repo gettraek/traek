@@ -203,7 +203,7 @@
 							class:faded={activeAncestorIds !== null && !isHoverAdjacent}
 							class:hover-adjacent={isHoverAdjacent}
 							class:collapsed={isCollapsedConnection}
-							class:animated-flow={!isCollapsedConnection}
+							class:animated-flow={!isCollapsedConnection && !isHoverAdjacent}
 							d={pathD}
 							stroke={`url(#${gradientId})`}
 						/>
@@ -214,7 +214,6 @@
 						<path
 							class="connection connection--highlight"
 							class:collapsed={isCollapsedConnection}
-							class:animated-flow={!isCollapsedConnection}
 							d={pathD}
 							stroke={`url(#${gradientId})`}
 						/>
@@ -308,13 +307,15 @@
 	}
 
 	.connection.faded {
-		opacity: 0.2;
+		opacity: 0.35;
 	}
 
 	.connection.hover-adjacent {
 		stroke-width: 2.5;
 		opacity: 1;
 		filter: brightness(1.4);
+		stroke-dasharray: none;
+		animation: none;
 	}
 
 	.connection.collapsed {
@@ -323,7 +324,7 @@
 	}
 
 	.connection.animated-flow {
-		stroke-dasharray: 8 12;
+		stroke-dasharray: 4 4;
 		animation: connection-flow 2s linear infinite;
 	}
 
@@ -335,6 +336,8 @@
 
 	.connection--highlight {
 		stroke-width: 2.5;
+		stroke-dasharray: none;
+		animation: none;
 		filter: brightness(1.3) drop-shadow(0 0 4px currentColor);
 	}
 
