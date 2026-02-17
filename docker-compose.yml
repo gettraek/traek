@@ -8,6 +8,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHAT_DAILY_LIMIT_PER_IP=${CHAT_DAILY_LIMIT_PER_IP:-50}
 
   docs:
     build:
