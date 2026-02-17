@@ -1,7 +1,13 @@
+<script lang="ts">
+	import { getTraekI18n } from './i18n/index';
+
+	const t = getTraekI18n();
+</script>
+
 <div class="demo-intro-overlay">
 	<div class="demo-intro-pill">
 		<span class="demo-intro-dot"></span>
-		<span>Preparing træk canvas…</span>
+		<span>{t.loading.preparingCanvas}</span>
 	</div>
 </div>
 

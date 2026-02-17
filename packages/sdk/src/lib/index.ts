@@ -37,8 +37,13 @@ export type { ActionVariant } from './node-types/types';
 export {
 	duplicateAction,
 	deleteAction,
+	copyBranchAction,
+	createDuplicateAction,
+	createDeleteAction,
+	createCopyBranchAction,
 	createRetryAction,
 	createEditAction,
+	createCompareAction,
 	createDefaultNodeActions
 } from './defaultNodeActions';
 export type { DefaultNodeActionCallbacks } from './defaultNodeActions';
@@ -145,3 +150,7 @@ export type {
 	TraekThemeTypography,
 	TraekThemeAnimation
 } from './theme/tokens';
+
+// i18n
+export { DEFAULT_TRANSLATIONS, setTraekI18n, getTraekI18n, mergeTranslations } from './i18n/index';
+export type { TraekTranslations, PartialTraekTranslations } from './i18n/index';

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { TraekEngine } from '../TraekEngine.svelte';
 	import type { MessageNode } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -111,12 +114,12 @@
 				bind:this={inputRef}
 				type="text"
 				bind:value={searchQuery}
-				placeholder="Type to search nodes..."
+				placeholder={t.fuzzySearch.placeholder}
 				class="fuzzy-input"
-				aria-label="Search nodes"
+				aria-label={t.fuzzySearch.ariaLabel}
 			/>
 			<div class="fuzzy-count">
-				{filteredNodes.length} result{filteredNodes.length !== 1 ? 's' : ''}
+				{t.fuzzySearch.resultCount(filteredNodes.length)}
 			</div>
 		</div>
 
@@ -135,20 +138,23 @@
 				>
 					<div class="fuzzy-result-role">{node.role}</div>
 					<div class="fuzzy-result-content">
-						{truncate(messageNode.content || '[No content]', 120)}
+						{truncate(messageNode.content || t.fuzzySearch.noContent, 120)}
 					</div>
 				</div>
 			{/each}
 
 			{#if filteredNodes.length === 0}
-				<div class="fuzzy-empty">No matching nodes found</div>
+				<div class="fuzzy-empty">{t.fuzzySearch.noMatchingNodes}</div>
 			{/if}
 		</div>
 
 		<div class="fuzzy-footer">
-			<kbd>↑↓</kbd> Navigate
-			<kbd>Enter</kbd> Select
-			<kbd>Esc</kbd> Close
+			<kbd>↑↓</kbd>
+			{t.fuzzySearch.navigate}
+			<kbd>Enter</kbd>
+			{t.fuzzySearch.select}
+			<kbd>Esc</kbd>
+			{t.keyboard.close}
 		</div>
 	</div>
 </div>

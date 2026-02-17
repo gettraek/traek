@@ -5,6 +5,9 @@
 	import type { ActionDefinition } from '../actions/types';
 	import ActionBadges from '../actions/ActionBadges.svelte';
 	import SlashCommandDropdown from '../actions/SlashCommandDropdown.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -43,12 +46,12 @@
 				: 0}
 			<span class="dot"></span>
 			{#if childCount > 0}
-				Branching from selected message
+				{t.input.branchingFromSelected}
 			{:else}
-				Replying to selected message
+				{t.input.replyingToSelected}
 			{/if}
 		{:else}
-			<span class="dot gray"></span> Starting a new conversation
+			<span class="dot gray"></span> {t.input.startingNewConversation}
 		{/if}
 	</div>
 	{#if resolver && actions}
@@ -84,7 +87,7 @@
 		{/if}
 		<textarea
 			bind:value={userInput}
-			placeholder="Ask the expert..."
+			placeholder={t.input.placeholder}
 			spellcheck="false"
 			rows="1"
 			oninput={(e) => {
@@ -103,7 +106,7 @@
 				}
 			}}
 		></textarea>
-		<button type="submit" disabled={!userInput.trim()} aria-label="Send message">
+		<button type="submit" disabled={!userInput.trim()} aria-label={t.input.sendAriaLabel}>
 			<svg viewBox="0 0 24 24" width="18" height="18"
 				><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg
 			>

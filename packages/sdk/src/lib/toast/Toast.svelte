@@ -2,6 +2,9 @@
 	import { onMount } from 'svelte';
 	import type { Toast } from './toastStore.svelte';
 	import { toastStore } from './toastStore.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const i18n = getTraekI18n();
 
 	let { toast }: { toast: Toast } = $props();
 
@@ -54,10 +57,12 @@
 	<div class="traek-toast__body">
 		<span class="traek-toast__message">{toast.message}</span>
 		{#if toast.type === 'undo' && toast.onUndo}
-			<button class="traek-toast__undo" onclick={handleUndo}>Undo</button>
+			<button class="traek-toast__undo" onclick={handleUndo}>{i18n.toast.undo}</button>
 		{/if}
 	</div>
-	<button class="traek-toast__close" onclick={handleClose} aria-label="Dismiss">\u2715</button>
+	<button class="traek-toast__close" onclick={handleClose} aria-label={i18n.toast.dismiss}
+		>\u2715</button
+	>
 	<div class="traek-toast__progress" style:width="{progress}%"></div>
 </div>
 

@@ -1,39 +1,43 @@
 <script lang="ts">
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
+
 	let { onComplete }: { onComplete: () => void } = $props();
 
 	let step = $state(0);
-	const steps = [
+	const steps = $derived([
 		{
-			title: 'Willkommen zum Focus Mode',
-			description: 'Navigiere durch deine Konversation mit natürlichen Gesten',
+			title: t.onboarding.welcomeTitle,
+			description: t.onboarding.welcomeDescription,
 			gesture: 'swipe-demo',
 			position: 'center'
 		},
 		{
-			title: 'Nach oben wischen',
-			description: 'Gehe tiefer in die Antwort-Kette',
+			title: t.onboarding.swipeUpTitle,
+			description: t.onboarding.swipeUpDescription,
 			gesture: 'up',
 			position: 'bottom'
 		},
 		{
-			title: 'Nach unten wischen',
-			description: 'Zurück zur vorherigen Nachricht',
+			title: t.onboarding.swipeDownTitle,
+			description: t.onboarding.swipeDownDescription,
 			gesture: 'down',
 			position: 'top'
 		},
 		{
-			title: 'Seitlich wischen',
-			description: 'Zwischen alternativen Antworten wechseln',
+			title: t.onboarding.swipeSidewaysTitle,
+			description: t.onboarding.swipeSidewaysDescription,
 			gesture: 'horizontal',
 			position: 'middle'
 		},
 		{
-			title: 'Keyboard-Shortcuts',
-			description: 'Nutze diese Tasten für schnelle Navigation',
+			title: t.onboarding.keyboardTitle,
+			description: t.onboarding.keyboardDescription,
 			gesture: 'keyboard',
 			position: 'center'
 		}
-	];
+	]);
 
 	function nextStep() {
 		if (step < steps.length - 1) {
@@ -72,8 +76,8 @@
 	<div class="onboarding-backdrop" onclick={handleBackdropClick}></div>
 
 	<div class="onboarding-content">
-		<button class="skip-button" onclick={skip} aria-label="Tutorial überspringen">
-			Überspringen
+		<button class="skip-button" onclick={skip} aria-label={t.onboarding.skipAriaLabel}>
+			{t.onboarding.skip}
 		</button>
 
 		<div class="step-content">
@@ -92,25 +96,25 @@
 								<kbd class="key">←</kbd>
 								<kbd class="key">→</kbd>
 							</div>
-							<span class="shortcut-label">Navigation</span>
+							<span class="shortcut-label">{t.onboarding.keyboardNavigation}</span>
 						</div>
 						<div class="shortcut-row">
 							<div class="key-group">
 								<kbd class="key">Home</kbd>
 							</div>
-							<span class="shortcut-label">Zur Wurzel</span>
+							<span class="shortcut-label">{t.onboarding.keyboardToRoot}</span>
 						</div>
 						<div class="shortcut-row">
 							<div class="key-group">
 								<kbd class="key">i</kbd>
 							</div>
-							<span class="shortcut-label">Input-Fokus</span>
+							<span class="shortcut-label">{t.onboarding.keyboardInputFocus}</span>
 						</div>
 						<div class="shortcut-row">
 							<div class="key-group">
 								<kbd class="key">Esc</kbd>
 							</div>
-							<span class="shortcut-label">Schließen</span>
+							<span class="shortcut-label">{t.onboarding.keyboardClose}</span>
 						</div>
 					</div>
 				{:else}
@@ -189,7 +193,7 @@
 		</div>
 
 		<div class="onboarding-footer">
-			<div class="progress-dots" role="list" aria-label="Tutorial Fortschritt">
+			<div class="progress-dots" role="list" aria-label={t.onboarding.tutorialProgress}>
 				<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
 				{#each steps as _, i (i)}
 					<span
@@ -202,7 +206,7 @@
 			</div>
 
 			<button class="next-button" onclick={nextStep}>
-				{step < steps.length - 1 ? 'Weiter' : "Los geht's!"}
+				{step < steps.length - 1 ? t.onboarding.next : t.onboarding.letsGo}
 			</button>
 		</div>
 	</div>

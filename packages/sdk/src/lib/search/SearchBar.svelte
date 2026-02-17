@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		onClose,
@@ -69,7 +72,7 @@
 			bind:this={inputRef}
 			type="text"
 			class="search-input"
-			placeholder="Search..."
+			placeholder={t.search.placeholder}
 			value={query}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
@@ -80,7 +83,7 @@
 				{currentIndex + 1}/{totalMatches}
 			</div>
 		{:else if query.trim() !== ''}
-			<div class="match-counter no-matches">No matches</div>
+			<div class="match-counter no-matches">{t.search.noMatches}</div>
 		{/if}
 
 		<div class="search-controls">
@@ -88,8 +91,8 @@
 				class="nav-button"
 				onclick={onPrevious}
 				disabled={totalMatches === 0}
-				title="Previous match (Shift+Enter)"
-				aria-label="Previous match"
+				title={t.search.previousMatch}
+				aria-label={t.search.previousMatch}
 			>
 				<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
 					<path
@@ -106,8 +109,8 @@
 				class="nav-button"
 				onclick={onNext}
 				disabled={totalMatches === 0}
-				title="Next match (Enter)"
-				aria-label="Next match"
+				title={t.search.nextMatch}
+				aria-label={t.search.nextMatch}
 			>
 				<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
 					<path
@@ -123,8 +126,8 @@
 			<button
 				class="close-button"
 				onclick={onClose}
-				title="Close search (Escape)"
-				aria-label="Close search"
+				title={t.search.closeSearch}
+				aria-label={t.search.closeSearch}
 			>
 				<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
 					<path

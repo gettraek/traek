@@ -38,6 +38,8 @@
 	import BranchCompare from './compare/BranchCompare.svelte';
 	import DesktopTour from './onboarding/DesktopTour.svelte';
 	import ThemePicker from './theme/ThemePicker.svelte';
+	import { setTraekI18n } from './i18n/index';
+	import type { PartialTraekTranslations } from './i18n/index';
 
 	type InputActionsContext = {
 		engine: TraekEngine;
@@ -80,7 +82,8 @@
 		focusConfig,
 		tourDelay = 0,
 		minimapMinNodes = 0,
-		breadcrumbMinNodes = 0
+		breadcrumbMinNodes = 0,
+		translations: translationsProp
 	}: {
 		engine?: TraekEngine | null;
 		config?: Partial<TraekEngineConfig>;
@@ -111,12 +114,18 @@
 		minimapMinNodes?: number;
 		/** Minimum nodes required before the context breadcrumb appears. Default: 0 (always). */
 		breadcrumbMinNodes?: number;
+		/** Partial translation overrides. Deep-merged with English defaults. */
+		translations?: PartialTraekTranslations;
 	} = $props();
 
 	const config = $derived({
 		...DEFAULT_TRACK_ENGINE_CONFIG,
 		...configProp
 	} satisfies TraekEngineConfig);
+
+	// Set up i18n context (set once at initialization — context cannot change after mount)
+
+	const t = setTraekI18n(translationsProp);
 
 	// Engine initialization
 	let defaultEngine = $state<TraekEngine | null>(null);
@@ -225,7 +234,7 @@
 	$effect(() => {
 		if (!engine) return;
 		engine.onNodeDeleted = (count, restore) => {
-			toastUndo(`${count} node${count > 1 ? 's' : ''} deleted`, restore);
+			toastUndo(t.canvas.nodesDeleted(count), restore);
 		};
 		return () => {
 			engine.onNodeDeleted = undefined;
@@ -459,7 +468,7 @@
 			);
 			if (siblings.length === 2 && !celebratedBranches.has(parentNode.id)) {
 				celebratedBranches = new Set([...celebratedBranches, parentNode.id]);
-				branchCelebration = 'You created a branch! Explore different directions.';
+				branchCelebration = t.canvas.branchCelebration;
 				setTimeout(() => {
 					branchCelebration = null;
 				}, 4000);
@@ -553,7 +562,8 @@
 			createDefaultNodeActions({
 				onRetry,
 				onEditNode: onEditNode ?? handleBuiltInEdit,
-				onCompare: handleCompare
+				onCompare: handleCompare,
+				translations: t
 			});
 
 		const typeDef = registry?.get(activeNode.type);
@@ -591,7 +601,7 @@
 		<div
 			bind:this={viewport.viewportEl}
 			role="tree"
-			aria-label="Conversation tree"
+			aria-label={t.canvas.viewportAriaLabel}
 			tabindex="0"
 			class="viewport"
 			class:dragging-canvas={interaction?.isDragging || interaction?.isTouchPanning}
@@ -724,7 +734,7 @@
 										stroke-linejoin="round"
 									/>
 								</svg>
-								Re-generate response
+								{t.canvas.regenerateResponse}
 							</button>
 						</div>
 					{/if}
@@ -741,8 +751,8 @@
 			{#if engine.nodes.length === 0}
 				<div class="empty-state">
 					<div class="empty-state-content">
-						<div class="empty-state-title">Start a conversation</div>
-						<div class="empty-state-subtitle">Type a message below to begin</div>
+						<div class="empty-state-title">{t.canvas.emptyStateTitle}</div>
+						<div class="empty-state-subtitle">{t.canvas.emptyStateSubtitle}</div>
 						<svg class="empty-state-arrow" width="24" height="48" viewBox="0 0 24 48" fill="none">
 							<path
 								d="M12 0L12 42M12 42L6 36M12 42L18 36"

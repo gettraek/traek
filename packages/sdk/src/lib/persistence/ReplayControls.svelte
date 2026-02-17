@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { ReplayController } from './ReplayController.svelte.js';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let { controller }: { controller: ReplayController } = $props();
 
@@ -11,7 +14,7 @@
 		<button
 			type="button"
 			class="traek-replay-btn"
-			title="Step back"
+			title={t.replay.stepBack}
 			disabled={controller.currentIndex < 0}
 			onclick={() => controller.stepBack()}
 		>
@@ -23,7 +26,7 @@
 		<button
 			type="button"
 			class="traek-replay-btn traek-replay-btn--primary"
-			title={controller.isPlaying ? 'Pause' : 'Play'}
+			title={controller.isPlaying ? t.replay.pause : t.replay.play}
 			disabled={controller.currentIndex >= controller.totalNodes - 1 && !controller.isPlaying}
 			onclick={() => (controller.isPlaying ? controller.pause() : controller.play())}
 		>
@@ -41,7 +44,7 @@
 		<button
 			type="button"
 			class="traek-replay-btn"
-			title="Step forward"
+			title={t.replay.stepForward}
 			disabled={controller.currentIndex >= controller.totalNodes - 1}
 			onclick={() => controller.step()}
 		>

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		title,
@@ -144,8 +147,8 @@
 
 	<!-- Tooltip -->
 	<div bind:this={tooltipEl} class="tour-tooltip" style={tooltipStyle}>
-		<button class="tour-skip-button" onclick={onSkip} aria-label="Tour überspringen">
-			Überspringen
+		<button class="tour-skip-button" onclick={onSkip} aria-label={t.tour.skipAriaLabel}>
+			{t.tour.skip}
 		</button>
 
 		<div class="tour-content">
@@ -154,7 +157,7 @@
 		</div>
 
 		<div class="tour-footer">
-			<div class="tour-progress-dots" role="list" aria-label="Tour Fortschritt">
+			<div class="tour-progress-dots" role="list" aria-label={t.tour.tourProgress}>
 				{#each Array(totalSteps) as _step, i (i)}
 					<span
 						class="tour-dot"
@@ -167,10 +170,12 @@
 
 			<div class="tour-buttons">
 				{#if currentStep > 0}
-					<button class="tour-button tour-button-secondary" onclick={onPrevious}> Zurück </button>
+					<button class="tour-button tour-button-secondary" onclick={onPrevious}
+						>{t.tour.back}</button
+					>
 				{/if}
 				<button class="tour-button tour-button-primary" onclick={onNext}>
-					{currentStep < totalSteps - 1 ? 'Weiter' : "Los geht's!"}
+					{currentStep < totalSteps - 1 ? t.tour.next : t.tour.letsGo}
 				</button>
 			</div>
 		</div>

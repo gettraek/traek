@@ -1,61 +1,57 @@
 <script lang="ts">
 	import TourStep from './TourStep.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let { onComplete }: { onComplete: () => void } = $props();
 
 	let currentStep = $state(0);
 
-	const steps = [
+	const steps = $derived([
 		{
-			title: 'Willkommen zu Træk',
-			description:
-				'Træk ist eine räumliche Konversations-Oberfläche. Bewege dich frei auf dem Canvas und erkunde verzweigte Gespräche.',
+			title: t.tour.welcomeTitle,
+			description: t.tour.welcomeDescription,
 			targetSelector: '.viewport',
-			position: 'center'
+			position: 'center' as const
 		},
 		{
-			title: 'Nachricht senden',
-			description:
-				'Gib hier deine Nachricht ein und drücke Enter zum Senden. Deine Konversation wird als Baum auf dem Canvas dargestellt.',
+			title: t.tour.sendMessageTitle,
+			description: t.tour.sendMessageDescription,
 			targetSelector: '.floating-input-container, .input-form',
-			position: 'top'
+			position: 'top' as const
 		},
 		{
-			title: 'Verzweigung erstellen',
-			description:
-				'Klicke auf eine Nachricht und sende eine neue Antwort. Du kannst mehrere alternative Antworten vom selben Punkt aus erstellen.',
+			title: t.tour.createBranchTitle,
+			description: t.tour.createBranchDescription,
 			targetSelector: '.viewport',
-			position: 'center'
+			position: 'center' as const
 		},
 		{
-			title: 'Tastatur-Navigation',
-			description:
-				'Nutze Pfeiltasten (↑↓←→) zum Navigieren, Home für die Wurzel, "i" für Input-Fokus und "?" für alle Shortcuts.',
+			title: t.tour.keyboardNavTitle,
+			description: t.tour.keyboardNavDescription,
 			targetSelector: '.viewport',
-			position: 'center'
+			position: 'center' as const
 		},
 		{
-			title: 'Konversation durchsuchen',
-			description:
-				'Drücke Ctrl+F (oder Cmd+F) um alle Nachrichten zu durchsuchen. Navigiere mit Enter zwischen den Treffern.',
+			title: t.tour.searchTitle,
+			description: t.tour.searchDescription,
 			targetSelector: '.viewport',
-			position: 'center'
+			position: 'center' as const
 		},
 		{
-			title: 'Branches vergleichen',
-			description:
-				'Nutze das Compare-Icon in der Node-Toolbar um verschiedene Antwort-Pfade nebeneinander zu vergleichen.',
+			title: t.tour.compareBranchesTitle,
+			description: t.tour.compareBranchesDescription,
 			targetSelector: '.viewport',
-			position: 'center'
+			position: 'center' as const
 		},
 		{
-			title: 'Du bist startklar!',
-			description:
-				'Du kannst die Tour jederzeit über die Einstellungen neu starten. Viel Spaß beim Erkunden!',
+			title: t.tour.readyTitle,
+			description: t.tour.readyDescription,
 			targetSelector: '.viewport',
-			position: 'center'
+			position: 'center' as const
 		}
-	] as const;
+	]);
 
 	function nextStep() {
 		if (currentStep < steps.length - 1) {

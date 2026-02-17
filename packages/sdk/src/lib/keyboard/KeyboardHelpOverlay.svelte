@@ -3,6 +3,10 @@
 	 * KeyboardHelpOverlay - Shows all keyboard shortcuts for desktop canvas navigation
 	 */
 
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
+
 	let { onClose }: { onClose: () => void } = $props();
 
 	function handleBackdropClick(e: MouseEvent) {
@@ -26,83 +30,83 @@
 <div class="keyboard-help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title">
 	<div class="help-backdrop" onclick={handleBackdropClick}></div>
 	<div class="help-content">
-		<h2 id="help-title">Keyboard Shortcuts</h2>
+		<h2 id="help-title">{t.keyboard.title}</h2>
 
 		<div class="shortcuts-section">
-			<h3>Navigation</h3>
+			<h3>{t.keyboard.navigationSection}</h3>
 			<div class="shortcuts-grid">
 				<div class="shortcut">
 					<kbd>↑</kbd>
-					<span>Navigate to parent</span>
+					<span>{t.keyboard.navigateToParent}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>↓</kbd>
-					<span>Navigate to first child</span>
+					<span>{t.keyboard.navigateToFirstChild}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>←</kbd>
-					<span>Navigate to previous sibling</span>
+					<span>{t.keyboard.navigateToPreviousSibling}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>→</kbd>
-					<span>Navigate to next sibling</span>
+					<span>{t.keyboard.navigateToNextSibling}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>Home</kbd>
-					<span>Go to root node</span>
+					<span>{t.keyboard.goToRoot}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>End</kbd>
-					<span>Go to deepest leaf</span>
+					<span>{t.keyboard.goToDeepestLeaf}</span>
 				</div>
 			</div>
 		</div>
 
 		<div class="shortcuts-section">
-			<h3>Actions</h3>
+			<h3>{t.keyboard.actionsSection}</h3>
 			<div class="shortcuts-grid">
 				<div class="shortcut">
 					<kbd>Enter</kbd>
-					<span>Activate focused node</span>
+					<span>{t.keyboard.activateFocusedNode}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>Space</kbd>
-					<span>Toggle collapse/expand</span>
+					<span>{t.keyboard.toggleCollapseExpand}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>Tab</kbd>
-					<span>Switch focus to input</span>
+					<span>{t.keyboard.switchFocusToInput}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>?</kbd>
-					<span>Show/hide this help</span>
+					<span>{t.keyboard.showHideHelp}</span>
 				</div>
 			</div>
 		</div>
 
 		<div class="shortcuts-section">
-			<h3>Advanced</h3>
+			<h3>{t.keyboard.advancedSection}</h3>
 			<div class="shortcuts-grid">
 				<div class="shortcut">
 					<kbd>g</kbd><kbd>g</kbd>
-					<span>Go to root (chord)</span>
+					<span>{t.keyboard.goToRootChord}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>g</kbd><kbd>e</kbd>
-					<span>Go to deepest leaf (chord)</span>
+					<span>{t.keyboard.goToDeepestLeafChord}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>1</kbd>-<kbd>9</kbd>
-					<span>Jump to nth child</span>
+					<span>{t.keyboard.jumpToNthChild}</span>
 				</div>
 				<div class="shortcut">
 					<kbd>/</kbd>
-					<span>Open fuzzy search</span>
+					<span>{t.keyboard.openFuzzySearch}</span>
 				</div>
 			</div>
 		</div>
 
-		<button class="close-button" onclick={onClose}>Close</button>
+		<button class="close-button" onclick={onClose}>{t.keyboard.close}</button>
 	</div>
 </div>
 

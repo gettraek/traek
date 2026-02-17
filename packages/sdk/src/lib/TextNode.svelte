@@ -5,8 +5,11 @@
 	import TraekNodeWrapper from './TraekNodeWrapper.svelte';
 	import { markdownToHtml } from './utils';
 	import { getDetailLevel } from './canvas/AdaptiveRenderer.svelte';
+	import { getTraekI18n } from './i18n/index';
 
 	import type { MessageNode } from './TraekEngine.svelte';
+
+	const t = getTraekI18n();
 
 	let {
 		node,
@@ -247,8 +250,12 @@
 				}}
 			></textarea>
 			<div class="edit-actions">
-				<button type="button" class="edit-btn edit-btn-save" onclick={saveEdit}>Save</button>
-				<button type="button" class="edit-btn edit-btn-cancel" onclick={cancelEdit}>Cancel</button>
+				<button type="button" class="edit-btn edit-btn-save" onclick={saveEdit}
+					>{t.textNode.save}</button
+				>
+				<button type="button" class="edit-btn edit-btn-cancel" onclick={cancelEdit}
+					>{t.textNode.cancel}</button
+				>
 			</div>
 		</div>
 	{:else if detailLevel === 'full'}
@@ -274,7 +281,9 @@
 		</div>
 
 		{#if node.content.length > 500 && !isScrolledToEnd}
-			<div transition:fadedSlide={{ axis: 'y' }} class="scroll-hint">Scroll for more ↓</div>
+			<div transition:fadedSlide={{ axis: 'y' }} class="scroll-hint">
+				{t.textNode.scrollForMore}
+			</div>
 		{/if}
 	{/if}
 </TraekNodeWrapper>

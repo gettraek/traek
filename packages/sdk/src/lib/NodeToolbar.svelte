@@ -3,6 +3,9 @@
 	import type { NodeTypeAction, ActionVariant } from './node-types/types';
 	import type { Node, TraekEngine } from './TraekEngine.svelte';
 	import TagDropdown from './tags/TagDropdown.svelte';
+	import { getTraekI18n } from './i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		actions,
@@ -79,7 +82,7 @@
 	<div
 		class="traek-node-toolbar"
 		role="toolbar"
-		aria-label="Node actions"
+		aria-label={t.toolbar.nodeActions}
 		style:left="{x}px"
 		style:top="{y}px"
 		style:max-width="{nodeWidth}px"

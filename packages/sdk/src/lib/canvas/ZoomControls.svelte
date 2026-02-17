@@ -2,6 +2,9 @@
 	import type { ViewportManager } from './ViewportManager.svelte';
 	import type { Node } from '../TraekEngine.svelte';
 	import type { TraekEngineConfig } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		viewport,
@@ -41,8 +44,8 @@
 <div class="zoom-controls">
 	<button
 		onclick={zoomIn}
-		title="Zoom in"
-		aria-label="Zoom in"
+		title={t.zoom.zoomIn}
+		aria-label={t.zoom.zoomIn}
 		onkeydown={(e) => e.key === 'Enter' && zoomIn()}
 	>
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -53,8 +56,8 @@
 	<button
 		class="zoom-display"
 		onclick={resetZoom}
-		title="Reset zoom to 100%"
-		aria-label="Reset zoom to 100%"
+		title={t.zoom.resetZoom}
+		aria-label={t.zoom.resetZoom}
 		onkeydown={(e) => e.key === 'Enter' && resetZoom()}
 	>
 		{Math.round(viewport.scale * 100)}%
@@ -62,8 +65,8 @@
 
 	<button
 		onclick={zoomOut}
-		title="Zoom out"
-		aria-label="Zoom out"
+		title={t.zoom.zoomOut}
+		aria-label={t.zoom.zoomOut}
 		onkeydown={(e) => e.key === 'Enter' && zoomOut()}
 	>
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -75,8 +78,8 @@
 
 	<button
 		onclick={fitAll}
-		title="Fit all nodes"
-		aria-label="Fit all nodes"
+		title={t.zoom.fitAllNodes}
+		aria-label={t.zoom.fitAllNodes}
 		class="fit-all"
 		onkeydown={(e) => e.key === 'Enter' && fitAll()}
 	>

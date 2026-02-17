@@ -2,6 +2,9 @@
 	import { slide } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
 	import type { ReplayController } from '../persistence/ReplayController.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let { controller }: { controller: ReplayController } = $props();
 
@@ -83,7 +86,7 @@
 			class="replay-btn replay-btn-icon"
 			onclick={handleReset}
 			disabled={isAtStart}
-			title="Reset to start"
+			title={t.replay.stepBack}
 		>
 			<Icon icon="mdi:skip-previous" width="20" height="20" />
 		</button>
@@ -93,7 +96,7 @@
 			class="replay-btn replay-btn-icon"
 			onclick={handleStepBack}
 			disabled={isAtStart}
-			title="Step back"
+			title={t.replay.stepBack}
 		>
 			<Icon icon="mdi:step-backward" width="20" height="20" />
 		</button>
@@ -103,7 +106,7 @@
 			class="replay-btn replay-btn-play"
 			onclick={togglePlayPause}
 			disabled={isAtEnd && !isPlaying}
-			title={isPlaying ? 'Pause' : 'Play'}
+			title={isPlaying ? t.replay.pause : t.replay.play}
 		>
 			<Icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} width="24" height="24" />
 		</button>
@@ -113,7 +116,7 @@
 			class="replay-btn replay-btn-icon"
 			onclick={handleStepForward}
 			disabled={isAtEnd}
-			title="Step forward"
+			title={t.replay.stepForward}
 		>
 			<Icon icon="mdi:step-forward" width="20" height="20" />
 		</button>

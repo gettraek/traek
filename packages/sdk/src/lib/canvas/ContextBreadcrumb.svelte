@@ -5,6 +5,9 @@
 	 */
 
 	import type { TraekEngine, Node, MessageNode } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -52,7 +55,7 @@
 						onclick={() => {
 							isExpanded = true;
 						}}
-						aria-label="Show full path"
+						aria-label={t.breadcrumb.showFullPath}
 					>
 						...
 					</button>
@@ -75,7 +78,7 @@
 							class:assistant-dot={node.role === 'assistant'}
 						></span>
 						<span class="crumb-text">
-							{(node as MessageNode).content?.slice(0, 20) ?? 'Message'}
+							{(node as MessageNode).content?.slice(0, 20) ?? t.breadcrumb.defaultNodeText}
 							{(node as MessageNode).content && (node as MessageNode).content.length > 20
 								? '...'
 								: ''}
