@@ -1,0 +1,109 @@
+@font-face {
+	font-family: 'Space Grotesk';
+	src: url('/SpaceGrotesk-VariableFont_wght.ttf') format('truetype');
+	font-weight: 100 700;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Space Mono';
+	src: url('/SpaceMono-Regular.ttf') format('truetype');
+	font-weight: 400;
+	font-display: swap;
+}
+
+:root {
+	/* Brand accents */
+	--pg-cyan: #00d8ff;
+	--pg-lime: #00ffa3;
+	--pg-cyan-soft: rgba(0, 216, 255, 0.08);
+	--pg-cyan-border: rgba(0, 216, 255, 0.22);
+	--pg-gradient: linear-gradient(135deg, #00d8ff, #00ffa3);
+
+	/* Backgrounds */
+	--pg-bg: #080808;
+	--pg-bg-surface: #111111;
+	--pg-bg-card: #161616;
+	--pg-bg-card-hover: #1c1c1c;
+	--pg-bg-input: rgba(255, 255, 255, 0.05);
+
+	/* Text */
+	--pg-text: #f0f0f0;
+	--pg-text-secondary: #a8a8a8;
+	--pg-text-muted: #666666;
+	--pg-text-strong: #ffffff;
+
+	/* Borders */
+	--pg-border: rgba(255, 255, 255, 0.08);
+	--pg-border-strong: rgba(255, 255, 255, 0.14);
+	--pg-border-cyan: rgba(0, 216, 255, 0.28);
+
+	/* Shadows */
+	--pg-shadow-card: 0 8px 32px rgba(0, 0, 0, 0.5);
+	--pg-shadow-glow: 0 0 60px rgba(0, 216, 255, 0.08);
+	--pg-shadow-btn: 0 8px 28px rgba(0, 216, 255, 0.25);
+	--pg-shadow-btn-hover: 0 12px 36px rgba(0, 216, 255, 0.35);
+}
+
+[data-theme='light'] {
+	--pg-bg: #f8f8f8;
+	--pg-bg-surface: #f0f0f0;
+	--pg-bg-card: #ffffff;
+	--pg-bg-card-hover: #f5f5f5;
+	--pg-bg-input: rgba(0, 0, 0, 0.04);
+
+	--pg-text: #1a1a1a;
+	--pg-text-secondary: #525252;
+	--pg-text-muted: #888888;
+	--pg-text-strong: #000000;
+
+	--pg-border: rgba(0, 0, 0, 0.08);
+	--pg-border-strong: rgba(0, 0, 0, 0.14);
+	--pg-border-cyan: rgba(0, 153, 204, 0.3);
+
+	--pg-cyan: #0099cc;
+	--pg-lime: #00c97a;
+	--pg-cyan-soft: rgba(0, 153, 204, 0.08);
+	--pg-gradient: linear-gradient(135deg, #0099cc, #00c97a);
+
+	--pg-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
+	--pg-shadow-glow: 0 0 60px rgba(0, 153, 204, 0.06);
+	--pg-shadow-btn: 0 6px 20px rgba(0, 153, 204, 0.2);
+	--pg-shadow-btn-hover: 0 8px 26px rgba(0, 153, 204, 0.28);
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background-color: var(--pg-bg);
+	color: var(--pg-text);
+	font-family: 'Space Grotesk', sans-serif;
+	font-size: 16px;
+	line-height: 1.5;
+	font-weight: 400;
+	font-optical-sizing: auto;
+	-webkit-font-smoothing: antialiased;
+}
+
+code,
+pre {
+	font-family: 'Space Mono', monospace;
+}
+
+a {
+	color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
