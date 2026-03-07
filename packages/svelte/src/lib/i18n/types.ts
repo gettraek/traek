@@ -11,6 +11,8 @@ export interface TraekTranslations {
 		regenerateResponse: string;
 		branchCelebration: string;
 		nodesDeleted: (count: number) => string;
+		gestureHintDrag: string;
+		gestureHintZoom: string;
 	};
 	input: {
 		placeholder: string;
@@ -107,6 +109,8 @@ export interface TraekTranslations {
 	tour: {
 		welcomeTitle: string;
 		welcomeDescription: string;
+		panZoomTitle: string;
+		panZoomDescription: string;
 		sendMessageTitle: string;
 		sendMessageDescription: string;
 		createBranchTitle: string;
@@ -125,6 +129,12 @@ export interface TraekTranslations {
 		next: string;
 		letsGo: string;
 		tourProgress: string;
+	};
+	mobile: {
+		swipeUpHint: string;
+		swipeDownHint: string;
+		swipeLeftHint: string;
+		swipeRightHint: string;
 	};
 	breadcrumb: {
 		showFullPath: string;

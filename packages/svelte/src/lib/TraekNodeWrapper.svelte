@@ -58,7 +58,7 @@
 			showCompletePulse = true;
 			setTimeout(() => {
 				showCompletePulse = false;
-			}, 300);
+			}, 600);
 		}
 		previousStatus = node.status;
 	});
@@ -408,7 +408,11 @@
 		@keyframes stream-complete-pulse {
 			0% {
 				border-color: var(--traek-thought-tag-cyan, #00d8ff);
-				box-shadow: 0 0 20px rgba(0, 216, 255, 0.4);
+				box-shadow: 0 0 32px rgba(0, 216, 255, 0.6);
+			}
+			70% {
+				border-color: var(--traek-thought-tag-cyan, #00d8ff);
+				box-shadow: 0 0 20px rgba(0, 216, 255, 0.3);
 			}
 			100% {
 				border-color: var(--traek-thought-panel-border, #333333);
@@ -421,7 +425,7 @@
 		}
 
 		.message-node-wrapper.stream-complete {
-			animation: stream-complete-pulse 300ms ease-out;
+			animation: stream-complete-pulse 600ms ease-out;
 		}
 
 		@media (prefers-reduced-motion: reduce) {
@@ -438,7 +442,9 @@
 
 		.message-node-wrapper.active {
 			border-color: var(--traek-thought-panel-border-active, #00d8ff);
-			box-shadow: 0 0 30px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.15));
+			box-shadow:
+				0 0 0 1px var(--traek-thought-panel-border-active, #00d8ff),
+				0 0 40px var(--traek-thought-panel-glow, rgba(0, 216, 255, 0.25));
 			transform: scale(1.02);
 		}
 
@@ -489,6 +495,15 @@
 
 		.node-header:hover {
 			background: rgba(255, 255, 255, 0.06);
+		}
+
+		/* All node headers show grab cursor — dragging works on any node */
+		.message-node-wrapper .node-header {
+			cursor: grab;
+		}
+
+		.message-node-wrapper .node-header:active {
+			cursor: grabbing;
 		}
 
 		.role-indicator {

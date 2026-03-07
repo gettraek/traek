@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
+
 	let {
 		canSwipeUp = false,
 		canSwipeDown = false,
@@ -52,7 +56,7 @@
 				</svg>
 			</div>
 			{#if showHint}
-				<span class="hint-label">Wische nach oben für mehr</span>
+				<span class="hint-label">{t.mobile.swipeUpHint}</span>
 			{/if}
 		</div>
 	{/if}
@@ -71,7 +75,7 @@
 				</svg>
 			</div>
 			{#if showHint}
-				<span class="hint-label">Wische nach unten zurück</span>
+				<span class="hint-label">{t.mobile.swipeDownHint}</span>
 			{/if}
 		</div>
 	{/if}
@@ -89,6 +93,9 @@
 					/>
 				</svg>
 			</div>
+			{#if showHint}
+				<span class="hint-label hint-label--sideways">{t.mobile.swipeLeftHint}</span>
+			{/if}
 		</div>
 	{/if}
 
@@ -105,6 +112,9 @@
 					/>
 				</svg>
 			</div>
+			{#if showHint}
+				<span class="hint-label hint-label--sideways">{t.mobile.swipeRightHint}</span>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -153,6 +163,8 @@
 		left: 8px;
 		top: 50%;
 		transform: translateY(-50%);
+		flex-direction: row;
+		gap: 4px;
 		padding: 12px 8px;
 	}
 
@@ -160,7 +172,15 @@
 		right: 8px;
 		top: 50%;
 		transform: translateY(-50%);
+		flex-direction: row-reverse;
+		gap: 4px;
 		padding: 12px 8px;
+	}
+
+	.hint-label--sideways {
+		writing-mode: vertical-lr;
+		text-orientation: mixed;
+		font-size: 11px;
 	}
 
 	.chevron {

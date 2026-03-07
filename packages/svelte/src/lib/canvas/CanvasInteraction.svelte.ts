@@ -6,6 +6,8 @@ import { findScrollable, scrollableCanConsumeWheel, ScrollBoundaryGuard } from '
 /**
  * Manages canvas interaction state: pan, zoom, node dragging, connection dragging, and touch gestures.
  */
+const DRAG_THRESHOLD = 4; // pixels before a pending node drag becomes a real drag
+
 export class CanvasInteraction {
 	isDragging = $state(false);
 	draggingNodeId = $state<string | null>(null);
@@ -15,6 +17,10 @@ export class CanvasInteraction {
 
 	#dragStartMouse = $state<{ x: number; y: number } | null>(null);
 	#dragStartNodePosition = $state<{ x: number; y: number } | null>(null);
+	// Pending drag: mousedown on any node header — becomes real drag after threshold
+	#pendingDragNodeId: string | null = null;
+	#pendingDragStartMouse: { x: number; y: number } | null = null;
+	#pendingDragNodePosition: { x: number; y: number } | null = null;
 	#touchStartPan = $state<{
 		offsetX: number;
 		offsetY: number;
@@ -115,15 +121,16 @@ export class CanvasInteraction {
 		const nodeEl = (e.target as HTMLElement).closest('[data-node-id]');
 		if (nodeEl) {
 			const id = nodeEl.getAttribute('data-node-id');
-			if (id && this.#engine.activeNodeId === id) {
+			if (id) {
 				// Allow text selection inside node content – don't start drag or preventDefault
 				if ((e.target as HTMLElement).closest('.message-node-content, .content-area')) return;
 				const node = this.#engine.nodes.find((n: Node) => n.id === id);
 				if (node) {
-					this.draggingNodeId = id;
-					this.#dragStartMouse = { x: e.clientX, y: e.clientY };
+					// Record pending drag: becomes real after DRAG_THRESHOLD pixels of movement
 					const step = this.#config.gridStep;
-					this.#dragStartNodePosition = {
+					this.#pendingDragNodeId = id;
+					this.#pendingDragStartMouse = { x: e.clientX, y: e.clientY };
+					this.#pendingDragNodePosition = {
 						x: (node.metadata?.x ?? 0) * step,
 						y: (node.metadata?.y ?? 0) * step
 					};
@@ -137,6 +144,22 @@ export class CanvasInteraction {
 	};
 
 	handleMouseMove = (e: MouseEvent) => {
+		// Promote pending node drag once threshold is crossed
+		if (this.#pendingDragNodeId && this.#pendingDragStartMouse && this.#pendingDragNodePosition) {
+			const dx = e.clientX - this.#pendingDragStartMouse.x;
+			const dy = e.clientY - this.#pendingDragStartMouse.y;
+			if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+				// Auto-activate the node and start dragging
+				this.#engine.activeNodeId = this.#pendingDragNodeId;
+				this.draggingNodeId = this.#pendingDragNodeId;
+				this.#dragStartMouse = this.#pendingDragStartMouse;
+				this.#dragStartNodePosition = this.#pendingDragNodePosition;
+				this.#pendingDragNodeId = null;
+				this.#pendingDragStartMouse = null;
+				this.#pendingDragNodePosition = null;
+			}
+		}
+
 		// Connection drag: update rubber band position
 		if (this.connectionDrag) {
 			const canvasPos = this.#clientToCanvas(e.clientX, e.clientY);
@@ -215,6 +238,9 @@ export class CanvasInteraction {
 			this.#engine.snapNodeToGrid(this.draggingNodeId);
 			this.#onNodesChanged?.();
 		}
+		this.#pendingDragNodeId = null;
+		this.#pendingDragStartMouse = null;
+		this.#pendingDragNodePosition = null;
 		this.#viewport.notifyViewportChange();
 		this.isDragging = false;
 		this.draggingNodeId = null;
@@ -253,15 +279,16 @@ export class CanvasInteraction {
 		const nodeEl = (e.target as HTMLElement).closest('[data-node-id]');
 		if (nodeEl) {
 			const id = nodeEl.getAttribute('data-node-id');
-			if (id && this.#engine.activeNodeId === id) {
+			if (id) {
 				// Allow text selection / don't start node drag when touching node content
 				if ((e.target as HTMLElement).closest('.message-node-content, .content-area')) return;
 				const node = this.#engine.nodes.find((n: Node) => n.id === id);
 				if (node) {
-					this.draggingNodeId = id;
-					this.#dragStartMouse = { x: single.clientX, y: single.clientY };
+					// Record pending drag — promoted after threshold in handleTouchMove
 					const step = this.#config.gridStep;
-					this.#dragStartNodePosition = {
+					this.#pendingDragNodeId = id;
+					this.#pendingDragStartMouse = { x: single.clientX, y: single.clientY };
+					this.#pendingDragNodePosition = {
 						x: (node.metadata?.x ?? 0) * step,
 						y: (node.metadata?.y ?? 0) * step
 					};
@@ -279,6 +306,29 @@ export class CanvasInteraction {
 
 	handleTouchMove = (e: TouchEvent) => {
 		if (!this.#viewport.viewportEl) return;
+		// Promote pending touch drag after threshold
+		if (
+			this.#pendingDragNodeId &&
+			this.#pendingDragStartMouse &&
+			this.#pendingDragNodePosition &&
+			e.touches.length === 1
+		) {
+			const one = e.touches[0];
+			if (one) {
+				const dx = one.clientX - this.#pendingDragStartMouse.x;
+				const dy = one.clientY - this.#pendingDragStartMouse.y;
+				if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+					this.#engine.activeNodeId = this.#pendingDragNodeId;
+					this.draggingNodeId = this.#pendingDragNodeId;
+					this.#dragStartMouse = this.#pendingDragStartMouse;
+					this.#dragStartNodePosition = this.#pendingDragNodePosition;
+					this.#pendingDragNodeId = null;
+					this.#pendingDragStartMouse = null;
+					this.#pendingDragNodePosition = null;
+				}
+			}
+		}
+
 		if (e.touches.length === 2 && this.#pinchStart) {
 			const t0 = e.touches[0];
 			const t1 = e.touches[1];
@@ -335,6 +385,9 @@ export class CanvasInteraction {
 				this.#engine.snapNodeToGrid(this.draggingNodeId);
 				this.#onNodesChanged?.();
 			}
+			this.#pendingDragNodeId = null;
+			this.#pendingDragStartMouse = null;
+			this.#pendingDragNodePosition = null;
 			this.#viewport.notifyViewportChange();
 			this.isDragging = false;
 			this.draggingNodeId = null;
@@ -365,13 +418,19 @@ export class CanvasInteraction {
 		}
 		e.preventDefault();
 
-		// Heuristic for Trackpad vs Mouse:
-		// - Ctrl Key pressed = Pinch to Zoom (Standard)
-		// - DeltaMode 0 (Pixel) + No Ctrl = Trackpad Pan (usually)
-		// - DeltaMode 1 (Line) = Mouse Wheel Zoom (keeping "mouse is fine" behavior)
+		// Heuristic for Trackpad vs Mouse Wheel:
+		// - ctrlKey: pinch-to-zoom on trackpad (macOS) → zoom
+		// - deltaMode >= 1 (line/page): Firefox/most mice → zoom
+		// - deltaMode 0, no horizontal, large integer delta: Chrome/Windows mouse wheel → zoom
+		// - deltaMode 0, fractional or has horizontal component: trackpad swipe → pan
+		const isMouseWheelLike =
+			e.deltaMode === 0 &&
+			Math.abs(e.deltaX) < 2 &&
+			Number.isInteger(e.deltaY) &&
+			Math.abs(e.deltaY) >= 40;
 
-		if (e.ctrlKey || e.deltaMode === 1) {
-			const zoomDelta = e.deltaMode === 1 ? e.deltaY * this.#config.zoomLineModeBoost : e.deltaY;
+		if (e.ctrlKey || e.deltaMode >= 1 || isMouseWheelLike) {
+			const zoomDelta = e.deltaMode >= 1 ? e.deltaY * this.#config.zoomLineModeBoost : e.deltaY;
 			const newScale = Math.min(
 				Math.max(this.#config.scaleMin, this.#viewport.scale + -zoomDelta * this.#config.zoomSpeed),
 				this.#config.scaleMax

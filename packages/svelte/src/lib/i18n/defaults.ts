@@ -8,7 +8,9 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		emptyStateSubtitle: 'Type a message below to begin',
 		regenerateResponse: 'Re-generate response',
 		branchCelebration: 'You created a branch! Explore different directions.',
-		nodesDeleted: (count: number) => `${count} node${count > 1 ? 's' : ''} deleted`
+		nodesDeleted: (count: number) => `${count} node${count > 1 ? 's' : ''} deleted`,
+		gestureHintDrag: 'Drag to pan',
+		gestureHintZoom: 'Scroll to zoom'
 	},
 	input: {
 		placeholder: 'Ask the expert...',
@@ -102,10 +104,19 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		letsGo: "Let's go!",
 		tutorialProgress: 'Tutorial progress'
 	},
+	mobile: {
+		swipeUpHint: 'Swipe up for more',
+		swipeDownHint: 'Swipe down to go back',
+		swipeLeftHint: 'Previous branch',
+		swipeRightHint: 'Next branch'
+	},
 	tour: {
 		welcomeTitle: 'Welcome to Tr\u00E6k',
 		welcomeDescription:
 			'Tr\u00E6k is a spatial conversation interface. Move freely on the canvas and explore branching conversations.',
+		panZoomTitle: 'Navigate the canvas',
+		panZoomDescription:
+			'Drag to pan, scroll to zoom (or pinch on a trackpad). Use Ctrl+Scroll to zoom precisely. The minimap in the corner shows your position.',
 		sendMessageTitle: 'Send a message',
 		sendMessageDescription:
 			'Type your message here and press Enter to send. Your conversation will be displayed as a tree on the canvas.',

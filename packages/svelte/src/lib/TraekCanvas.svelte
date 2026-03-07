@@ -763,6 +763,38 @@
 							/>
 						</svg>
 					</div>
+					<div class="empty-state-gestures" aria-hidden="true">
+						<div class="gesture-hint">
+							<!-- Drag / pan icon -->
+							<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+								<path
+									d="M10 2v3M10 15v3M2 10h3M15 10h3"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+								<circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+							</svg>
+							<span>{t.canvas.gestureHintDrag}</span>
+						</div>
+						<div class="gesture-hint-sep" aria-hidden="true">·</div>
+						<div class="gesture-hint">
+							<!-- Scroll / zoom icon -->
+							<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+								<rect
+									x="6"
+									y="3"
+									width="8"
+									height="14"
+									rx="4"
+									stroke="currentColor"
+									stroke-width="1.5"
+								/>
+								<path d="M10 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+							</svg>
+							<span>{t.canvas.gestureHintZoom}</span>
+						</div>
+					</div>
 				</div>
 			{/if}
 
@@ -959,6 +991,27 @@
 			color: var(--traek-empty-state-color, var(--traek-text-secondary, #888888));
 			opacity: 0.5;
 			animation: empty-state-bounce 2s ease-in-out infinite;
+		}
+
+		.empty-state-gestures {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			margin-top: 24px;
+			opacity: 0.45;
+		}
+
+		.gesture-hint {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 12px;
+			color: var(--traek-empty-state-color, var(--traek-text-secondary, #888888));
+		}
+
+		.gesture-hint-sep {
+			color: var(--traek-empty-state-color, var(--traek-text-secondary, #888888));
+			opacity: 0.4;
 		}
 
 		@keyframes empty-state-bounce {
