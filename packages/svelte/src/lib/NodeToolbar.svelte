@@ -97,6 +97,7 @@
 						type="button"
 						class="traek-toolbar-badge traek-toolbar-badge--variant"
 						title={variant.label}
+						aria-label={variant.label}
 						onclick={(e) => handleVariantClick(e, variant)}
 					>
 						<span>{variant.label}</span>

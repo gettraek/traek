@@ -88,6 +88,7 @@
 		<textarea
 			bind:value={userInput}
 			placeholder={t.input.placeholder}
+			aria-label={t.input.placeholder}
 			spellcheck="false"
 			rows="1"
 			oninput={(e) => {

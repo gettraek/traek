@@ -16,6 +16,12 @@
 			position: 'center' as const
 		},
 		{
+			title: t.tour.panZoomTitle,
+			description: t.tour.panZoomDescription,
+			targetSelector: '.viewport',
+			position: 'center' as const
+		},
+		{
 			title: t.tour.sendMessageTitle,
 			description: t.tour.sendMessageDescription,
 			targetSelector: '.floating-input-container, .input-form',

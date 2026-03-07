@@ -73,6 +73,7 @@
 			type="text"
 			class="search-input"
 			placeholder={t.search.placeholder}
+			aria-label={t.search.placeholder}
 			value={query}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
