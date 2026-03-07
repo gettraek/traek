@@ -159,3 +159,5 @@ export type { TraekTranslations, PartialTraekTranslations } from './i18n/index';
 export { default as CollabCursorsOverlay } from './collab/CollabCursorsOverlay.svelte';
 export { default as CollabPresenceBubbles } from './collab/CollabPresenceBubbles.svelte';
 export { default as CollabStatusIndicator } from './collab/CollabStatusIndicator.svelte';
+export { useCollab } from './collab/useCollab.svelte.js';
+export type { CollabHandle } from './collab/useCollab.svelte.js';

@@ -1,0 +1,54 @@
+{
+	"name": "@traek/collab",
+	"version": "0.0.1",
+	"description": "Real-time collaboration for Træk – multi-user cursors, shared trees, presence (Yjs/CRDT)",
+	"author": "Nico Hülscher",
+	"license": "BSL-1.1",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*"
+	],
+	"scripts": {
+		"build": "tsc --project tsconfig.build.json",
+		"check": "tsc --noEmit",
+		"lint": "prettier --check .",
+		"clean": "rm -rf node_modules dist coverage .turbo",
+		"format": "prettier --write .",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@traek/core": "workspace:*",
+		"lib0": "^0.2.100",
+		"y-websocket": "^2.1.0",
+		"yjs": "^13.6.27"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"prettier": "^3.8.1",
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.18"
+	},
+	"keywords": [
+		"traek",
+		"collaboration",
+		"crdt",
+		"yjs",
+		"websocket",
+		"real-time",
+		"presence"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gettraek/traek.git"
+	}
+}
