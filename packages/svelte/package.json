@@ -32,7 +32,13 @@
 		"test": "vitest run"
 	},
 	"peerDependencies": {
-		"svelte": "^5.0.0"
+		"svelte": "^5.0.0",
+		"@traek/collab": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@traek/collab": {
+			"optional": true
+		}
 	},
 	"dependencies": {
 		"@traek/core": "workspace:*",
@@ -44,6 +50,7 @@
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@traek/collab": "workspace:*",
 		"@eslint/compat": "2.0.2",
 		"@eslint/js": "9.39.2",
 		"@sveltejs/kit": "^2.50.2",

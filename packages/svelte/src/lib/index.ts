@@ -154,3 +154,8 @@ export type {
 // i18n
 export { DEFAULT_TRANSLATIONS, setTraekI18n, getTraekI18n, mergeTranslations } from './i18n/index';
 export type { TraekTranslations, PartialTraekTranslations } from './i18n/index';
+
+// Collaboration UI (requires @traek/collab peer dependency)
+export { default as CollabCursorsOverlay } from './collab/CollabCursorsOverlay.svelte';
+export { default as CollabPresenceBubbles } from './collab/CollabPresenceBubbles.svelte';
+export { default as CollabStatusIndicator } from './collab/CollabStatusIndicator.svelte';
