@@ -38,3 +38,7 @@ export { searchNodes, highlightMatch } from './search.js';
 // Reactive store primitives
 export { Store, ObservableSet } from './store.js';
 export type { Unsubscribe, Subscriber } from './store.js';
+
+// Layout algorithms and types (framework-agnostic)
+export { computeLayout, buildLayoutInput, LAYOUT_MODE_LABELS } from './layout.js';
+export type { LayoutMode, NodePosition, LayoutConfig, LayoutInput } from './layout.js';

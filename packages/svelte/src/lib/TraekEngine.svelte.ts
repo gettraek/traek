@@ -6,9 +6,9 @@ import {
 } from '$lib/persistence/schemas';
 import { searchNodes as searchNodesUtil, type SearchFilters } from '$lib/search/searchUtils';
 import { HistoryManager, type EngineSnapshot } from '$lib/history/HistoryManager';
-import { computeLayout } from './layout/algorithms';
-import type { LayoutMode } from './layout/types';
-export type { LayoutMode } from './layout/types';
+import { computeLayout, buildLayoutInput } from '@traek/core';
+import type { LayoutMode, LayoutConfig } from '@traek/core';
+export type { LayoutMode } from '@traek/core';
 
 // Shared types and utilities from the framework-agnostic core package.
 // Re-exported here so that consumers of @traek/svelte don't need to
@@ -405,35 +405,7 @@ export class TraekEngine {
 	applyLayout(mode: LayoutMode = this.layoutMode, force = false, animate = true): void {
 		this.layoutMode = mode;
 
-		const step = this.config.gridStep;
-
-		// Build childrenMap from nodes (exclude thought nodes)
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const childrenMap = new Map<string | null, string[]>();
-		for (const node of this.nodes) {
-			if (node.type === 'thought') continue;
-			const parentId = node.parentIds[0] ?? null;
-			const arr = childrenMap.get(parentId) ?? [];
-			arr.push(node.id);
-			childrenMap.set(parentId, arr);
-		}
-
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const nodeMap = new Map<string, Node>();
-		for (const node of this.nodes) nodeMap.set(node.id, node);
-
-		const layoutInput = {
-			nodes: this.nodes,
-			childrenMap,
-			nodeMap,
-			config: {
-				nodeWidthGrid: Math.round(this.config.nodeWidth / step),
-				nodeHGrid: Math.round(this.config.nodeHeightDefault / step),
-				gapXGrid: Math.round(this.config.layoutGapX / step),
-				gapYGrid: Math.round(this.config.layoutGapY / step)
-			}
-		};
-
+		const layoutInput = buildLayoutInput(this.nodes, this.childrenIdMap, this.getLayoutConfig());
 		const positions = computeLayout(mode, layoutInput);
 
 		if (!animate || this.layoutTransitionMs <= 0 || typeof requestAnimationFrame === 'undefined') {
@@ -488,121 +460,26 @@ export class TraekEngine {
 		requestAnimationFrame(tick);
 	}
 
+	private getLayoutConfig(): LayoutConfig {
+		const step = this.config.gridStep;
+		return {
+			nodeWidthGrid: Math.round(this.config.nodeWidth / step),
+			nodeHGrid: Math.round(this.config.nodeHeightDefault / step),
+			gapXGrid: Math.round(this.config.layoutGapX / step),
+			gapYGrid: Math.round(this.config.layoutGapY / step)
+		};
+	}
+
 	/** Run layout from every root (no parents). Use after adding nodes with deferLayout. */
 	flushLayoutFromRoot() {
-		const roots = this.getChildren(null);
-		const childrenMap = this.buildChildrenMap();
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const subtreeHeightCache = new Map<string, number>();
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const subtreeWidthCache = new Map<string, number>();
-		for (const root of roots) {
-			this.fillSubtreeHeightCache(root.id, childrenMap, subtreeHeightCache);
-			this.fillSubtreeWidthCache(root.id, childrenMap, subtreeWidthCache);
-		}
-		for (const root of roots) {
-			this.layoutChildrenWithCache(root.id, childrenMap, subtreeHeightCache, subtreeWidthCache);
-		}
-	}
-
-	/**
-	 * Build a map from parent id → children.
-	 * For layout purposes, each node is assigned to its primary parent (first in parentIds).
-	 * Nodes with no parents are keyed under null.
-	 */
-	private buildChildrenMap(): Map<string | null, Node[]> {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const map = new Map<string | null, Node[]>();
-		for (const n of this.nodes) {
-			const key = n.parentIds[0] ?? null;
-			const list = map.get(key) ?? [];
-			list.push(n);
-			map.set(key, list);
-		}
-		return map;
-	}
-
-	private fillSubtreeHeightCache(
-		nodeId: string,
-		childrenMap: Map<string | null, Node[]>,
-		cache: Map<string, number>
-	): void {
-		const children = childrenMap.get(nodeId) ?? [];
-		const otherChildren = children.filter((c) => c.type !== 'thought');
-		for (const c of otherChildren) this.fillSubtreeHeightCache(c.id, childrenMap, cache);
-		const node = this.getNode(nodeId);
-		if (!node) return;
-		const step = this.config.gridStep;
-		const defaultH = this.config.nodeHeightDefault;
-		const gapYGrid = this.config.layoutGapY / step;
-		const nodeHGrid = (node.metadata?.height ?? defaultH) / step;
-		if (otherChildren.length === 0) {
-			cache.set(nodeId, nodeHGrid);
-			return;
-		}
-		const maxChildH = Math.max(0, ...otherChildren.map((c) => cache.get(c.id) ?? 0));
-		cache.set(nodeId, nodeHGrid + gapYGrid + maxChildH);
-	}
-
-	private fillSubtreeWidthCache(
-		nodeId: string,
-		childrenMap: Map<string | null, Node[]>,
-		cache: Map<string, number>
-	): void {
-		const children = childrenMap.get(nodeId) ?? [];
-		const otherChildren = children.filter((c) => c.type !== 'thought');
-		for (const c of otherChildren) this.fillSubtreeWidthCache(c.id, childrenMap, cache);
-		const node = this.getNode(nodeId);
-		if (!node) return;
-		const step = this.config.gridStep;
-		const nodeWidthGrid = this.config.nodeWidth / step;
-		const gapXGrid = this.config.layoutGapX / step;
-		if (otherChildren.length === 0) {
-			cache.set(nodeId, nodeWidthGrid);
-			return;
-		}
-		const total =
-			otherChildren.reduce((sum, c) => sum + (cache.get(c.id) ?? 0) + gapXGrid, 0) - gapXGrid;
-		cache.set(nodeId, total);
-	}
-
-	private layoutChildrenWithCache(
-		parentId: string,
-		childrenMap: Map<string | null, Node[]>,
-		subtreeHeightCache: Map<string, number>,
-		subtreeWidthCache: Map<string, number>
-	): void {
-		const parent = this.getNode(parentId);
-		if (!parent) return;
-		const children = childrenMap.get(parentId) ?? [];
-		const otherChildren = children.filter((c) => c.type !== 'thought');
-		if (otherChildren.length === 0) return;
-		const step = this.config.gridStep;
-		const gapXGrid = this.config.layoutGapX / step;
-		const gapYGrid = this.config.layoutGapY / step;
-		const defaultH = this.config.nodeHeightDefault;
-		const nodeWidthGrid = this.config.nodeWidth / step;
-		const parentX = parent.metadata?.x ?? 0;
-		const parentY = parent.metadata?.y ?? 0;
-		const parentHeightGrid = (parent.metadata?.height ?? defaultH) / step;
-		const totalRowWidth =
-			otherChildren.reduce(
-				(sum, child) => sum + (subtreeWidthCache.get(child.id) ?? 0) + gapXGrid,
-				0
-			) - gapXGrid;
-		const parentCenterX = parentX + nodeWidthGrid / 2;
-		const childY = parentY + parentHeightGrid + gapYGrid;
-		let currentX = parentCenterX - totalRowWidth / 2;
-		for (const child of otherChildren) {
-			if (!child.metadata) child.metadata = { x: 0, y: 0 };
-			const childSubtreeW = subtreeWidthCache.get(child.id) ?? 0;
-			const offsetInSlot = (childSubtreeW - nodeWidthGrid) / 2;
-			if (!child.metadata.manualPosition) {
-				child.metadata.x = Math.round(currentX + offsetInSlot);
-				child.metadata.y = Math.round(childY);
-			}
-			this.layoutChildrenWithCache(child.id, childrenMap, subtreeHeightCache, subtreeWidthCache);
-			currentX += childSubtreeW + gapXGrid;
+		const input = buildLayoutInput(this.nodes, this.childrenIdMap, this.getLayoutConfig());
+		const positions = computeLayout('tree-vertical', input);
+		for (const { nodeId, x, y } of positions) {
+			const node = this.getNode(nodeId);
+			if (!node || node.metadata?.manualPosition) continue;
+			if (!node.metadata) node.metadata = { x: 0, y: 0 };
+			node.metadata.x = x;
+			node.metadata.y = y;
 		}
 	}
 
@@ -914,76 +791,12 @@ export class TraekEngine {
 		this.layoutChildren(nodeId);
 	}
 
-	/** Subtree width in grid units: width of the horizontal row of children. */
-	private getSubtreeLayoutWidth(nodeId: string): number {
-		if (!this.nodeIndexMap.has(nodeId)) return 0;
-		const step = this.config.gridStep;
-		const nodeWidthGrid = this.config.nodeWidth / step;
-		const children = this.getChildren(nodeId).filter((c) => c.type !== 'thought');
-		if (children.length === 0) return nodeWidthGrid;
-		const gapXGrid = this.config.layoutGapX / step;
-		const total =
-			children.reduce((sum, c) => sum + this.getSubtreeLayoutWidth(c.id) + gapXGrid, 0) - gapXGrid;
-		return total;
-	}
-
-	/** Subtree height in grid units: node on top, then gap, then row of children (max of their subtree heights). */
-	private getSubtreeLayoutHeight(nodeId: string): number {
-		const node = this.getNode(nodeId);
-		if (!node) return 0;
-		const step = this.config.gridStep;
-		const defaultH = this.config.nodeHeightDefault;
-		const gapYGrid = this.config.layoutGapY / step;
-		const nodeHGrid = (node.metadata?.height ?? defaultH) / step;
-		const children = this.getChildren(nodeId).filter((c) => c.type !== 'thought');
-		if (children.length === 0) return nodeHGrid;
-		const maxChildHeight = Math.max(0, ...children.map((c) => this.getSubtreeLayoutHeight(c.id)));
-		return nodeHGrid + gapYGrid + maxChildHeight;
-	}
-
-	/**
-	 * Layout: parent on top, children in a row below, siblings left/right.
-	 * Children share the same Y (below parent); X is centered under parent and spread horizontally.
-	 */
+	/** Re-layout children of a single parent node. Delegates to flushLayoutFromRoot. */
 	layoutChildren(parentId: string) {
 		const parent = this.getNode(parentId);
 		if (!parent) return;
-
-		const children = this.getChildren(parentId);
-		if (children.length === 0) return;
-
-		const step = this.config.gridStep;
-		const gapXGrid = this.config.layoutGapX / step;
-		const gapYGrid = this.config.layoutGapY / step;
-		const defaultH = this.config.nodeHeightDefault;
-		const nodeWidthGrid = this.config.nodeWidth / step;
-		const parentX = parent.metadata?.x ?? 0;
-		const parentY = parent.metadata?.y ?? 0;
-		const parentHeightGrid = (parent.metadata?.height ?? defaultH) / step;
-
-		const otherChildren = children.filter((c) => c.type !== 'thought');
-		if (otherChildren.length === 0) return;
-
-		const totalRowWidth =
-			otherChildren.reduce(
-				(sum, child) => sum + this.getSubtreeLayoutWidth(child.id) + gapXGrid,
-				0
-			) - gapXGrid;
-		const parentCenterX = parentX + nodeWidthGrid / 2;
-		const childY = parentY + parentHeightGrid + gapYGrid;
-		let currentX = parentCenterX - totalRowWidth / 2;
-
-		for (const child of otherChildren) {
-			if (!child.metadata) child.metadata = { x: 0, y: 0 };
-			const childSubtreeW = this.getSubtreeLayoutWidth(child.id);
-			const offsetInSlot = (childSubtreeW - nodeWidthGrid) / 2;
-			if (!child.metadata.manualPosition) {
-				child.metadata.x = Math.round(currentX + offsetInSlot);
-				child.metadata.y = Math.round(childY);
-			}
-			this.layoutChildren(child.id);
-			currentX += childSubtreeW + gapXGrid;
-		}
+		if (this.getChildren(parentId).length === 0) return;
+		this.flushLayoutFromRoot();
 	}
 
 	/**
