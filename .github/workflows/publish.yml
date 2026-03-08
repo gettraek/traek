@@ -2,8 +2,15 @@ name: Publish SDK
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*.*.*' # Monorepo-wide release: v1.2.3
+      - '@traek/*@*.*.*' # Package-scoped release: @traek/svelte@0.1.0
   workflow_dispatch:
+    inputs:
+      package_filter:
+        description: 'Turbo filter for packages to publish (e.g. "@traek/svelte"). Leave blank to publish all.'
+        required: false
+        default: ''
 
 concurrency:
   group: publish
@@ -24,7 +31,7 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run build
       - run: pnpm run check
-      - run: pnpm --filter traek exec vitest run
+      - run: pnpm --filter "@traek/svelte" exec vitest run
 
   publish:
     name: Publish to npm
@@ -44,10 +51,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
 
-      # Trusted publishing (OIDC): no NODE_AUTH_TOKEN. Ensure the package has
-      # a trusted publisher on npm (Settings → Trusted publishing) with workflow
-      # filename exactly "publish.yml" and this repo.
-      - name: Publish
-        run: pnpm --filter traek publish
+      # Determine which packages to publish based on the trigger
+      - name: Resolve publish filter
+        id: filter
+        run: |
+          if [ -n "${{ github.event.inputs.package_filter }}" ]; then
+            echo "filter=--filter ${{ github.event.inputs.package_filter }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == @traek/* ]]; then
+            # Package-scoped tag: @traek/svelte@0.1.0 → filter by package name
+            PKG=$(echo "${{ github.ref_name }}" | sed 's/@[^@]*$//')
+            echo "filter=--filter '$PKG'" >> $GITHUB_OUTPUT
+          else
+            # Monorepo-wide release: publish all non-private @traek/* packages
+            echo "filter=--filter '@traek/*'" >> $GITHUB_OUTPUT
+          fi
+
+      # Trusted publishing (OIDC): no NODE_AUTH_TOKEN needed.
+      # Ensure each package has a trusted publisher on npm (Settings → Trusted publishing)
+      # with workflow filename "publish.yml" and this repo.
+      - name: Publish packages
+        run: pnpm ${{ steps.filter.outputs.filter }} publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: '' # Force OIDC; remove any repo secret NPM_TOKEN/NODE_AUTH_TOKEN
