@@ -6,6 +6,8 @@
 	import { getDetailLevel } from './canvas/AdaptiveRenderer.svelte';
 	import TagBadges from './tags/TagBadges.svelte';
 	import { detailLevelTransition } from './transitions';
+	import NodeSkeleton from './canvas/NodeSkeleton.svelte';
+	import Icon from './icons/Icon.svelte';
 
 	const DEFAULT_PLACEHOLDER_HEIGHT = 100;
 
@@ -20,7 +22,14 @@
 		viewportResizeVersion = 0,
 		scale = 1,
 		onRetry,
+		onResume,
+		onAuthRequired,
 		onNodeActivated,
+		isSearchMatch = false,
+		isCurrentMatch = false,
+		isSearchDimmed = false,
+		isSelected = false,
+		dropTargetClass = null,
 		children
 	}: {
 		node: Node;
@@ -33,8 +42,19 @@
 		viewportResizeVersion?: number;
 		scale?: number;
 		onRetry?: (nodeId: string) => void;
+		/** Called when a streaming interruption should be resumed from partial content. */
+		onResume?: (nodeId: string) => void;
+		/** Called when auth has expired and the user needs to re-authenticate. */
+		onAuthRequired?: () => void;
 		/** Called when the user explicitly selects this node (click or Enter/Space on header). */
 		onNodeActivated?: (nodeId: string) => void;
+		isSearchMatch?: boolean;
+		isCurrentMatch?: boolean;
+		isSearchDimmed?: boolean;
+		/** Whether this node is in the multi-select set. */
+		isSelected?: boolean;
+		/** CSS class for drop target state: 'drop-target-valid' | 'drop-target-invalid' | null */
+		dropTargetClass?: string | null;
 		children: import('svelte').Snippet;
 	} = $props();
 
@@ -43,6 +63,49 @@
 	let isThoughtExpanded = $state(false);
 	let previousStatus = $state<string | undefined>(undefined);
 	let showCompletePulse = $state(false);
+
+	// ── Error classification ───────────────────────────────────────────────
+	interface NodeErrorData {
+		errorCode?:
+			| 'rate_limit'
+			| 'auth_expired'
+			| 'server_error'
+			| 'network'
+			| 'stream_interrupted'
+			| 'context_limit';
+		retryAfter?: number;
+		httpStatus?: number;
+	}
+
+	const errorData = $derived.by<NodeErrorData | null>(() => {
+		if (node.status !== 'error') return null;
+		const d = node.data as NodeErrorData | null | undefined;
+		return d ?? null;
+	});
+
+	const errorCode = $derived(errorData?.errorCode ?? 'server_error');
+	const isRateLimit = $derived(errorCode === 'rate_limit');
+	const isAuthExpired = $derived(errorCode === 'auth_expired');
+	const isStreamInterrupted = $derived(errorCode === 'stream_interrupted');
+	const isContextLimit = $derived(errorCode === 'context_limit');
+	const isWarnColor = $derived(isRateLimit || isStreamInterrupted || isContextLimit);
+
+	let rateLimitCountdown = $state(0);
+
+	$effect(() => {
+		if (node.status === 'error' && isRateLimit && errorData?.retryAfter) {
+			rateLimitCountdown = errorData.retryAfter;
+			const id = setInterval(() => {
+				rateLimitCountdown -= 1;
+				if (rateLimitCountdown <= 0) {
+					clearInterval(id);
+					onRetry?.(node.id);
+				}
+			}, 1000);
+			return () => clearInterval(id);
+		}
+	});
+	// ── /Error classification ──────────────────────────────────────────────
 
 	const detailLevel = $derived(getDetailLevel(scale));
 	const firstLine = $derived.by(() => {
@@ -100,6 +163,7 @@
 		isCollapsed && engine ? engine.getHiddenDescendantCount(node.id) : 0
 	);
 	const isOutdated = $derived(node.metadata?.outdated === true);
+	const nodeColor = $derived((node.metadata?.color as string | null) ?? null);
 
 	$effect(() => {
 		// Track viewportResizeVersion to trigger effect on change
@@ -157,11 +221,16 @@
 		? 'message-node-wrapper--placeholder'
 		: ''} {showCompletePulse ? 'stream-complete' : ''} {isOutdated
 		? 'outdated'
-		: ''} detail-{detailLevel}"
+		: ''} detail-{detailLevel} {isSearchMatch ? 'search-match' : ''} {isCurrentMatch
+		? 'search-current'
+		: ''} {isSearchDimmed ? 'search-dimmed' : ''} {isSelected
+		? 'multi-selected'
+		: ''} {dropTargetClass ?? ''}"
 	style:left="{(node.metadata?.x ?? 0) * gridStep}px"
 	style:top="{(node.metadata?.y ?? 0) * gridStep}px"
 	style:width="{nodeWidth}px"
 	style:height={!isInView ? `${placeholderHeight}px` : undefined}
+	style:--node-accent={nodeColor ? `var(--traek-color-${nodeColor})` : null}
 >
 	<div class="node-header-container">
 		<button
@@ -220,7 +289,13 @@
 				aria-label={isCollapsed ? 'Expand subtree' : 'Collapse subtree'}
 				aria-expanded={!isCollapsed}
 			>
-				{isCollapsed ? '+' : '−'}
+				<Icon
+					name={isCollapsed ? 'expand' : 'collapse'}
+					size={14}
+					strokeWidth={2}
+					class="collapse-icon"
+					aria-hidden={true}
+				/>
 			</button>
 		{/if}
 		<TagBadges {node} {engine} />
@@ -231,7 +306,12 @@
 		</div>
 	{/if}
 	{#if node.status === 'error'}
-		<div class="error-banner" role="alert">
+		<div
+			class="error-banner"
+			class:error-banner--warn={isWarnColor}
+			class:error-banner--auth={isAuthExpired}
+			role="alert"
+		>
 			<svg
 				class="error-banner-icon"
 				width="16"
@@ -240,26 +320,128 @@
 				fill="none"
 				aria-hidden="true"
 			>
-				<path
-					d="M8 1L15 14H1L8 1Z"
-					stroke="currentColor"
-					stroke-width="1.5"
-					stroke-linejoin="round"
-				/>
-				<path d="M8 6V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-				<circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
+				{#if isRateLimit}
+					<circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" />
+					<path
+						d="M8 4.5V8l2.5 2"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+					/>
+				{:else if isAuthExpired}
+					<rect
+						x="3"
+						y="7"
+						width="10"
+						height="7.5"
+						rx="1.5"
+						stroke="currentColor"
+						stroke-width="1.5"
+					/>
+					<path
+						d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+					/>
+				{:else if isStreamInterrupted}
+					<path
+						d="M2 8h3l2-4 2 8 2-4h3"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				{:else if isContextLimit}
+					<path
+						d="M8 2v9M5 8l3 3 3-3"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<line
+						x1="3"
+						y1="14"
+						x2="13"
+						y2="14"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+					/>
+				{:else}
+					<path
+						d="M8 1L15 14H1L8 1Z"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linejoin="round"
+					/>
+					<path d="M8 6V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+					<circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
+				{/if}
 			</svg>
-			<span class="error-banner-message">
-				{node.errorMessage || 'An error occurred'}
-			</span>
+
+			<div class="error-banner-body">
+				<span class="error-banner-message">
+					{#if isRateLimit}
+						Rate limited — retrying in <span aria-live="polite" aria-atomic="true"
+							>{rateLimitCountdown}s</span
+						>
+					{:else if isAuthExpired}
+						Session expired
+					{:else if isStreamInterrupted}
+						Stream interrupted
+					{:else if isContextLimit}
+						Context limit reached
+					{:else}
+						{node.errorMessage || 'An error occurred'}
+					{/if}
+				</span>
+
+				{#if isRateLimit && errorData?.retryAfter}
+					<div class="error-rate-limit-bar" aria-hidden="true">
+						<div
+							class="error-rate-limit-fill"
+							style:width="{((errorData.retryAfter - rateLimitCountdown) / errorData.retryAfter) *
+								100}%"
+						></div>
+					</div>
+				{/if}
+
+				{#if isAuthExpired}
+					<span class="error-banner-hint">Your session has ended. Reconnect to continue.</span>
+				{:else if isStreamInterrupted}
+					<span class="error-banner-hint">Response was cut off mid-generation.</span>
+				{:else if isContextLimit}
+					<span class="error-banner-hint">Branch from an earlier node to continue.</span>
+				{/if}
+			</div>
+
 			<div class="error-banner-actions">
-				{#if onRetry}
+				{#if isStreamInterrupted && onResume}
 					<button
 						type="button"
-						class="error-banner-btn error-banner-retry"
+						class="error-banner-btn error-banner-secondary"
+						onclick={() => onResume?.(node.id)}
+					>
+						Resume
+					</button>
+				{/if}
+				{#if isAuthExpired}
+					<button
+						type="button"
+						class="error-banner-btn error-banner-primary"
+						onclick={() => onAuthRequired?.()}
+					>
+						Reconnect
+					</button>
+				{:else if onRetry && !isContextLimit}
+					<button
+						type="button"
+						class="error-banner-btn error-banner-primary"
 						onclick={() => onRetry?.(node.id)}
 					>
-						Retry
+						{isRateLimit ? 'Retry now' : 'Retry'}
 					</button>
 				{/if}
 				<button
@@ -341,6 +523,8 @@
 			<div class="message-node-content" transition:detailLevelTransition>
 				{#if detailLevel === 'compact'}
 					<div class="compact-text">{firstLine}</div>
+				{:else if node.status === 'streaming' && !('content' in node && (node as import('./TraekEngine.svelte').MessageNode).content)}
+					<NodeSkeleton lines={3} />
 				{:else}
 					{@render children()}
 				{/if}
@@ -392,6 +576,11 @@
 				height 0.2s,
 				border-radius 0.2s;
 			backdrop-filter: blur(10px);
+		}
+
+		/* Color accent: colored top border when --node-accent is set */
+		.message-node-wrapper:has(> .node-header-container) {
+			border-top-color: var(--node-accent, var(--traek-thought-panel-border, #333333));
 		}
 
 		@keyframes node-appear {
@@ -463,6 +652,54 @@
 		.message-node-wrapper--placeholder {
 			pointer-events: none;
 			visibility: hidden;
+		}
+
+		/* Multi-select highlight */
+		.message-node-wrapper.multi-selected {
+			outline: 2px solid var(--traek-node-active-border, #00d8ff);
+			outline-offset: 3px;
+			box-shadow: 0 0 0 4px rgba(0, 216, 255, 0.15);
+		}
+
+		/* Drop target indicators */
+		.message-node-wrapper.drop-target-valid {
+			outline: 2px dashed #22c55e;
+			outline-offset: 3px;
+			box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.2);
+			transition: box-shadow 0.1s ease;
+		}
+
+		.message-node-wrapper.drop-target-invalid {
+			outline: 2px dashed #ef4444;
+			outline-offset: 3px;
+			box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.15);
+			transition: box-shadow 0.1s ease;
+		}
+
+		/* Search highlighting */
+		.message-node-wrapper.search-dimmed {
+			opacity: 0.25;
+			transition: opacity 0.2s ease;
+		}
+
+		.message-node-wrapper.search-match {
+			opacity: 1;
+			outline: 2px solid var(--traek-search-match-border, #facc15);
+			outline-offset: 2px;
+			transition:
+				opacity 0.2s ease,
+				outline 0.2s ease;
+		}
+
+		.message-node-wrapper.search-current {
+			opacity: 1;
+			outline: 2px solid var(--traek-search-current-border, #f97316);
+			outline-offset: 2px;
+			box-shadow: 0 0 0 4px var(--traek-search-current-glow, rgba(249, 115, 22, 0.25));
+			transition:
+				opacity 0.2s ease,
+				outline 0.2s ease,
+				box-shadow 0.2s ease;
 		}
 
 		.node-header-container {
@@ -781,68 +1018,136 @@
 			text-decoration-thickness: 1px;
 		}
 
+		/* ── Error banner ────────────────────────────────────────────────── */
 		.error-banner {
 			display: flex;
-			align-items: center;
+			align-items: flex-start;
 			gap: 8px;
-			padding: 12px;
-			background: var(--traek-error-banner-bg, rgba(255, 62, 0, 0.1));
+			padding: 10px 12px;
+			background: var(--traek-error-bg, rgba(239, 68, 68, 0.08));
+			border: 1px solid var(--traek-error-border-color, rgba(239, 68, 68, 0.25));
 			border-radius: 8px;
 			margin: 8px;
 			font-size: 12px;
+			color: var(--traek-error-text, #ef4444);
+		}
+
+		/* Amber variant: rate-limit, stream-interrupted, context-limit */
+		.error-banner--warn {
+			background: var(--traek-warn-bg, rgba(245, 158, 11, 0.08));
+			border-color: var(--traek-warn-border, rgba(245, 158, 11, 0.25));
+			color: var(--traek-warn-text, #f59e0b);
+		}
+
+		/* Orange variant: auth expired */
+		.error-banner--auth {
+			background: rgba(255, 62, 0, 0.08);
+			border-color: rgba(255, 62, 0, 0.25);
 			color: var(--traek-error-text, #ff6b4a);
 		}
 
 		.error-banner-icon {
 			flex-shrink: 0;
-			color: var(--traek-error-text, #ff6b4a);
+			margin-top: 1px;
+			color: currentColor;
+		}
+
+		.error-banner-body {
+			flex: 1;
+			min-width: 0;
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
 		}
 
 		.error-banner-message {
-			flex: 1;
-			min-width: 0;
+			font-weight: 500;
+			line-height: 1.3;
+		}
+
+		.error-banner-hint {
+			font-size: 11px;
+			opacity: 0.75;
+			line-height: 1.4;
+		}
+
+		/* Rate-limit countdown progress bar */
+		.error-rate-limit-bar {
+			height: 2px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 1px;
 			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
+			margin-top: 4px;
+		}
+
+		.error-rate-limit-fill {
+			height: 100%;
+			background: currentColor;
+			border-radius: 1px;
+			transition: width 1s linear;
 		}
 
 		.error-banner-actions {
 			display: flex;
-			gap: 6px;
+			gap: 4px;
 			flex-shrink: 0;
+			align-items: flex-start;
+			flex-wrap: wrap;
 		}
 
 		.error-banner-btn {
-			padding: 3px 10px;
+			padding: 4px 10px;
 			border-radius: 4px;
 			border: 1px solid;
 			font-size: 11px;
 			cursor: pointer;
 			font: inherit;
+			white-space: nowrap;
+			min-height: 28px;
 			transition:
 				background 0.15s,
 				opacity 0.15s;
 		}
 
-		.error-banner-retry {
-			background: var(--traek-error-border, #ff3e00);
-			border-color: var(--traek-error-border, #ff3e00);
-			color: #fff;
+		.error-banner-btn:focus-visible {
+			outline: 2px solid currentColor;
+			outline-offset: 2px;
 		}
 
-		.error-banner-retry:hover {
+		/* Primary action: red/orange/amber based on parent variant */
+		.error-banner-primary {
+			background: currentColor;
+			border-color: currentColor;
+			color: #000;
+			font-weight: 500;
+		}
+
+		.error-banner-primary:hover {
 			opacity: 0.85;
+		}
+
+		/* Secondary action (e.g. Resume for stream-interrupted) */
+		.error-banner-secondary {
+			background: transparent;
+			border-color: currentColor;
+			color: currentColor;
+		}
+
+		.error-banner-secondary:hover {
+			background: rgba(255, 255, 255, 0.06);
 		}
 
 		.error-banner-dismiss {
 			background: transparent;
-			border-color: var(--traek-error-text, #ff6b4a);
-			color: var(--traek-error-text, #ff6b4a);
+			border-color: rgba(255, 255, 255, 0.15);
+			color: rgba(255, 255, 255, 0.45);
 		}
 
 		.error-banner-dismiss:hover {
-			background: rgba(255, 62, 0, 0.1);
+			background: rgba(255, 255, 255, 0.06);
+			color: rgba(255, 255, 255, 0.65);
 		}
+		/* ── /Error banner ───────────────────────────────────────────────── */
 
 		/* Connection ports */
 		.connection-port {
@@ -915,34 +1220,51 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			width: 20px;
-			height: 20px;
+			width: 22px;
+			height: 22px;
 			padding: 0;
 			margin: 0 10px 0 0;
 			background: var(--traek-thought-toggle-bg, #444444);
 			border: 1px solid var(--traek-thought-toggle-border, #555555);
 			border-radius: 4px;
-			font-size: 14px;
-			font-weight: 600;
-			line-height: 1;
 			color: var(--traek-thought-header-accent, #888888);
 			cursor: pointer;
 			transition:
-				background 0.15s,
-				color 0.15s,
-				transform 0.15s;
+				background var(--traek-duration-fast, 120ms) ease,
+				color var(--traek-duration-fast, 120ms) ease,
+				border-color var(--traek-duration-fast, 120ms) ease,
+				transform var(--traek-duration-fast, 120ms) ease;
 			flex-shrink: 0;
+		}
+
+		.collapse-toggle :global(.collapse-icon) {
+			transition: transform var(--traek-duration-normal, 220ms) ease;
+			display: block;
 		}
 
 		.collapse-toggle:hover {
 			background: var(--traek-thought-toggle-border, #555555);
 			color: var(--traek-thought-row-muted-2, #aaaaaa);
-			transform: scale(1.1);
+			border-color: var(--traek-node-active-border, rgba(0, 216, 255, 0.4));
+			transform: scale(1.08);
+		}
+
+		.collapse-toggle:active {
+			transform: scale(0.95);
 		}
 
 		.collapse-toggle:focus-visible {
 			outline: 2px solid var(--traek-input-button-bg, #00d8ff);
 			outline-offset: 2px;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.collapse-toggle {
+				transition: none;
+			}
+			.collapse-toggle :global(.collapse-icon) {
+				transition: none;
+			}
 		}
 
 		/* Hidden count badge */
