@@ -11,7 +11,9 @@ export type {
 	TraekNodeComponentProps,
 	AddNodePayload,
 	TraekEngineConfig,
-	NodeStatus
+	NodeStatus,
+	NodeColor,
+	CustomTag
 } from './types.js';
 
 // Schemas

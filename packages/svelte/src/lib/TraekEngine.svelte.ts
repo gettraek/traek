@@ -1,7 +1,8 @@
 import type { Component } from 'svelte';
-import { SvelteSet } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { conversationSnapshotSchema } from '$lib/persistence/schemas';
-import { searchNodes as searchNodesUtil } from '$lib/search/searchUtils';
+import { searchNodes as searchNodesUtil, type SearchFilters } from '$lib/search/searchUtils';
+import { HistoryManager, type EngineSnapshot } from '$lib/history/HistoryManager';
 
 // Shared types and utilities from the framework-agnostic core package.
 // Re-exported here so that consumers of @traek/svelte don't need to
@@ -13,7 +14,9 @@ export type {
 	AddNodePayload,
 	NodeStatus,
 	TraekEngineConfig,
-	ConversationSnapshot
+	ConversationSnapshot,
+	NodeColor,
+	CustomTag
 } from '@traek/core';
 
 // Internal imports for use in this file
@@ -24,7 +27,8 @@ import {
 	type MessageNode,
 	type AddNodePayload,
 	type TraekEngineConfig,
-	type ConversationSnapshot
+	type ConversationSnapshot,
+	type CustomTag
 } from '@traek/core';
 
 /** Props every custom node component receives from the canvas. Use this to type your component's $props(). */
@@ -59,11 +63,21 @@ export class TraekEngine {
 	collapsedNodes = $state(new SvelteSet<string>());
 	/** Search state: current query */
 	searchQuery = $state<string>('');
+	/** Search state: active filters */
+	searchFilters = $state<SearchFilters>({});
 	/** Search state: array of matching node IDs */
 	searchMatches = $state<string[]>([]);
 	/** Search state: current match index (0-based) */
 	currentSearchIndex = $state<number>(0);
+	/** Whether there is an undoable operation in the undo stack. */
+	canUndo = $state<boolean>(false);
+	/** Whether there is a redoable operation in the redo stack. */
+	canRedo = $state<boolean>(false);
+	/** Registry of user-defined custom tags. */
+	customTags = $state(new SvelteMap<string, CustomTag>());
 	private config: TraekEngineConfig;
+
+	private historyManager = new HistoryManager();
 	private pendingHeightLayoutRafId: number | null = null;
 	/** Maps node ID → index in nodes array for O(1) lookup. */
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -245,8 +259,11 @@ export class TraekEngine {
 			data?: unknown;
 			/** When true, skip layout for this add; call flushLayoutFromRoot() after a batch. */
 			deferLayout?: boolean;
+			/** When true, skip pushing to undo stack (for internal/bulk operations). */
+			skipHistory?: boolean;
 		} = {}
 	) {
+		if (!options.skipHistory && options.type !== 'thought') this.captureForUndo();
 		const parentIds = options.parentIds ?? (this.activeNodeId ? [this.activeNodeId] : []);
 		const hasExplicitPosition = options.x !== undefined || options.y !== undefined;
 		const newNode: MessageNode = {
@@ -488,9 +505,17 @@ export class TraekEngine {
 		this.pendingFocusNodeId = null;
 	}
 
-	updateNode(nodeId: string, updates: Partial<MessageNode>) {
+	updateNode(
+		nodeId: string,
+		updates: Partial<MessageNode>,
+		options: { skipHistory?: boolean } = {}
+	) {
 		const node = this.getNode(nodeId);
 		if (node) {
+			// Capture undo for content edits, but NOT for streaming updates
+			if (!options.skipHistory && 'content' in updates && node.status !== 'streaming') {
+				this.captureForUndo();
+			}
 			Object.assign(node, updates);
 		}
 	}
@@ -518,6 +543,7 @@ export class TraekEngine {
 		if (index !== undefined) {
 			const node = this.nodes[index];
 			if (node) {
+				this.captureForUndo();
 				this.onNodeDeleting?.(node);
 				this.storeDeletedBuffer([node]);
 			}
@@ -579,6 +605,7 @@ export class TraekEngine {
 
 	/** Delete a node and all its descendants. Navigate to the deleted node's first parent if needed. */
 	deleteNodeAndDescendants(nodeId: string) {
+		this.captureForUndo();
 		// Collect all descendants via BFS
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const toDelete = new Set<string>([nodeId]);
@@ -680,6 +707,7 @@ export class TraekEngine {
 		const source = this.getNode(nodeId);
 		if (!source) return null;
 
+		this.captureForUndo();
 		const step = this.config.gridStep;
 		const offsetGrid = this.config.layoutGapX / step;
 		const sourceX = source.metadata?.x ?? 0;
@@ -693,7 +721,8 @@ export class TraekEngine {
 				parentIds: [...source.parentIds],
 				x: sourceX + offsetGrid,
 				y: sourceY,
-				data: source.data != null ? structuredClone(source.data) : undefined
+				data: source.data != null ? structuredClone(source.data) : undefined,
+				skipHistory: true
 			});
 			// Clear manual position so layout can reposition it properly
 			if (newNode.metadata) {
@@ -1021,6 +1050,41 @@ export class TraekEngine {
 	}
 
 	/**
+	 * Reparent a node: replaces all its current parents with a single new parent.
+	 * Returns false if the operation would create a cycle or is otherwise invalid.
+	 */
+	reparentNode(nodeId: string, newParentId: string): boolean {
+		if (nodeId === newParentId) return false;
+		if (wouldCreateCycle(this.nodes, newParentId, nodeId)) return false;
+		const node = this.getNode(nodeId);
+		const newParent = this.getNode(newParentId);
+		if (!node || !newParent) return false;
+		if (node.parentIds.length === 1 && node.parentIds[0] === newParentId) return false;
+
+		this.captureForUndo();
+
+		// Remove all existing parent connections
+		const oldParents = [...node.parentIds];
+		for (const oldParentId of oldParents) {
+			const oldPrimary = node.parentIds[0] ?? null;
+			node.parentIds = node.parentIds.filter((id) => id !== oldParentId);
+			const newPrimary = node.parentIds[0] ?? null;
+			if (oldPrimary !== newPrimary) {
+				this.removeFromChildrenIdMap(nodeId, oldPrimary);
+				this.addToChildrenIdMap(nodeId, newPrimary);
+			}
+		}
+
+		// Add new parent
+		node.parentIds = [newParentId];
+		this.removeFromChildrenIdMap(nodeId, null);
+		this.addToChildrenIdMap(nodeId, newParentId);
+
+		this.flushLayoutFromRoot();
+		return true;
+	}
+
+	/**
 	 * Add a parent connection to a node. Returns false if it would create a cycle.
 	 */
 	addConnection(parentId: string, childId: string): boolean {
@@ -1060,12 +1124,13 @@ export class TraekEngine {
 	}
 
 	/**
-	 * Search nodes by content query (case-insensitive).
-	 * Updates searchQuery, searchMatches, and currentSearchIndex.
+	 * Search nodes by content query (case-insensitive), with optional role/status filters.
+	 * Updates searchQuery, searchFilters, searchMatches, and currentSearchIndex.
 	 * Automatically expands collapsed subtrees containing matches.
 	 */
-	searchNodesMethod(query: string): void {
+	searchNodesMethod(query: string, filters?: SearchFilters): void {
 		this.searchQuery = query.trim();
+		if (filters !== undefined) this.searchFilters = filters;
 
 		if (this.searchQuery === '') {
 			this.searchMatches = [];
@@ -1074,9 +1139,9 @@ export class TraekEngine {
 		}
 
 		// Find all matching nodes
-		const matches = searchNodesUtil(this.nodes, this.searchQuery);
+		const matches = searchNodesUtil(this.nodes, this.searchQuery, this.searchFilters);
 		this.searchMatches = matches;
-		this.currentSearchIndex = matches.length > 0 ? 0 : 0;
+		this.currentSearchIndex = 0;
 
 		// Auto-expand collapsed subtrees containing matches
 		for (const matchId of matches) {
@@ -1086,6 +1151,20 @@ export class TraekEngine {
 		// Focus on first match if available
 		if (matches.length > 0) {
 			this.focusOnNode(matches[0]);
+		}
+	}
+
+	/**
+	 * Re-run current search with existing query and filters.
+	 * Used to update results when nodes change during streaming.
+	 */
+	refreshSearch(): void {
+		if (!this.searchQuery) return;
+		const matches = searchNodesUtil(this.nodes, this.searchQuery, this.searchFilters);
+		this.searchMatches = matches;
+		// Keep current index in bounds
+		if (this.currentSearchIndex >= matches.length) {
+			this.currentSearchIndex = Math.max(0, matches.length - 1);
 		}
 	}
 
@@ -1121,8 +1200,68 @@ export class TraekEngine {
 	 */
 	clearSearch(): void {
 		this.searchQuery = '';
+		this.searchFilters = {};
 		this.searchMatches = [];
 		this.currentSearchIndex = 0;
+	}
+
+	// ─── Undo / Redo ────────────────────────────────────────────────────────────
+
+	/** Capture a deep-clone snapshot of current state and push it onto the undo stack. */
+	captureForUndo(): void {
+		const snapshot: EngineSnapshot = {
+			nodes: this.nodes.map((n) => structuredClone(n)),
+			activeNodeId: this.activeNodeId
+		};
+		this.historyManager.push(snapshot);
+		this.canUndo = this.historyManager.canUndo;
+		this.canRedo = this.historyManager.canRedo;
+	}
+
+	/**
+	 * Undo the last undoable operation.
+	 * Restores engine state to the snapshot before that operation.
+	 */
+	undo(): boolean {
+		const current: EngineSnapshot = {
+			nodes: this.nodes.map((n) => structuredClone(n)),
+			activeNodeId: this.activeNodeId
+		};
+		const prev = this.historyManager.undo(current);
+		if (!prev) return false;
+		this.nodes = prev.nodes;
+		this.rebuildMaps();
+		this.activeNodeId = prev.activeNodeId;
+		this.flushLayoutFromRoot();
+		this.canUndo = this.historyManager.canUndo;
+		this.canRedo = this.historyManager.canRedo;
+		return true;
+	}
+
+	/**
+	 * Redo the last undone operation.
+	 */
+	redo(): boolean {
+		const current: EngineSnapshot = {
+			nodes: this.nodes.map((n) => structuredClone(n)),
+			activeNodeId: this.activeNodeId
+		};
+		const next = this.historyManager.redo(current);
+		if (!next) return false;
+		this.nodes = next.nodes;
+		this.rebuildMaps();
+		this.activeNodeId = next.activeNodeId;
+		this.flushLayoutFromRoot();
+		this.canUndo = this.historyManager.canUndo;
+		this.canRedo = this.historyManager.canRedo;
+		return true;
+	}
+
+	/** Clear the undo/redo history (e.g. after loading a new conversation). */
+	clearHistory(): void {
+		this.historyManager.clear();
+		this.canUndo = false;
+		this.canRedo = false;
 	}
 
 	/**

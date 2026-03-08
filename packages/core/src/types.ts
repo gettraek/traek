@@ -1,5 +1,13 @@
 export type NodeStatus = 'streaming' | 'done' | 'error';
 
+export type NodeColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'cyan';
+
+export interface CustomTag {
+	slug: string; // unique identifier, e.g. 'my-tag'
+	label: string; // display name
+	color: string; // hex or CSS color, e.g. '#3b82f6'
+}
+
 export enum BasicNodeTypes {
 	TEXT = 'text',
 	CODE = 'code',
@@ -18,6 +26,11 @@ export interface Node {
 		x: number;
 		y: number;
 		height?: number;
+		tags?: string[];
+		color?: NodeColor | null;
+		bookmarked?: boolean;
+		bookmarkLabel?: string;
+		outdated?: boolean;
 		[key: string]: unknown;
 	};
 	data?: unknown;
