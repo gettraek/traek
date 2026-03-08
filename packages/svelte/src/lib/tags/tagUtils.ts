@@ -1,4 +1,12 @@
-import type { Node } from '../TraekEngine.svelte';
+import type { Node } from '@traek/core';
+
+export interface Tag {
+	slug: string;
+	label: string;
+	color: string;
+	bgColor: string;
+	isCustom?: boolean;
+}
 
 export interface TagConfig {
 	label: string;
@@ -65,4 +73,17 @@ export function matchesTagFilter(node: Node, filterTags: string[]): boolean {
 
 	const nodeTags = getNodeTags(node);
 	return filterTags.some((tag) => nodeTags.includes(tag));
+}
+
+/**
+ * Get all predefined (builtin) tags as a unified Tag list.
+ */
+export function listBuiltinTags(): Tag[] {
+	return Object.entries(PREDEFINED_TAGS).map(([slug, cfg]) => ({
+		slug,
+		label: cfg.label,
+		color: cfg.color,
+		bgColor: cfg.bgColor,
+		isCustom: false as const
+	}));
 }
