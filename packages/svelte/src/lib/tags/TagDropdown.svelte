@@ -1,12 +1,14 @@
 <script lang="ts">
 	import type { Node, TraekEngine } from '../TraekEngine.svelte';
 	import { PREDEFINED_TAGS, getNodeTags } from './tagUtils';
+	import TagCreator from './TagCreator.svelte';
 
 	let { node, engine, onClose }: { node: Node; engine: TraekEngine; onClose?: () => void } =
 		$props();
 
 	let isOpen = $state(false);
 	let customTagInput = $state('');
+	let showCreator = $state(false);
 	let triggerEl = $state<HTMLButtonElement | null>(null);
 	let panelTop = $state(0);
 	let panelLeft = $state(0);
@@ -146,6 +148,29 @@
 					Add
 				</button>
 			</div>
+
+			{#if showCreator}
+				<TagCreator
+					{engine}
+					oncreate={(slug) => {
+						engine.addTag(node.id, slug);
+						showCreator = false;
+					}}
+					oncancel={() => {
+						showCreator = false;
+					}}
+				/>
+			{:else}
+				<button
+					type="button"
+					class="tag-new-btn"
+					onclick={() => {
+						showCreator = true;
+					}}
+				>
+					+ New tag…
+				</button>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -341,5 +366,27 @@
 	.tag-custom-add:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+
+	.tag-new-btn {
+		display: block;
+		width: 100%;
+		padding: 6px 12px;
+		background: transparent;
+		border: none;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		color: var(--traek-thought-header-muted, #666666);
+		font: inherit;
+		font-size: 11px;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			color 0.12s,
+			background 0.12s;
+	}
+
+	.tag-new-btn:hover {
+		color: var(--traek-thought-row-muted-2, #aaaaaa);
+		background: rgba(255, 255, 255, 0.04);
 	}
 </style>
