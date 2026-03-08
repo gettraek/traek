@@ -245,7 +245,7 @@
 
 				<!-- Key stats grid -->
 				<div class="stats-grid">
-					{#each [{ label: 'Total nodes', value: report.flow.nodeCount, unit: '' }, { label: 'Branches', value: report.flow.branchCount, unit: '' }, { label: 'Max depth', value: report.flow.maxDepth, unit: '' }, { label: 'Avg response', value: formatMs(report.flow.avgResponseTimeMs), unit: '' }, { label: 'User turns', value: report.flow.countByRole.user, unit: '' }, { label: 'Asst turns', value: report.flow.countByRole.assistant, unit: '' }, { label: 'Deep answers', value: pct(report.engagement.deepAnswerRate), unit: '' }, { label: 'Code nodes', value: report.engagement.codeNodeCount, unit: '' }] as stat}
+					{#each [{ label: 'Total nodes', value: report.flow.nodeCount, unit: '' }, { label: 'Branches', value: report.flow.branchCount, unit: '' }, { label: 'Max depth', value: report.flow.maxDepth, unit: '' }, { label: 'Avg response', value: formatMs(report.flow.avgResponseTimeMs), unit: '' }, { label: 'User turns', value: report.flow.countByRole.user, unit: '' }, { label: 'Asst turns', value: report.flow.countByRole.assistant, unit: '' }, { label: 'Deep answers', value: pct(report.engagement.deepAnswerRate), unit: '' }, { label: 'Code nodes', value: report.engagement.codeNodeCount, unit: '' }] as stat (stat.label)}
 						<div class="stat-cell">
 							<span class="stat-value">{stat.value}</span>
 							<span class="stat-label">{stat.label}</span>
@@ -265,7 +265,7 @@
 							report.engagement.contentByRole.assistant.totalChars / Math.max(1, totalChars)
 						)}"
 					>
-						{#each ['user', 'assistant', 'system'] as const as role}
+						{#each ['user', 'assistant', 'system'] as const as role (role)}
 							{#if report.engagement.contentByRole[role].totalChars > 0}
 								<div
 									class="role-bar-segment"
@@ -278,7 +278,7 @@
 						{/each}
 					</div>
 					<div class="role-legend">
-						{#each ['user', 'assistant', 'system'] as const as role}
+						{#each ['user', 'assistant', 'system'] as const as role (role)}
 							<span class="role-legend-item">
 								<span class="role-dot" style="background: {roleColors[role]}"></span>
 								{role}
@@ -366,7 +366,7 @@
 				>
 					<h3 class="section-heading">Branch lengths (top {topologyBranches.length})</h3>
 					<div class="branch-bars">
-						{#each topologyBranches as branch, i}
+						{#each topologyBranches as branch, i (branch.index)}
 							<div class="branch-row">
 								<span class="branch-label">B{branch.index + 1}</span>
 								<div class="branch-track">
@@ -456,7 +456,7 @@
 				<!-- Node heat grid -->
 				<h3 class="section-heading">Top nodes by exploration intensity</h3>
 				<div class="heat-grid" role="list" aria-label="Node heat cells">
-					{#each topHeatNodes as cell}
+					{#each topHeatNodes as cell (cell.nodeId)}
 						<div
 							class="heat-cell"
 							role="listitem"
@@ -515,7 +515,7 @@
 					</div>
 				{:else}
 					<div class="flow-list" role="list" aria-label="Conversation branches">
-						{#each topFlowBranches as branch, i}
+						{#each topFlowBranches as branch, i (branch.index)}
 							{@const heatCell = report.heatmap.branches.find(
 								(h) => h.branchIndex === branch.index
 							)}
@@ -536,7 +536,7 @@
 
 								<!-- Node path visualization -->
 								<div class="flow-path" aria-label="Branch path with {branch.nodeIds.length} nodes">
-									{#each branch.nodeIds.slice(0, 20) as nodeId}
+									{#each branch.nodeIds.slice(0, 20) as nodeId (nodeId)}
 										{@const nf = report.flow.nodes.find((n) => n.nodeId === nodeId)}
 										{@const hn = report.heatmap.nodes.find((n) => n.nodeId === nodeId)}
 										<div
@@ -579,7 +579,7 @@
 
 				<!-- Role content cards -->
 				<div class="content-role-grid">
-					{#each ['user', 'assistant'] as const as role}
+					{#each ['user', 'assistant'] as const as role (role)}
 						{@const stats = report.engagement.contentByRole[role]}
 						<div class="content-role-card">
 							<div class="content-role-header">
@@ -657,7 +657,7 @@
 					<div class="tags-section">
 						<h3 class="section-heading">Tags found</h3>
 						<div class="tags-list">
-							{#each report.engagement.uniqueTags as tag}
+							{#each report.engagement.uniqueTags as tag (tag)}
 								<span class="tag-chip">{tag}</span>
 							{/each}
 						</div>
@@ -675,7 +675,7 @@
 				<fieldset class="format-fieldset">
 					<legend class="format-legend">Report format</legend>
 					<div class="format-options">
-						{#each [{ value: 'markdown', label: 'Markdown', desc: 'Human-readable .md — great for docs and sharing', ext: '.md' }, { value: 'json', label: 'JSON', desc: 'Machine-readable — use with custom tooling', ext: '.json' }, { value: 'csv', label: 'CSV', desc: 'Spreadsheet-compatible — import into Excel or Sheets', ext: '.csv' }] as const as fmt}
+						{#each [{ value: 'markdown', label: 'Markdown', desc: 'Human-readable .md — great for docs and sharing', ext: '.md' }, { value: 'json', label: 'JSON', desc: 'Machine-readable — use with custom tooling', ext: '.json' }, { value: 'csv', label: 'CSV', desc: 'Spreadsheet-compatible — import into Excel or Sheets', ext: '.csv' }] as const as fmt (fmt.value)}
 							<label class="format-option" class:selected={exportFormat === fmt.value}>
 								<input
 									type="radio"
