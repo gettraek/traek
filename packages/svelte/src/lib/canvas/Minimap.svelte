@@ -281,4 +281,32 @@
 		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
 		outline-offset: 2px;
 	}
+
+	/* Tablet: larger toggle, start collapsed by default (handled via JS state) */
+	@media (max-width: 1024px) and (min-width: 769px) {
+		.minimap-container {
+			bottom: 100px;
+			left: 12px;
+		}
+
+		.minimap-toggle {
+			width: 44px;
+			height: 44px;
+			border-radius: 8px;
+		}
+	}
+
+	/* Small canvas screens */
+	@media (max-width: 768px) {
+		.minimap-container {
+			bottom: 92px;
+			left: 8px;
+		}
+
+		.minimap-toggle {
+			width: 44px;
+			height: 44px;
+			border-radius: 8px;
+		}
+	}
 </style>

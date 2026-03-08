@@ -181,7 +181,11 @@ export { default as NodeErrorBoundary } from './canvas/NodeErrorBoundary.svelte'
 
 // Icon System
 export { default as Icon } from './icons/Icon.svelte';
-export { ICONS, type IconName, type IconDef } from './icons/icons.js';
+export { ICONS, type IconName, type IconDef, type IconElement } from './icons/icons.js';
+export { default as IconNodeText } from './icons/IconNodeText.svelte';
+export { default as IconNodeCode } from './icons/IconNodeCode.svelte';
+export { default as IconNodeThought } from './icons/IconNodeThought.svelte';
+export { default as IconNodeImage } from './icons/IconNodeImage.svelte';
 
 // Theme System
 export { default as ThemeProvider, useTheme, applyThemeToRoot } from './theme/ThemeProvider.svelte';

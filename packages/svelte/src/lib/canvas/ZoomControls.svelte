@@ -209,4 +209,50 @@
 	button.snap-active:hover {
 		opacity: 0.85;
 	}
+
+	/* Tablet: 44px touch targets, horizontal layout for better ergonomics */
+	@media (max-width: 1024px) and (min-width: 769px) {
+		.zoom-controls {
+			flex-direction: row;
+			bottom: 88px;
+			right: 12px;
+			padding: 6px;
+			gap: 2px;
+		}
+
+		button {
+			width: 44px;
+			height: 44px;
+			border-radius: 8px;
+		}
+
+		/* Separator becomes vertical in horizontal layout */
+		.separator {
+			width: 1px;
+			height: 20px;
+			margin: 0 2px;
+		}
+	}
+
+	/* Small screens in canvas mode (below mobileBreakpoint or forced) */
+	@media (max-width: 768px) {
+		.zoom-controls {
+			flex-direction: row;
+			bottom: 80px;
+			right: 8px;
+			padding: 4px;
+			gap: 2px;
+		}
+
+		button {
+			width: 44px;
+			height: 44px;
+		}
+
+		.separator {
+			width: 1px;
+			height: 20px;
+			margin: 0 2px;
+		}
+	}
 </style>

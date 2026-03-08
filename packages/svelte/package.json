@@ -44,6 +44,7 @@
 	},
 	"dependencies": {
 		"@iconify/svelte": "^5.2.1",
+		"@traek/analytics": "workspace:*",
 		"@traek/core": "workspace:*",
 		"@types/qrcode": "^1.5.6",
 		"dompurify": "^3.3.1",

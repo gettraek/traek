@@ -1,261 +1,457 @@
 /**
- * Traek custom icon set — 24×24 stroke-based SVG icons.
- * All icons use stroke="currentColor" and fill="none" unless noted.
- * strokeLinecap="round", strokeLinejoin="round", strokeWidth defaults to 2.
+ * Traek custom icon set — SVG icons on a 24×24 grid.
+ *
+ * Visual language:
+ *   - Grid:        24×24 px (node icons), 16×16 px equivalents scaled via `size` prop
+ *   - Stroke:      2 px (default), round linecap & linejoin
+ *   - Corner radius: 3 px for containers, 2 px for small shapes
+ *   - Optical size: 2 px safe-zone on all sides (live area 20×20)
+ *   - Style:       Outline/stroke with selective fill for dots & indicators
+ *   - Color:       currentColor throughout (no hard-coded fills)
+ *
+ * All stroke icons use strokeLinecap="round", strokeLinejoin="round", strokeWidth=2.
+ * Filled elements (dots, indicators) use fill="currentColor" with no stroke.
  */
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** A single SVG element within an icon. */
+export type IconElement =
+	| { type: 'path'; d: string; fill?: string; stroke?: string }
+	| {
+			type: 'circle';
+			cx: number;
+			cy: number;
+			r: number;
+			fill?: string;
+			stroke?: string;
+	  }
+	| {
+			type: 'rect';
+			x: number;
+			y: number;
+			width: number;
+			height: number;
+			rx?: number;
+			fill?: string;
+			stroke?: string;
+	  };
+
 export type IconName =
+	// Node types
+	| 'node-text'
+	| 'node-code'
+	| 'node-thought'
+	| 'node-image'
+	// Canvas actions
 	| 'branch'
-	| 'delete'
 	| 'collapse'
 	| 'expand'
+	| 'zoom-in'
+	| 'zoom-out'
+	| 'pan'
+	| 'fit'
+	| 'snap-grid'
+	| 'focus-mode'
+	// Status
+	| 'streaming'
+	| 'done'
+	| 'error'
+	| 'warning'
+	| 'spinner'
+	// Toolbar / utility
+	| 'send'
 	| 'search'
-	| 'settings'
+	| 'bookmark'
+	| 'tag'
 	| 'copy'
+	| 'delete'
+	| 'settings'
+	| 'pin'
+	| 'link'
 	| 'edit'
 	| 'retry'
+	| 'filter'
+	| 'compare'
+	| 'undo'
+	| 'redo'
+	// Primitives / chevrons
 	| 'close'
 	| 'check'
 	| 'chevron-down'
 	| 'chevron-up'
 	| 'chevron-right'
 	| 'chevron-left'
-	| 'zoom-in'
-	| 'zoom-out'
-	| 'fit'
-	| 'send'
-	| 'filter'
-	| 'node'
-	| 'spinner'
-	| 'warning'
-	| 'compare'
-	| 'undo'
-	| 'redo';
+	| 'node';
 
 export interface IconDef {
-	/** SVG path data strings */
-	paths: string[];
-	/** Whether paths use fill="currentColor" instead of stroke */
-	filled?: boolean;
-	/** Override the default viewBox of "0 0 24 24" */
+	/** Structured SVG elements to render */
+	elements: IconElement[];
+	/** viewBox — defaults to "0 0 24 24" */
 	viewBox?: string;
 }
 
-/**
- * Icon definitions.
- * Each entry maps an IconName to its SVG path(s) and options.
- * All stroke icons use currentColor, strokeWidth=2, round caps/joins.
- */
+// Shorthand helpers so definitions stay readable
+const path = (d: string, fill?: string, stroke?: string): IconElement => ({
+	type: 'path',
+	d,
+	fill,
+	stroke
+});
+const circle = (
+	cx: number,
+	cy: number,
+	r: number,
+	fill?: string,
+	stroke?: string
+): IconElement => ({
+	type: 'circle',
+	cx,
+	cy,
+	r,
+	fill,
+	stroke
+});
+const rect = (
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	rx?: number,
+	fill?: string,
+	stroke?: string
+): IconElement => ({ type: 'rect', x, y, width, height, rx, fill, stroke });
+
+// ---------------------------------------------------------------------------
+// Icon definitions
+// ---------------------------------------------------------------------------
+
 export const ICONS: Record<IconName, IconDef> = {
-	/** Git-branch fork: node splits into two child paths */
+	// -------------------------------------------------------------------------
+	// Node type icons (document container + semantic interior)
+	// -------------------------------------------------------------------------
+
+	/** Text node: document outline with three horizontal text lines */
+	'node-text': {
+		elements: [
+			rect(3, 3, 18, 18, 3, 'none', 'currentColor'),
+			path('M7 9H17'),
+			path('M7 12H17'),
+			path('M7 15H13')
+		]
+	},
+
+	/** Code node: document outline with </ > brackets and slash */
+	'node-code': {
+		elements: [
+			rect(3, 3, 18, 18, 3, 'none', 'currentColor'),
+			path('M9 10L7 12L9 14'),
+			path('M15 10L17 12L15 14'),
+			path('M13.5 8.5L10.5 15.5')
+		]
+	},
+
+	/** Thought node: document outline with thought-bubble interior (circle + dots) */
+	'node-thought': {
+		elements: [
+			rect(3, 3, 18, 18, 3, 'none', 'currentColor'),
+			circle(12.5, 10.5, 3.5, 'none', 'currentColor'),
+			circle(9, 15, 1, 'currentColor', 'none'),
+			circle(12.5, 16, 1, 'currentColor', 'none'),
+			circle(16, 15, 1, 'currentColor', 'none')
+		]
+	},
+
+	/** Image node: document outline with mountain silhouette and sun */
+	'node-image': {
+		elements: [
+			rect(3, 3, 18, 18, 3, 'none', 'currentColor'),
+			circle(16, 8, 2, 'none', 'currentColor'),
+			path('M3 16L8 10L12 14L15 11L21 17')
+		]
+	},
+
+	// -------------------------------------------------------------------------
+	// Canvas action icons
+	// -------------------------------------------------------------------------
+
+	/** Branch: Y-fork with filled node circles at each tip */
 	branch: {
-		paths: [
-			// Vertical line top to first fork
-			'M6 3v4',
-			// Circle at top
-			'M6 3m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
-			// Left branch down
-			'M6 7c0 3 3 5 6 5',
-			// Right branch (straight down)
-			'M18 3v12',
-			// Circle on right branch bottom
-			'M18 15m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
-			// Circle at left bottom
-			'M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
-			// Left branch continuing down
-			'M6 12v7',
-			// Curve from left to right branch at fork point
-			'M12 12c3 0 6-2 6-9'
+		elements: [
+			path('M12 20V12M12 12L7 6M12 12L17 6'),
+			circle(12, 20.5, 2, 'currentColor', 'none'),
+			circle(7, 5.5, 2, 'currentColor', 'none'),
+			circle(17, 5.5, 2, 'currentColor', 'none')
 		]
 	},
 
-	/** Trash-bin delete icon */
-	delete: {
-		paths: [
-			// Lid
-			'M3 6h18',
-			// Handle on lid
-			'M8 6V4h8v2',
-			// Bin body
-			'M19 6l-1 14H6L5 6',
-			// Left inner line
-			'M10 11v6',
-			// Right inner line
-			'M14 11v6'
-		]
-	},
-
-	/** Collapse: two chevrons pointing toward center */
+	/** Collapse: chevron pointing up (fold node up) */
 	collapse: {
-		paths: [
-			// Top chevron pointing up
-			'M8 8l4-4 4 4',
-			// Bottom chevron pointing down
-			'M8 16l4 4 4-4',
-			// Center divider
-			'M4 12h16'
-		]
+		elements: [path('M6 15L12 9L18 15')]
 	},
 
-	/** Expand: two chevrons pointing away from center */
+	/** Expand: chevron pointing down (unfold node down) */
 	expand: {
-		paths: [
-			// Top chevron pointing down toward center
-			'M8 4l4 4 4-4',
-			// Bottom chevron pointing up toward center
-			'M8 20l4-4 4 4',
-			// Center divider
-			'M4 12h16'
+		elements: [path('M6 9L12 15L18 9')]
+	},
+
+	/** Zoom in: magnifying glass with plus */
+	'zoom-in': {
+		elements: [
+			circle(10, 10, 6, 'none', 'currentColor'),
+			path('M10 7V13M7 10H13'),
+			path('M14.5 14.5L20 20')
 		]
 	},
 
-	/** Magnifying glass search */
+	/** Zoom out: magnifying glass with minus */
+	'zoom-out': {
+		elements: [
+			circle(10, 10, 6, 'none', 'currentColor'),
+			path('M7 10H13'),
+			path('M14.5 14.5L20 20')
+		]
+	},
+
+	/**
+	 * Pan: four-directional arrow for canvas pan mode.
+	 * Cross lines with outward arrow heads.
+	 */
+	pan: {
+		elements: [
+			path('M12 5V19M5 12H19'),
+			path('M9.5 7.5L12 5L14.5 7.5'),
+			path('M9.5 16.5L12 19L14.5 16.5'),
+			path('M7.5 9.5L5 12L7.5 14.5'),
+			path('M16.5 9.5L19 12L16.5 14.5')
+		]
+	},
+
+	/** Fit: frame corners showing "fit all nodes in view" */
+	fit: {
+		elements: [
+			path('M8 3H5C3.9 3 3 3.9 3 5V8'),
+			path('M21 8V5C21 3.9 20.1 3 19 3H16'),
+			path('M3 16V19C3 20.1 3.9 21 5 21H8'),
+			path('M16 21H19C20.1 21 21 20.1 21 19V16')
+		]
+	},
+
+	/** Snap to grid: 3×3 dot grid with center gap */
+	'snap-grid': {
+		elements: [
+			rect(2, 2, 5, 5, 0.5, 'none', 'currentColor'),
+			rect(9.5, 2, 5, 5, 0.5, 'none', 'currentColor'),
+			rect(17, 2, 5, 5, 0.5, 'none', 'currentColor'),
+			rect(2, 9.5, 5, 5, 0.5, 'none', 'currentColor'),
+			rect(17, 9.5, 5, 5, 0.5, 'none', 'currentColor'),
+			rect(2, 17, 5, 5, 0.5, 'none', 'currentColor'),
+			rect(9.5, 17, 5, 5, 0.5, 'none', 'currentColor'),
+			rect(17, 17, 5, 5, 0.5, 'none', 'currentColor')
+		]
+	},
+
+	/** Focus mode: crosshair / target with center dot */
+	'focus-mode': {
+		elements: [
+			circle(12, 12, 6, 'none', 'currentColor'),
+			circle(12, 12, 1.5, 'currentColor', 'none'),
+			path('M12 2V5.5M12 18.5V22'),
+			path('M2 12H5.5M18.5 12H22')
+		]
+	},
+
+	// -------------------------------------------------------------------------
+	// Status indicators
+	// -------------------------------------------------------------------------
+
+	/** Streaming: three dots indicating active AI generation */
+	streaming: {
+		elements: [
+			circle(5, 12, 2, 'currentColor', 'none'),
+			circle(12, 12, 2, 'currentColor', 'none'),
+			circle(19, 12, 2, 'currentColor', 'none')
+		]
+	},
+
+	/** Done: checkmark inside a circle */
+	done: {
+		elements: [circle(12, 12, 9, 'none', 'currentColor'), path('M7.5 12L10.5 15L16.5 9')]
+	},
+
+	/** Error: X inside a circle */
+	error: {
+		elements: [
+			circle(12, 12, 9, 'none', 'currentColor'),
+			path('M8.5 8.5L15.5 15.5M15.5 8.5L8.5 15.5')
+		]
+	},
+
+	/** Warning: triangle with exclamation */
+	warning: {
+		elements: [
+			path(
+				'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'
+			),
+			path('M12 9V13'),
+			path('M12 17H12.01')
+		]
+	},
+
+	/** Spinner: single open arc (animate rotation via CSS) */
+	spinner: {
+		elements: [path('M12 2A10 10 0 0 1 22 12')]
+	},
+
+	// -------------------------------------------------------------------------
+	// Toolbar / utility icons
+	// -------------------------------------------------------------------------
+
+	/** Send: paper-plane / diagonal arrow */
+	send: {
+		elements: [path('M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z')]
+	},
+
+	/** Search: magnifying glass */
 	search: {
-		paths: [
-			// Circle
-			'M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0',
-			// Handle
-			'M16 16l4 4'
+		elements: [circle(10, 10, 7, 'none', 'currentColor'), path('M15 15L21 21')]
+	},
+
+	/** Bookmark: flag / ribbon */
+	bookmark: {
+		elements: [path('M5 3H19C19.6 3 20 3.4 20 4V21L12 17L4 21V4C4 3.4 4.4 3 5 3Z')]
+	},
+
+	/** Tag: price-tag shape with hole dot */
+	tag: {
+		elements: [
+			path(
+				'M3 3H11C11.5 3 12 3.2 12.4 3.6L20.4 11.6C21.2 12.4 21.2 13.6 20.4 14.4L14.4 20.4C13.6 21.2 12.4 21.2 11.6 20.4L3.6 12.4C3.2 12 3 11.5 3 11V3Z'
+			),
+			circle(8, 8, 1.5, 'currentColor', 'none')
 		]
 	},
 
-	/** Gear/cog settings icon */
-	settings: {
-		paths: [
-			// Outer gear body — 12 notch approximation via polygon-ish path
-			'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-			// Gear teeth path
-			'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
-		]
-	},
-
-	/** Copy to clipboard */
+	/** Copy: two overlapping rectangles */
 	copy: {
-		paths: [
-			// Back rect
-			'M8 8H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2',
-			// Front rect
-			'M16 4h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'
+		elements: [
+			rect(8, 8, 13, 13, 2, 'none', 'currentColor'),
+			path('M8 8V5C8 3.9 8.9 3 10 3H19C20.1 3 21 3.9 21 5V14C21 15.1 20.1 16 19 16H16')
 		]
 	},
 
-	/** Pencil edit */
+	/** Delete: trash can with lid and interior lines */
+	delete: {
+		elements: [
+			path('M3 6H21'),
+			path('M8 6V4H16V6'),
+			path('M19 6L18 20H6L5 6'),
+			path('M10 11V17M14 11V17')
+		]
+	},
+
+	/** Settings: two horizontal sliders */
+	settings: {
+		elements: [
+			path('M3 8H21'),
+			circle(8, 8, 2.5, 'none', 'currentColor'),
+			path('M3 16H21'),
+			circle(16, 16, 2.5, 'none', 'currentColor')
+		]
+	},
+
+	/** Pin: thumbtack — pin a node to the canvas */
+	pin: {
+		elements: [
+			path('M12 21V13'),
+			path('M8 13Q6.5 10 8 7Q9.5 5 12 5Q14.5 5 16 7Q17.5 10 16 13Z'),
+			path('M8 13H16')
+		]
+	},
+
+	/** Link: chain link — connection between nodes */
+	link: {
+		elements: [
+			path('M9 14H7A5 5 0 0 1 7 4H9'),
+			path('M15 10H17A5 5 0 0 1 17 20H15'),
+			path('M9 12H15')
+		]
+	},
+
+	/** Edit: pencil */
 	edit: {
-		paths: [
-			// Pencil body
-			'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7',
-			// Pencil tip
-			'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'
+		elements: [
+			path('M11 4H4A2 2 0 0 0 2 6V20A2 2 0 0 0 4 22H18A2 2 0 0 0 20 20V13'),
+			path('M18.5 2.5A2.121 2.121 0 0 1 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z')
 		]
 	},
 
-	/** Refresh/retry circular arrow */
+	/** Retry: circular arrow */
 	retry: {
-		paths: [
-			// Arc
-			'M1 4v6h6',
-			// Full circle open arc
-			'M3.51 15a9 9 0 1 0 .49-3.3'
+		elements: [path('M1 4V10H7'), path('M3.51 15A9 9 0 1 0 3.99 11.7')]
+	},
+
+	/** Filter: funnel */
+	filter: {
+		elements: [path('M22 3H2L10 12.46V19L14 21V12.46L22 3Z')]
+	},
+
+	/** Compare: side-by-side columns */
+	compare: {
+		elements: [
+			rect(3, 3, 8, 18, 2, 'none', 'currentColor'),
+			rect(13, 3, 8, 18, 2, 'none', 'currentColor')
 		]
 	},
 
-	/** X close/dismiss */
+	/** Undo: counter-clockwise arrow */
+	undo: {
+		elements: [path('M3 7V13H9'), path('M21 17A9 9 0 0 0 12 8A9 9 0 0 0 5.7 10.3L3 13')]
+	},
+
+	/** Redo: clockwise arrow */
+	redo: {
+		elements: [path('M21 7V13H15'), path('M3 17A9 9 0 0 1 12 8A9 9 0 0 1 18.3 10.3L21 13')]
+	},
+
+	// -------------------------------------------------------------------------
+	// Primitives / chevrons
+	// -------------------------------------------------------------------------
+
+	/** X close / dismiss */
 	close: {
-		paths: ['M18 6L6 18', 'M6 6l12 12']
+		elements: [path('M18 6L6 18M6 6L18 18')]
 	},
 
 	/** Checkmark */
 	check: {
-		paths: ['M20 6L9 17l-5-5']
+		elements: [path('M20 6L9 17L4 12')]
 	},
 
-	/** Chevron pointing down */
+	/** Chevron down */
 	'chevron-down': {
-		paths: ['M6 9l6 6 6-6']
+		elements: [path('M6 9L12 15L18 9')]
 	},
 
-	/** Chevron pointing up */
+	/** Chevron up */
 	'chevron-up': {
-		paths: ['M18 15l-6-6-6 6']
+		elements: [path('M18 15L12 9L6 15')]
 	},
 
-	/** Chevron pointing right */
+	/** Chevron right */
 	'chevron-right': {
-		paths: ['M9 18l6-6-6-6']
+		elements: [path('M9 18L15 12L9 6')]
 	},
 
-	/** Chevron pointing left */
+	/** Chevron left */
 	'chevron-left': {
-		paths: ['M15 18l-6-6 6-6']
+		elements: [path('M15 18L9 12L15 6')]
 	},
 
-	/** Zoom in — plus inside circle */
-	'zoom-in': {
-		paths: ['M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0', 'M11 8v6', 'M8 11h6', 'M16 16l4 4']
-	},
-
-	/** Zoom out — minus inside circle */
-	'zoom-out': {
-		paths: ['M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0', 'M8 11h6', 'M16 16l4 4']
-	},
-
-	/** Fit to screen — arrows pointing outward at corners */
-	fit: {
-		paths: [
-			'M8 3H5a2 2 0 0 0-2 2v3',
-			'M21 8V5a2 2 0 0 0-2-2h-3',
-			'M3 16v3a2 2 0 0 0 2 2h3',
-			'M16 21h3a2 2 0 0 0 2-2v-3'
-		]
-	},
-
-	/** Paper-plane send */
-	send: {
-		paths: ['M22 2L11 13', 'M22 2L15 22l-4-9-9-4 20-7z']
-	},
-
-	/** Filter funnel */
-	filter: {
-		paths: ['M22 3H2l8 9.46V19l4 2v-8.54L22 3z']
-	},
-
-	/** Generic node/circle */
+	/** Generic node circle */
 	node: {
-		paths: ['M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0']
-	},
-
-	/** Animated spinner (single arc; animate rotation via CSS) */
-	spinner: {
-		paths: ['M12 2a10 10 0 0 1 10 10']
-	},
-
-	/** Warning triangle */
-	warning: {
-		paths: [
-			'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z',
-			'M12 9v4',
-			'M12 17h.01'
-		]
-	},
-
-	/** Side-by-side compare */
-	compare: {
-		paths: [
-			'M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4',
-			'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4',
-			'M12 7v10',
-			'M9 12H3',
-			'M21 12h-6'
-		]
-	},
-
-	/** Undo — counter-clockwise arrow */
-	undo: {
-		paths: ['M3 7v6h6', 'M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13']
-	},
-
-	/** Redo — clockwise arrow */
-	redo: {
-		paths: ['M21 7v6h-6', 'M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13']
+		elements: [circle(12, 12, 5, 'none', 'currentColor')]
 	}
 };

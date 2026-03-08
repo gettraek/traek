@@ -279,9 +279,13 @@
 						· Outdated
 					</span>
 				{:else if node.status === 'streaming'}
-					<span class="header-status header-status--streaming" role="status">
-						<span class="header-status-spinner"></span>
-						Processing…
+					<span class="header-status header-status--streaming" role="status" aria-live="polite">
+						<span class="typing-dots" aria-hidden="true">
+							<span class="typing-dot"></span>
+							<span class="typing-dot"></span>
+							<span class="typing-dot"></span>
+						</span>
+						Generating
 					</span>
 				{:else if node.status === 'error'}
 					<span class="header-status header-status--error" role="alert">
@@ -845,18 +849,46 @@
 			opacity: 0.7;
 		}
 
-		.header-status-spinner {
-			width: 10px;
+		.typing-dots {
+			display: inline-flex;
+			align-items: center;
+			gap: 3px;
 			height: 10px;
-			border: 2px solid currentColor;
-			border-top-color: transparent;
-			border-radius: 50%;
-			animation: header-spin 0.8s linear infinite;
 		}
 
-		@keyframes header-spin {
-			to {
-				transform: rotate(360deg);
+		.typing-dot {
+			width: 4px;
+			height: 4px;
+			border-radius: 50%;
+			background: currentColor;
+			animation: typing-bounce 1.2s ease-in-out infinite;
+		}
+
+		.typing-dot:nth-child(2) {
+			animation-delay: 0.18s;
+		}
+
+		.typing-dot:nth-child(3) {
+			animation-delay: 0.36s;
+		}
+
+		@keyframes typing-bounce {
+			0%,
+			80%,
+			100% {
+				transform: scale(0.6);
+				opacity: 0.4;
+			}
+			40% {
+				transform: scale(1);
+				opacity: 1;
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.typing-dot {
+				animation: none;
+				opacity: 0.7;
 			}
 		}
 
@@ -1261,6 +1293,17 @@
 		.error-banner-btn:focus-visible {
 			outline: 2px solid var(--traek-input-button-bg, #00d8ff);
 			outline-offset: 2px;
+		}
+
+		/* Tablet: 44px touch targets on interactive node chrome */
+		@media (max-width: 1024px) and (min-width: 769px) {
+			.node-header {
+				min-height: 44px;
+			}
+
+			.thought-pill {
+				min-height: 44px;
+			}
 		}
 
 		/* Mobile touch target improvements */

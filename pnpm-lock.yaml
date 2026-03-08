@@ -425,6 +425,9 @@ importers:
       '@iconify/svelte':
         specifier: ^5.2.1
         version: 5.2.1(svelte@5.51.2)
+      '@traek/analytics':
+        specifier: workspace:*
+        version: link:../analytics
       '@traek/core':
         specifier: workspace:*
         version: link:../core

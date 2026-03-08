@@ -300,12 +300,24 @@
 {/if}
 
 <style>
+	@keyframes connection-appear {
+		from {
+			opacity: 0;
+			stroke-width: 0.5;
+		}
+		to {
+			opacity: 1;
+			stroke-width: 1.5;
+		}
+	}
+
 	.connection {
 		transition:
 			opacity 0.2s ease,
 			stroke-width 0.2s ease;
 		stroke-width: 1.5;
 		fill: none;
+		animation: connection-appear 0.35s ease-out both;
 	}
 
 	.connection.faded {
@@ -327,12 +339,26 @@
 
 	.connection.animated-flow {
 		stroke-dasharray: 4 4;
-		animation: connection-flow 2s linear infinite;
+		/* Appear first, then start the flowing dash loop */
+		animation:
+			connection-appear 0.35s ease-out both,
+			connection-flow 2s linear 0.35s infinite;
 	}
 
 	@keyframes connection-flow {
 		to {
 			stroke-dashoffset: -20;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.connection {
+			animation: none;
+		}
+
+		.connection.animated-flow {
+			animation: none;
+			stroke-dasharray: 4 4;
 		}
 	}
 

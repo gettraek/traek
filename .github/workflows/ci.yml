@@ -103,9 +103,13 @@ jobs:
       - run: pnpm run build
 
   e2e:
-    name: E2E Tests (Playwright)
+    name: E2E Tests (${{ matrix.browser }})
     runs-on: ubuntu-latest
     needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -117,16 +121,16 @@ jobs:
       - run: pnpm run build
 
       - name: Install Playwright browsers
-        run: pnpm --filter "@traek/web" exec playwright install --with-deps chromium
+        run: pnpm --filter "@traek/web" exec playwright install --with-deps ${{ matrix.browser }}
 
-      - name: Run E2E tests
-        run: pnpm --filter "@traek/web" exec playwright test
+      - name: Run E2E tests (${{ matrix.browser }})
+        run: pnpm --filter "@traek/web" exec playwright test --project=${{ matrix.browser }}
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.browser }}
           path: apps/web/playwright-report/
           retention-days: 30
 

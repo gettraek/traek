@@ -38,7 +38,6 @@
 	import BranchCompare from './compare/BranchCompare.svelte';
 	import DesktopTour from './onboarding/DesktopTour.svelte';
 	import KeyboardDiscoveryHint from './onboarding/KeyboardDiscoveryHint.svelte';
-	import ThemePicker from './theme/ThemePicker.svelte';
 	import { BROWSER as browser } from 'esm-env';
 	import { setTraekI18n } from './i18n/index';
 	import type { PartialTraekTranslations } from './i18n/index';
@@ -48,6 +47,7 @@
 	import AnnotationLayer from './annotations/AnnotationLayer.svelte';
 	import AnnotationToolbar from './annotations/AnnotationToolbar.svelte';
 	import type { AnnotationTool, AnnotationColor } from './annotations/types';
+	import CanvasToolbar from './canvas/CanvasToolbar.svelte';
 
 	type InputActionsContext = {
 		engine: TraekEngine;
@@ -961,61 +961,7 @@
 				</div>
 			{/if}
 
-			<div class="top-right-controls">
-				{#if engine?.canUndo || engine?.canRedo}
-					<div class="undo-redo-controls">
-						<button
-							class="icon-button"
-							onclick={() => engine?.undo()}
-							disabled={!engine?.canUndo}
-							title="Undo (⌘Z)"
-							aria-label="Undo"
-						>
-							<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-								<path
-									d="M2 5H8.5C10.43 5 12 6.57 12 8.5S10.43 12 8.5 12H5"
-									stroke="currentColor"
-									stroke-width="1.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-								<path
-									d="M4 3L2 5L4 7"
-									stroke="currentColor"
-									stroke-width="1.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-							</svg>
-						</button>
-						<button
-							class="icon-button"
-							onclick={() => engine?.redo()}
-							disabled={!engine?.canRedo}
-							title="Redo (⌘⇧Z)"
-							aria-label="Redo"
-						>
-							<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-								<path
-									d="M12 5H5.5C3.57 5 2 6.57 2 8.5S3.57 12 5.5 12H9"
-									stroke="currentColor"
-									stroke-width="1.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-								<path
-									d="M10 3L12 5L10 7"
-									stroke="currentColor"
-									stroke-width="1.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-							</svg>
-						</button>
-					</div>
-				{/if}
-				<ThemePicker compact={true} />
-			</div>
+			<CanvasToolbar {engine} />
 
 			<!-- Long-press context menu for touch devices -->
 			{#if interaction && interaction.longPressNodeId && interaction.longPressViewportPos}
@@ -1369,20 +1315,6 @@
 			}
 		}
 
-		.top-right-controls {
-			position: absolute;
-			top: 20px;
-			right: 20px;
-			z-index: 50;
-			display: flex;
-			gap: 10px;
-		}
-
-		.undo-redo-controls {
-			display: flex;
-			gap: 4px;
-		}
-
 		.annotation-toolbar-wrapper {
 			position: absolute;
 			bottom: 20px;
@@ -1394,41 +1326,40 @@
 			gap: 8px;
 		}
 
-		.icon-button {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 32px;
-			height: 32px;
-			background: var(--traek-input-bg, rgba(30, 30, 30, 0.9));
-			border: 1px solid var(--traek-input-border, #444444);
-			border-radius: 6px;
-			color: var(--traek-input-context-text, #888888);
-			cursor: pointer;
-			transition: all 0.15s ease;
-			backdrop-filter: blur(8px);
-		}
-
-		.icon-button:hover:not(:disabled) {
-			color: var(--traek-input-text, #ffffff);
-			border-color: var(--traek-node-active-border, #00d8ff);
-		}
-
-		.icon-button:disabled {
-			opacity: 0.3;
-			cursor: not-allowed;
-		}
-
-		.icon-button:focus-visible {
-			outline: 2px solid var(--traek-node-active-border, #00d8ff);
-			outline-offset: 2px;
-		}
-
 		/* Long-press context menu (touch devices) */
 		.long-press-menu {
 			position: absolute;
 			z-index: 200;
 			transform: translateY(-100%);
+		}
+
+		/* ─── Tablet breakpoint (769–1024px) ─────────────────────────────── */
+		/* Canvas mode on touch-capable tablets: bump touch targets, reposition chrome */
+		@media (max-width: 1024px) and (min-width: 769px) {
+			/* Input bar: more horizontal space, leave room for zoom strip on right */
+			.floating-input-container {
+				max-width: calc(100vw - 140px);
+				bottom: max(16px, env(safe-area-inset-bottom));
+			}
+
+			/* Annotation toolbar: move up to sit above zoom strip */
+			.annotation-toolbar-wrapper {
+				bottom: 100px;
+				left: 12px;
+			}
+		}
+
+		/* ─── Small canvas / forced canvas on small screens ─────────────── */
+		@media (max-width: 768px) {
+			.floating-input-container {
+				max-width: calc(100vw - 1.5rem);
+				bottom: max(12px, env(safe-area-inset-bottom));
+			}
+
+			.annotation-toolbar-wrapper {
+				bottom: 92px;
+				left: 8px;
+			}
 		}
 	}
 </style>

@@ -662,7 +662,7 @@ export class TraekEngine {
 	private storeDeletedBuffer(nodes: Node[]): void {
 		clearTimeout(this.deleteUndoTimeoutId);
 		this.lastDeletedBuffer = {
-			nodes: nodes.map((n) => structuredClone(n)),
+			nodes: nodes.map((n) => $state.snapshot(n) as Node),
 			activeNodeId: this.activeNodeId,
 			timestamp: Date.now()
 		};
@@ -716,7 +716,8 @@ export class TraekEngine {
 				parentIds: [...source.parentIds],
 				x: sourceX + offsetGrid,
 				y: sourceY,
-				data: source.data != null ? structuredClone(source.data) : undefined,
+				data:
+					source.data != null ? ($state.snapshot(source.data) as typeof source.data) : undefined,
 				skipHistory: true
 			});
 			// Clear manual position so layout can reposition it properly
@@ -742,7 +743,7 @@ export class TraekEngine {
 				y: sourceY,
 				height: source.metadata?.height ?? this.config.nodeHeightDefault
 			},
-			data: source.data != null ? structuredClone(source.data) : undefined
+			data: source.data != null ? ($state.snapshot(source.data) as typeof source.data) : undefined
 		};
 
 		this.nodes.push(newNode);
@@ -1141,9 +1142,9 @@ export class TraekEngine {
 	/** Capture a deep-clone snapshot of current state and push it onto the undo stack. */
 	captureForUndo(): void {
 		const snapshot: EngineSnapshot = {
-			nodes: this.nodes.map((n) => structuredClone(n)),
+			nodes: this.nodes.map((n) => $state.snapshot(n) as Node),
 			activeNodeId: this.activeNodeId,
-			annotations: structuredClone(this.annotations)
+			annotations: $state.snapshot(this.annotations) as Annotation[]
 		};
 		this.historyManager.push(snapshot);
 		this.canUndo = this.historyManager.canUndo;
@@ -1156,9 +1157,9 @@ export class TraekEngine {
 	 */
 	undo(): boolean {
 		const current: EngineSnapshot = {
-			nodes: this.nodes.map((n) => structuredClone(n)),
+			nodes: this.nodes.map((n) => $state.snapshot(n) as Node),
 			activeNodeId: this.activeNodeId,
-			annotations: structuredClone(this.annotations)
+			annotations: $state.snapshot(this.annotations) as Annotation[]
 		};
 		const prev = this.historyManager.undo(current);
 		if (!prev) return false;
@@ -1177,9 +1178,9 @@ export class TraekEngine {
 	 */
 	redo(): boolean {
 		const current: EngineSnapshot = {
-			nodes: this.nodes.map((n) => structuredClone(n)),
+			nodes: this.nodes.map((n) => $state.snapshot(n) as Node),
 			activeNodeId: this.activeNodeId,
-			annotations: structuredClone(this.annotations)
+			annotations: $state.snapshot(this.annotations) as Annotation[]
 		};
 		const next = this.historyManager.redo(current);
 		if (!next) return false;
@@ -1420,7 +1421,10 @@ export class TraekEngine {
 				data: n.data
 			})),
 			customTags: Array.from(this.customTags.values()),
-			annotations: this.annotations.length > 0 ? structuredClone(this.annotations) : undefined
+			annotations:
+				this.annotations.length > 0
+					? ($state.snapshot(this.annotations) as Annotation[])
+					: undefined
 		};
 	}
 
