@@ -55,8 +55,14 @@ const legacySerializedNodeSchema = z
 /** Accepts both new (parentIds) and legacy (parentId) node formats. Normalizes to parentIds. */
 export const serializedNodeFlexSchema = z.union([serializedNodeSchema, legacySerializedNodeSchema]);
 
+const customTagSchema = z.object({
+	slug: z.string(),
+	label: z.string(),
+	color: z.string()
+});
+
 export const conversationSnapshotSchema = z.object({
-	version: z.literal(1),
+	version: z.union([z.literal(1), z.literal(2)]),
 	createdAt: z.number(),
 	title: z.string().optional(),
 	config: z.record(z.string(), z.unknown()).optional(),
@@ -68,7 +74,8 @@ export const conversationSnapshotSchema = z.object({
 		})
 		.optional(),
 	activeNodeId: z.string().nullable(),
-	nodes: z.array(serializedNodeFlexSchema)
+	nodes: z.array(serializedNodeFlexSchema),
+	customTags: z.array(customTagSchema).optional()
 });
 
 export type SerializedNode = z.infer<typeof serializedNodeSchema>;

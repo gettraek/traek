@@ -1000,11 +1000,11 @@ describe('TraekEngine', () => {
 			expect(snapshot.nodes[0].data).toEqual({ custom: 42 });
 		});
 
-		it('should set version to 1', () => {
+		it('should set version to 2', () => {
 			expect.assertions(1);
 			const engine = new TraekEngine();
 			const snapshot = engine.serialize();
-			expect(snapshot.version).toBe(1);
+			expect(snapshot.version).toBe(2);
 		});
 	});
 

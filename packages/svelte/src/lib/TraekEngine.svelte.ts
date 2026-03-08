@@ -1,6 +1,9 @@
 import type { Component } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { conversationSnapshotSchema } from '$lib/persistence/schemas';
+import {
+	conversationSnapshotSchema,
+	type ConversationSnapshot as LocalConversationSnapshot
+} from '$lib/persistence/schemas';
 import { searchNodes as searchNodesUtil, type SearchFilters } from '$lib/search/searchUtils';
 import { HistoryManager, type EngineSnapshot } from '$lib/history/HistoryManager';
 
@@ -1461,7 +1464,7 @@ export class TraekEngine {
 	 */
 	serialize(title?: string): import('./persistence/types.js').ConversationSnapshot {
 		return {
-			version: 1,
+			version: 2,
 			createdAt: Date.now(),
 			title,
 			activeNodeId: this.activeNodeId,
@@ -1484,8 +1487,54 @@ export class TraekEngine {
 						: {})
 				},
 				data: n.data
-			}))
+			})),
+			customTags: Array.from(this.customTags.values())
 		};
+	}
+
+	/** Load a serialized snapshot into this engine instance. Validates input with Zod. */
+	fromSnapshot(snapshot: LocalConversationSnapshot): void {
+		const result = conversationSnapshotSchema.safeParse(snapshot);
+		if (!result.success) {
+			throw new Error(
+				`Invalid snapshot: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`
+			);
+		}
+		const validated = result.data;
+		// Reset all node state
+		this.nodes = [];
+		this.nodeIndexMap.clear();
+		this.childrenIdMap.clear();
+		this.activeNodeId = null;
+		this.pendingFocusNodeId = null;
+		if (validated.nodes.length > 0) {
+			this.addNodes(
+				validated.nodes.map((n) => ({
+					id: n.id,
+					parentIds: n.parentIds,
+					content: n.content,
+					role: n.role,
+					type: n.type,
+					status: n.status,
+					createdAt: n.createdAt,
+					metadata: n.metadata,
+					data: n.data
+				}))
+			);
+		}
+		if (validated.activeNodeId != null) {
+			if (this.getNode(validated.activeNodeId)) {
+				this.activeNodeId = validated.activeNodeId;
+				this.pendingFocusNodeId = validated.activeNodeId;
+			}
+		}
+		// Restore custom tags (v2+); v1 snapshots have none
+		this.customTags.clear();
+		if (validated.customTags) {
+			for (const tag of validated.customTags) {
+				this.customTags.set(tag.slug, tag);
+			}
+		}
 	}
 
 	/** Create an engine from a serialized snapshot. Validates input with Zod. */
