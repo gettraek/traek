@@ -26,6 +26,9 @@ export interface TraekTranslations {
 		zoomOut: string;
 		resetZoom: string;
 		fitAllNodes: string;
+		snapToGrid: string;
+		snapToGridEnabled: string;
+		snapToGridDisabled: string;
 	};
 	search: {
 		placeholder: string;
@@ -47,12 +50,20 @@ export interface TraekTranslations {
 		activateFocusedNode: string;
 		toggleCollapseExpand: string;
 		switchFocusToInput: string;
+		deleteFocusedNode: string;
+		fitAllNodes: string;
 		showHideHelp: string;
 		advancedSection: string;
 		goToRootChord: string;
 		goToDeepestLeafChord: string;
 		jumpToNthChild: string;
 		openFuzzySearch: string;
+		openCommandPalette: string;
+		vimModeSection: string;
+		vimNavigateUp: string;
+		vimNavigateDown: string;
+		vimNavigateLeft: string;
+		vimNavigateRight: string;
 		close: string;
 	};
 	fuzzySearch: {

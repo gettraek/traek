@@ -37,6 +37,7 @@
 	import Minimap from './canvas/Minimap.svelte';
 	import BranchCompare from './compare/BranchCompare.svelte';
 	import DesktopTour from './onboarding/DesktopTour.svelte';
+	import KeyboardDiscoveryHint from './onboarding/KeyboardDiscoveryHint.svelte';
 	import ThemePicker from './theme/ThemePicker.svelte';
 	import { setTraekI18n } from './i18n/index';
 	import type { PartialTraekTranslations } from './i18n/index';
@@ -83,7 +84,8 @@
 		tourDelay = 0,
 		minimapMinNodes = 0,
 		breadcrumbMinNodes = 0,
-		translations: translationsProp
+		translations: translationsProp,
+		vimMode = false
 	}: {
 		engine?: TraekEngine | null;
 		config?: Partial<TraekEngineConfig>;
@@ -116,6 +118,8 @@
 		breadcrumbMinNodes?: number;
 		/** Partial translation overrides. Deep-merged with English defaults. */
 		translations?: PartialTraekTranslations;
+		/** Enable vim-style navigation keys (j/k/h/l). Default: false. */
+		vimMode?: boolean;
 	} = $props();
 
 	const config = $derived({
@@ -169,10 +173,34 @@
 	let liveRegionMessage = $state('');
 	$effect(() => {
 		if (!engine || resolvedMode !== 'canvas') return;
-		keyboardNavigator = new KeyboardNavigator(engine, (message) => {
-			liveRegionMessage = message;
-		});
+		keyboardNavigator = new KeyboardNavigator(
+			engine,
+			(message) => {
+				liveRegionMessage = message;
+			},
+			{
+				vimMode,
+				onDelete: (nodeId) => {
+					engine.deleteNodeAndDescendants(nodeId);
+					onNodesChanged?.();
+				},
+				onFitAll: () => {
+					viewport?.fitAll(engine.nodes);
+				},
+				onFocusInput: () => {
+					const inputEl = document.querySelector<HTMLElement>(
+						'.floating-input-container textarea, .floating-input-container input'
+					);
+					inputEl?.focus();
+				}
+			}
+		);
 		return () => keyboardNavigator?.destroy();
+	});
+
+	// Sync vimMode prop to navigator
+	$effect(() => {
+		if (keyboardNavigator) keyboardNavigator.vimMode = vimMode;
 	});
 
 	// Auto-focus viewport so keyboard navigation works immediately.
@@ -332,6 +360,7 @@
 
 	// Desktop tour state (tourDelay < 0 disables the tour entirely)
 	let showDesktopTour = $state(false);
+	let showKeyboardHint = $state(false);
 	$effect(() => {
 		if (tourDelay < 0 || typeof localStorage === 'undefined' || resolvedMode !== 'canvas') return;
 		const tourCompleted = localStorage.getItem('traek-desktop-tour-completed');
@@ -344,6 +373,9 @@
 			} else {
 				showDesktopTour = true;
 			}
+		} else {
+			// Tour already done — show keyboard discovery hint for users with existing content
+			showKeyboardHint = true;
 		}
 	});
 
@@ -398,15 +430,46 @@
 				e.preventDefault();
 				showSearchBar = true;
 			}
+			// Cmd+K / Ctrl+K to open command palette (fuzzy search)
+			if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+				e.preventDefault();
+				keyboardNavigator?.openFuzzySearch();
+			}
+			// Cmd+Z / Ctrl+Z to undo
+			if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+				if (engine?.canUndo) {
+					e.preventDefault();
+					engine.undo();
+				}
+			}
+			// Cmd+Shift+Z / Ctrl+Shift+Z to redo
+			if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+				if (engine?.canRedo) {
+					e.preventDefault();
+					engine.redo();
+				}
+			}
 		};
 
 		window.addEventListener('keydown', handleKeydown);
 		return () => window.removeEventListener('keydown', handleKeydown);
 	});
 
+	// Reactively refresh search when nodes change while a search is active (streaming updates)
+	$effect(() => {
+		if (!engine || !engine.searchQuery) return;
+		// Track node count and status changes
+		void engine.nodes.length;
+		for (const n of engine.nodes) void n.status;
+		engine.refreshSearch();
+	});
+
 	// Search handlers
-	function handleSearchQuery(query: string) {
-		engine.searchNodesMethod(query);
+	function handleSearchQuery(
+		query: string,
+		filters?: import('./search/searchUtils').SearchFilters
+	) {
+		engine.searchNodesMethod(query, filters);
 	}
 
 	function handleSearchNext() {
@@ -692,6 +755,9 @@
 					{onRetry}
 					onNodeActivated={(nodeId) => (userSelectedNodeId = nodeId)}
 					focusedNodeId={keyboardNavigator?.focusedNodeId}
+					dropTargetNodeId={interaction?.dropTargetNodeId}
+					isDropTargetValid={interaction?.isDropTargetValid}
+					selectedNodeIds={interaction?.selectedNodeIds}
 				/>
 
 				{#if engine.activeNodeId && activeNodeActions.length > 0}
@@ -835,10 +901,86 @@
 			{/if}
 
 			<div class="top-right-controls">
+				{#if engine?.canUndo || engine?.canRedo}
+					<div class="undo-redo-controls">
+						<button
+							class="icon-button"
+							onclick={() => engine?.undo()}
+							disabled={!engine?.canUndo}
+							title="Undo (⌘Z)"
+							aria-label="Undo"
+						>
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+								<path
+									d="M2 5H8.5C10.43 5 12 6.57 12 8.5S10.43 12 8.5 12H5"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+								<path
+									d="M4 3L2 5L4 7"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+							</svg>
+						</button>
+						<button
+							class="icon-button"
+							onclick={() => engine?.redo()}
+							disabled={!engine?.canRedo}
+							title="Redo (⌘⇧Z)"
+							aria-label="Redo"
+						>
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+								<path
+									d="M12 5H5.5C3.57 5 2 6.57 2 8.5S3.57 12 5.5 12H9"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+								<path
+									d="M10 3L12 5L10 7"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+							</svg>
+						</button>
+					</div>
+				{/if}
 				<ThemePicker compact={true} />
 			</div>
 
-			<ZoomControls {viewport} nodes={engine.nodes} {config} />
+			<!-- Long-press context menu for touch devices -->
+			{#if interaction && interaction.longPressNodeId && interaction.longPressViewportPos}
+				{@const lpNode = engine.nodes.find((n) => n.id === interaction!.longPressNodeId)}
+				{#if lpNode && activeNodeActions.length > 0}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<div
+						class="long-press-menu"
+						style:left="{interaction.longPressViewportPos.x}px"
+						style:top="{interaction.longPressViewportPos.y}px"
+						onclick={() => interaction?.clearLongPress()}
+						transition:fade={{ duration: 120 }}
+					>
+						<NodeToolbar
+							actions={activeNodeActions}
+							node={lpNode}
+							{engine}
+							x={0}
+							y={0}
+							nodeWidth={config.nodeWidth}
+						/>
+					</div>
+				{/if}
+			{/if}
+
+			<ZoomControls {viewport} nodes={engine.nodes} {config} {interaction} />
 			{#if engine.nodes.filter((n) => n.type !== 'thought').length >= minimapMinNodes}
 				<Minimap {viewport} nodes={engine.nodes} {config} />
 			{/if}
@@ -860,6 +1002,7 @@
 			{#if keyboardNavigator?.showHelp}
 				<KeyboardHelpOverlay
 					onClose={() => keyboardNavigator && (keyboardNavigator.showHelp = false)}
+					vimMode={keyboardNavigator.vimMode}
 				/>
 			{/if}
 
@@ -882,7 +1025,22 @@
 
 			<!-- Desktop Tour -->
 			{#if showDesktopTour}
-				<DesktopTour onComplete={() => (showDesktopTour = false)} />
+				<DesktopTour
+					onComplete={() => {
+						showDesktopTour = false;
+						showKeyboardHint = true;
+					}}
+				/>
+			{/if}
+
+			<!-- Keyboard shortcut discovery hint (appears after tour or for returning users) -->
+			{#if showKeyboardHint && !showDesktopTour}
+				<KeyboardDiscoveryHint
+					onOpen={() => {
+						if (keyboardNavigator) keyboardNavigator.showHelp = true;
+					}}
+					onDismiss={() => (showKeyboardHint = false)}
+				/>
 			{/if}
 		</div>
 	{/if}
@@ -891,15 +1049,39 @@
 <style>
 	@layer base;
 
+	/*
+	 * Global theme transition: when .traek-theme-transitioning is on :root,
+	 * color/background changes animate smoothly across the entire canvas.
+	 */
+	:global(.traek-theme-transitioning),
+	:global(.traek-theme-transitioning *) {
+		transition:
+			background-color var(--traek-duration-normal, 220ms) ease,
+			border-color var(--traek-duration-normal, 220ms) ease,
+			color var(--traek-duration-normal, 220ms) ease,
+			fill var(--traek-duration-normal, 220ms) ease,
+			stroke var(--traek-duration-normal, 220ms) ease,
+			box-shadow var(--traek-duration-normal, 220ms) ease !important;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:global(.traek-theme-transitioning),
+		:global(.traek-theme-transitioning *) {
+			transition: none !important;
+		}
+	}
+
 	@layer base {
 		.viewport {
 			width: 100%;
 			height: 100%;
-			background-color: var(--traek-canvas-bg, #0b0b0b);
+			background-color: var(--traek-canvas-bg, #070708);
 			overflow: hidden;
 			position: relative;
 			cursor: grab;
 			outline: none;
+			/* Prevent browser default touch actions (scroll, zoom) — we handle them manually */
+			touch-action: none;
 		}
 		.viewport:focus,
 		.viewport:focus-visible {
@@ -1026,7 +1208,7 @@
 
 		.floating-input-container {
 			position: fixed;
-			bottom: 20px;
+			bottom: max(20px, env(safe-area-inset-bottom));
 			left: 50%;
 			transform: translateX(-50%);
 			width: 100%;
@@ -1087,6 +1269,48 @@
 			z-index: 50;
 			display: flex;
 			gap: 10px;
+		}
+
+		.undo-redo-controls {
+			display: flex;
+			gap: 4px;
+		}
+
+		.icon-button {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 32px;
+			height: 32px;
+			background: var(--traek-input-bg, rgba(30, 30, 30, 0.9));
+			border: 1px solid var(--traek-input-border, #444444);
+			border-radius: 6px;
+			color: var(--traek-input-context-text, #888888);
+			cursor: pointer;
+			transition: all 0.15s ease;
+			backdrop-filter: blur(8px);
+		}
+
+		.icon-button:hover:not(:disabled) {
+			color: var(--traek-input-text, #ffffff);
+			border-color: var(--traek-node-active-border, #00d8ff);
+		}
+
+		.icon-button:disabled {
+			opacity: 0.3;
+			cursor: not-allowed;
+		}
+
+		.icon-button:focus-visible {
+			outline: 2px solid var(--traek-node-active-border, #00d8ff);
+			outline-offset: 2px;
+		}
+
+		/* Long-press context menu (touch devices) */
+		.long-press-menu {
+			position: absolute;
+			z-index: 200;
+			transform: translateY(-100%);
 		}
 	}
 </style>

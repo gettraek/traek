@@ -1,3 +1,5 @@
+import { SvelteSet, SvelteMap } from 'svelte/reactivity';
+import { wouldCreateCycle } from '../TraekEngine.svelte';
 import type { TraekEngine, TraekEngineConfig, Node } from '../TraekEngine.svelte';
 import type { ViewportManager } from './ViewportManager.svelte';
 import type { ConnectionDragState } from './connectionPath';
@@ -7,20 +9,36 @@ import { findScrollable, scrollableCanConsumeWheel, ScrollBoundaryGuard } from '
  * Manages canvas interaction state: pan, zoom, node dragging, connection dragging, and touch gestures.
  */
 const DRAG_THRESHOLD = 4; // pixels before a pending node drag becomes a real drag
+const LONG_PRESS_DELAY = 500; // ms before a touch becomes a long-press
+const LONG_PRESS_MOVE_THRESHOLD = 8; // px movement cancels long-press
 
 export class CanvasInteraction {
 	isDragging = $state(false);
 	draggingNodeId = $state<string | null>(null);
+	/** Node currently under the cursor during a node drag — for reparenting on drop. */
+	dropTargetNodeId = $state<string | null>(null);
+	/** Whether the current drop target is a valid reparent target. */
+	isDropTargetValid = $state(false);
+	/** Multi-selected node IDs (Shift+click). */
+	selectedNodeIds = $state(new SvelteSet<string>());
+	/** Whether to snap nodes to the grid on drop. */
+	snapToGrid = $state(true);
 	connectionDrag = $state<ConnectionDragState | null>(null);
 	hoveredConnection = $state<{ parentId: string; childId: string } | null>(null);
 	hoveredNodeId = $state<string | null>(null);
+	longPressNodeId = $state<string | null>(null);
+	longPressViewportPos = $state<{ x: number; y: number } | null>(null);
 
 	#dragStartMouse = $state<{ x: number; y: number } | null>(null);
 	#dragStartNodePosition = $state<{ x: number; y: number } | null>(null);
+	/** Start positions of all selected nodes when a batch move begins. */
+	#selectedStartPositions: SvelteMap<string, { x: number; y: number }> = new SvelteMap();
 	// Pending drag: mousedown on any node header — becomes real drag after threshold
 	#pendingDragNodeId: string | null = null;
 	#pendingDragStartMouse: { x: number; y: number } | null = null;
 	#pendingDragNodePosition: { x: number; y: number } | null = null;
+	#longPressTimer: ReturnType<typeof setTimeout> | null = null;
+	#longPressOrigin: { x: number; y: number } | null = null;
 	#touchStartPan = $state<{
 		offsetX: number;
 		offsetY: number;
@@ -37,6 +55,7 @@ export class CanvasInteraction {
 	} | null>(null);
 	#lastDropTargetEl: Element | null = null;
 	#scrollGuard = new ScrollBoundaryGuard();
+	#longPressFired = false;
 
 	#viewport: ViewportManager;
 	#engine: TraekEngine;
@@ -90,9 +109,51 @@ export class CanvasInteraction {
 		return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
 	}
 
+	#startLongPress(nodeId: string, clientX: number, clientY: number): void {
+		this.#cancelLongPress();
+		this.#longPressOrigin = { x: clientX, y: clientY };
+		this.#longPressFired = false;
+		this.#longPressTimer = setTimeout(() => {
+			this.#longPressFired = true;
+			this.#longPressTimer = null;
+			this.#engine.activeNodeId = nodeId;
+			const rect = this.#viewport.viewportEl?.getBoundingClientRect();
+			if (rect) {
+				this.longPressViewportPos = {
+					x: (this.#longPressOrigin?.x ?? clientX) - rect.left,
+					y: (this.#longPressOrigin?.y ?? clientY) - rect.top
+				};
+			}
+			this.longPressNodeId = nodeId;
+			// Haptic feedback (Vibration API, no-op if unsupported)
+			if (typeof navigator !== 'undefined') navigator.vibrate?.(40);
+		}, LONG_PRESS_DELAY);
+	}
+
+	#cancelLongPress(): void {
+		if (this.#longPressTimer !== null) {
+			clearTimeout(this.#longPressTimer);
+			this.#longPressTimer = null;
+		}
+		this.#longPressOrigin = null;
+	}
+
+	/** Dismiss the long-press context menu. */
+	clearLongPress(): void {
+		this.#cancelLongPress();
+		this.longPressNodeId = null;
+		this.longPressViewportPos = null;
+		this.#longPressFired = false;
+	}
+
 	handleMouseDown = (e: MouseEvent) => {
 		if (e.button !== 0) return;
 		if ((e.target as HTMLElement).closest('.floating-input-container')) return;
+		// Dismiss long-press menu on any canvas click
+		if (this.longPressNodeId) {
+			this.clearLongPress();
+			return;
+		}
 
 		// Check for connection port click BEFORE node drag
 		const portEl = (e.target as HTMLElement).closest('[data-port-type]');
@@ -124,6 +185,20 @@ export class CanvasInteraction {
 			if (id) {
 				// Allow text selection inside node content – don't start drag or preventDefault
 				if ((e.target as HTMLElement).closest('.message-node-content, .content-area')) return;
+
+				// Shift+click: toggle multi-select
+				if (e.shiftKey) {
+					e.preventDefault();
+					const next = new SvelteSet(this.selectedNodeIds);
+					if (next.has(id)) {
+						next.delete(id);
+					} else {
+						next.add(id);
+					}
+					this.selectedNodeIds = next;
+					return;
+				}
+
 				const node = this.#engine.nodes.find((n: Node) => n.id === id);
 				if (node) {
 					// Record pending drag: becomes real after DRAG_THRESHOLD pixels of movement
@@ -139,6 +214,10 @@ export class CanvasInteraction {
 				}
 			}
 		}
+		// Click on empty canvas clears multi-selection
+		if (!e.shiftKey) {
+			this.selectedNodeIds = new SvelteSet();
+		}
 		e.preventDefault();
 		this.isDragging = true;
 	};
@@ -150,10 +229,27 @@ export class CanvasInteraction {
 			const dy = e.clientY - this.#pendingDragStartMouse.y;
 			if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
 				// Auto-activate the node and start dragging
+				this.#engine.captureForUndo();
 				this.#engine.activeNodeId = this.#pendingDragNodeId;
 				this.draggingNodeId = this.#pendingDragNodeId;
 				this.#dragStartMouse = this.#pendingDragStartMouse;
 				this.#dragStartNodePosition = this.#pendingDragNodePosition;
+
+				// Snapshot start positions of all selected nodes for batch move
+				this.#selectedStartPositions.clear();
+				if (this.selectedNodeIds.has(this.#pendingDragNodeId)) {
+					const step = this.#config.gridStep;
+					for (const selId of this.selectedNodeIds) {
+						const selNode = this.#engine.getNode(selId);
+						if (selNode) {
+							this.#selectedStartPositions.set(selId, {
+								x: (selNode.metadata?.x ?? 0) * step,
+								y: (selNode.metadata?.y ?? 0) * step
+							});
+						}
+					}
+				}
+
 				this.#pendingDragNodeId = null;
 				this.#pendingDragStartMouse = null;
 				this.#pendingDragNodePosition = null;
@@ -197,12 +293,34 @@ export class CanvasInteraction {
 		if (this.draggingNodeId && this.#dragStartMouse && this.#dragStartNodePosition) {
 			const dxCanvas = (e.clientX - this.#dragStartMouse.x) / this.#viewport.scale;
 			const dyCanvas = (e.clientY - this.#dragStartMouse.y) / this.#viewport.scale;
-			this.#engine.setNodePosition(
-				this.draggingNodeId,
-				this.#dragStartNodePosition.x + dxCanvas,
-				this.#dragStartNodePosition.y + dyCanvas,
-				10
-			);
+			const newX = this.#dragStartNodePosition.x + dxCanvas;
+			const newY = this.#dragStartNodePosition.y + dyCanvas;
+
+			this.#engine.setNodePosition(this.draggingNodeId, newX, newY, 10);
+
+			// Also move all selected nodes (if dragging a selected node)
+			if (this.#selectedStartPositions.size > 1) {
+				for (const [selId, startPos] of this.#selectedStartPositions) {
+					if (selId === this.draggingNodeId) continue;
+					this.#engine.setNodePosition(selId, startPos.x + dxCanvas, startPos.y + dyCanvas, 10);
+				}
+			}
+
+			// Detect drop target for reparenting (node under cursor, not self)
+			const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+			const targetNodeEl = elUnder?.closest?.('[data-node-id]');
+			const targetNodeId = targetNodeEl?.getAttribute('data-node-id') ?? null;
+			if (targetNodeId && targetNodeId !== this.draggingNodeId) {
+				this.dropTargetNodeId = targetNodeId;
+				// Check validity: would not create cycle, not already direct parent
+				const draggingNode = this.#engine.getNode(this.draggingNodeId);
+				const isAlreadyParent = draggingNode?.parentIds.includes(targetNodeId) ?? false;
+				const wouldCycle = wouldCreateCycle(this.#engine.nodes, targetNodeId, this.draggingNodeId);
+				this.isDropTargetValid = !isAlreadyParent && !wouldCycle;
+			} else {
+				this.dropTargetNodeId = null;
+				this.isDropTargetValid = false;
+			}
 			return;
 		}
 		if (!this.isDragging) return;
@@ -235,9 +353,24 @@ export class CanvasInteraction {
 		}
 
 		if (this.draggingNodeId) {
-			this.#engine.snapNodeToGrid(this.draggingNodeId);
+			// Reparent if dropped on a valid target
+			if (this.dropTargetNodeId && this.isDropTargetValid) {
+				this.#engine.reparentNode(this.draggingNodeId, this.dropTargetNodeId);
+			}
+			if (this.snapToGrid) {
+				this.#engine.snapNodeToGrid(this.draggingNodeId);
+				// Snap all selected nodes too
+				if (this.selectedNodeIds.has(this.draggingNodeId)) {
+					for (const selId of this.selectedNodeIds) {
+						if (selId !== this.draggingNodeId) this.#engine.snapNodeToGrid(selId);
+					}
+				}
+			}
 			this.#onNodesChanged?.();
 		}
+		this.dropTargetNodeId = null;
+		this.isDropTargetValid = false;
+		this.#selectedStartPositions.clear();
 		this.#pendingDragNodeId = null;
 		this.#pendingDragStartMouse = null;
 		this.#pendingDragNodePosition = null;
@@ -276,6 +409,8 @@ export class CanvasInteraction {
 		if ((e.target as HTMLElement).closest('.floating-input-container')) return;
 		// Let scrollable content in any node consume touch (scroll); don't start pan
 		if (findScrollable(e.target as Element)) return;
+		// Dismiss long-press menu on new touch gesture
+		if (this.longPressNodeId) this.clearLongPress();
 		const nodeEl = (e.target as HTMLElement).closest('[data-node-id]');
 		if (nodeEl) {
 			const id = nodeEl.getAttribute('data-node-id');
@@ -292,6 +427,8 @@ export class CanvasInteraction {
 						x: (node.metadata?.x ?? 0) * step,
 						y: (node.metadata?.y ?? 0) * step
 					};
+					// Start long-press timer for this node
+					this.#startLongPress(id, single.clientX, single.clientY);
 					return;
 				}
 			}
@@ -306,6 +443,17 @@ export class CanvasInteraction {
 
 	handleTouchMove = (e: TouchEvent) => {
 		if (!this.#viewport.viewportEl) return;
+		// Cancel long-press if finger moves beyond threshold
+		if (this.#longPressOrigin && e.touches.length === 1) {
+			const t = e.touches[0];
+			if (t) {
+				const dx = t.clientX - this.#longPressOrigin.x;
+				const dy = t.clientY - this.#longPressOrigin.y;
+				if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_THRESHOLD) {
+					this.#cancelLongPress();
+				}
+			}
+		}
 		// Promote pending touch drag after threshold
 		if (
 			this.#pendingDragNodeId &&
@@ -318,10 +466,25 @@ export class CanvasInteraction {
 				const dx = one.clientX - this.#pendingDragStartMouse.x;
 				const dy = one.clientY - this.#pendingDragStartMouse.y;
 				if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+					this.#engine.captureForUndo();
 					this.#engine.activeNodeId = this.#pendingDragNodeId;
 					this.draggingNodeId = this.#pendingDragNodeId;
 					this.#dragStartMouse = this.#pendingDragStartMouse;
 					this.#dragStartNodePosition = this.#pendingDragNodePosition;
+					// Snapshot start positions of all selected nodes for batch move
+					this.#selectedStartPositions.clear();
+					if (this.selectedNodeIds.has(this.#pendingDragNodeId)) {
+						const step = this.#config.gridStep;
+						for (const selId of this.selectedNodeIds) {
+							const selNode = this.#engine.getNode(selId);
+							if (selNode) {
+								this.#selectedStartPositions.set(selId, {
+									x: (selNode.metadata?.x ?? 0) * step,
+									y: (selNode.metadata?.y ?? 0) * step
+								});
+							}
+						}
+					}
 					this.#pendingDragNodeId = null;
 					this.#pendingDragStartMouse = null;
 					this.#pendingDragNodePosition = null;
@@ -367,6 +530,13 @@ export class CanvasInteraction {
 				this.#dragStartNodePosition.y + dyCanvas,
 				10
 			);
+			// Also move all selected nodes (parity with mouse drag)
+			if (this.#selectedStartPositions.size > 1) {
+				for (const [selId, startPos] of this.#selectedStartPositions) {
+					if (selId === this.draggingNodeId) continue;
+					this.#engine.setNodePosition(selId, startPos.x + dxCanvas, startPos.y + dyCanvas, 10);
+				}
+			}
 			return;
 		}
 		if (this.#touchStartPan) {
@@ -381,13 +551,31 @@ export class CanvasInteraction {
 
 	handleTouchEnd = (e: TouchEvent) => {
 		if (e.touches.length === 0) {
-			if (this.draggingNodeId) {
-				this.#engine.snapNodeToGrid(this.draggingNodeId);
+			// If long-press fired, don't activate node on touchend
+			const didLongPress = this.#longPressFired;
+			this.#cancelLongPress();
+			if (!didLongPress && this.draggingNodeId) {
+				if (this.snapToGrid) {
+					this.#engine.snapNodeToGrid(this.draggingNodeId);
+					if (this.selectedNodeIds.has(this.draggingNodeId)) {
+						for (const selId of this.selectedNodeIds) {
+							if (selId !== this.draggingNodeId) this.#engine.snapNodeToGrid(selId);
+						}
+					}
+				}
 				this.#onNodesChanged?.();
+			} else if (didLongPress) {
+				// Snap if we were dragging even with long-press (unlikely but safe)
+				if (this.draggingNodeId) {
+					if (this.snapToGrid) this.#engine.snapNodeToGrid(this.draggingNodeId);
+					this.#onNodesChanged?.();
+				}
 			}
 			this.#pendingDragNodeId = null;
 			this.#pendingDragStartMouse = null;
 			this.#pendingDragNodePosition = null;
+			this.#longPressFired = false;
+			this.#selectedStartPositions.clear();
 			this.#viewport.notifyViewportChange();
 			this.isDragging = false;
 			this.draggingNodeId = null;
@@ -399,6 +587,7 @@ export class CanvasInteraction {
 		}
 		if (e.touches.length === 1) {
 			this.#pinchStart = null;
+			this.#cancelLongPress();
 		}
 	};
 

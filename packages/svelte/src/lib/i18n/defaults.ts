@@ -23,7 +23,10 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		zoomIn: 'Zoom in',
 		zoomOut: 'Zoom out',
 		resetZoom: 'Reset zoom to 100%',
-		fitAllNodes: 'Fit all nodes'
+		fitAllNodes: 'Fit all nodes',
+		snapToGrid: 'Toggle snap to grid',
+		snapToGridEnabled: 'Snap to grid: on',
+		snapToGridDisabled: 'Snap to grid: off'
 	},
 	search: {
 		placeholder: 'Search...',
@@ -44,13 +47,21 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		actionsSection: 'Actions',
 		activateFocusedNode: 'Activate focused node',
 		toggleCollapseExpand: 'Toggle collapse/expand',
-		switchFocusToInput: 'Switch focus to input',
+		switchFocusToInput: 'Focus input / new message',
+		deleteFocusedNode: 'Delete focused node',
+		fitAllNodes: 'Fit all nodes in view',
 		showHideHelp: 'Show/hide this help',
 		advancedSection: 'Advanced',
 		goToRootChord: 'Go to root (chord)',
 		goToDeepestLeafChord: 'Go to deepest leaf (chord)',
 		jumpToNthChild: 'Jump to nth child',
-		openFuzzySearch: 'Open fuzzy search',
+		openFuzzySearch: 'Open node search',
+		openCommandPalette: 'Open command palette',
+		vimModeSection: 'Vim Navigation',
+		vimNavigateUp: 'Navigate to parent',
+		vimNavigateDown: 'Navigate to child',
+		vimNavigateLeft: 'Previous sibling',
+		vimNavigateRight: 'Next sibling',
 		close: 'Close'
 	},
 	fuzzySearch: {

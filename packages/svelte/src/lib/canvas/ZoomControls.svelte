@@ -2,6 +2,7 @@
 	import type { ViewportManager } from './ViewportManager.svelte';
 	import type { Node } from '../TraekEngine.svelte';
 	import type { TraekEngineConfig } from '../TraekEngine.svelte';
+	import type { CanvasInteraction } from './CanvasInteraction.svelte';
 	import { getTraekI18n } from '../i18n/index';
 
 	const t = getTraekI18n();
@@ -9,11 +10,13 @@
 	let {
 		viewport,
 		nodes,
-		config
+		config,
+		interaction = null
 	}: {
 		viewport: ViewportManager;
 		nodes: Node[];
 		config: TraekEngineConfig;
+		interaction?: CanvasInteraction | null;
 	} = $props();
 
 	function zoomIn() {
@@ -103,6 +106,38 @@
 			/>
 		</svg>
 	</button>
+
+	{#if interaction}
+		<div class="separator"></div>
+		<button
+			onclick={() => interaction && (interaction.snapToGrid = !interaction.snapToGrid)}
+			title={interaction.snapToGrid ? t.zoom.snapToGridEnabled : t.zoom.snapToGridDisabled}
+			aria-label={t.zoom.snapToGrid}
+			aria-pressed={interaction.snapToGrid}
+			class:snap-active={interaction.snapToGrid}
+			onkeydown={(e) =>
+				e.key === 'Enter' && interaction && (interaction.snapToGrid = !interaction.snapToGrid)}
+		>
+			<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+				<rect x="1" y="1" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5" />
+				<rect x="6" y="1" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5" />
+				<rect x="11" y="1" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5" />
+				<rect x="1" y="6" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5" />
+				<rect x="11" y="6" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5" />
+				<rect x="1" y="11" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5" />
+				<rect x="6" y="11" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5" />
+				<rect
+					x="11"
+					y="11"
+					width="4"
+					height="4"
+					rx="0.5"
+					stroke="currentColor"
+					stroke-width="1.5"
+				/>
+			</svg>
+		</button>
+	{/if}
 </div>
 
 <style>
@@ -164,5 +199,14 @@
 
 	.fit-all {
 		margin-top: 2px;
+	}
+
+	button.snap-active {
+		background: var(--traek-input-button-bg, #00d8ff);
+		color: var(--traek-input-button-text, #000000);
+	}
+
+	button.snap-active:hover {
+		opacity: 0.85;
 	}
 </style>
