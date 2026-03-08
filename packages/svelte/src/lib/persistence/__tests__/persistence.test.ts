@@ -36,7 +36,7 @@ describe('TraekEngine.serialize()', () => {
 		const engine = new TraekEngine();
 		const snapshot = engine.serialize();
 
-		expect(snapshot.version).toBe(1);
+		expect(snapshot.version).toBe(2);
 		expect(snapshot.nodes).toHaveLength(0);
 		expect(snapshot.activeNodeId).toBeNull();
 		expect(snapshot.title).toBeUndefined();
@@ -306,7 +306,7 @@ describe('Zod Schema Validation', () => {
 
 	it('should reject a ConversationSnapshot with wrong version', () => {
 		const result = conversationSnapshotSchema.safeParse({
-			version: 2,
+			version: 99,
 			createdAt: Date.now(),
 			activeNodeId: null,
 			nodes: []
