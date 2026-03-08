@@ -1,0 +1,13 @@
+name = "traek-api"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "traek-db"
+database_id = "traek-db-placeholder"
+
+[vars]
+# Set via Cloudflare dashboard or `wrangler secret put`:
+# API_KEY_SALT — random salt used when hashing API keys before storage

@@ -47,6 +47,7 @@
 		"@traek/core": "workspace:*",
 		"@types/qrcode": "^1.5.6",
 		"dompurify": "^3.3.1",
+		"esm-env": "^1.2.2",
 		"highlight.js": "^11.11.1",
 		"marked": "^17.0.1",
 		"marked-highlight": "^2.2.3",

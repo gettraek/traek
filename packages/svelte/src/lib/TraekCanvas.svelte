@@ -39,6 +39,7 @@
 	import DesktopTour from './onboarding/DesktopTour.svelte';
 	import KeyboardDiscoveryHint from './onboarding/KeyboardDiscoveryHint.svelte';
 	import ThemePicker from './theme/ThemePicker.svelte';
+	import { BROWSER as browser } from 'esm-env';
 	import { setTraekI18n } from './i18n/index';
 	import type { PartialTraekTranslations } from './i18n/index';
 	import TagBookmarkSidebar from './sidebar/TagBookmarkSidebar.svelte';
@@ -227,9 +228,9 @@
 	});
 
 	// Viewport-based mode detection
-	let viewportWidth = $state(typeof window !== 'undefined' ? window.innerWidth : 1024);
+	let viewportWidth = $state(browser ? window.innerWidth : 1024);
 	$effect(() => {
-		if (typeof window === 'undefined') return;
+		if (!browser) return;
 		const onResize = () => {
 			viewportWidth = window.innerWidth;
 		};
@@ -334,7 +335,7 @@
 
 	// Clear text selection when active node changes
 	$effect(() => {
-		if (typeof window === 'undefined' || !engine) return;
+		if (!browser || !engine) return;
 		void engine.activeNodeId;
 		window.getSelection()?.removeAllRanges();
 	});
@@ -429,7 +430,7 @@
 
 	// Global keyboard shortcut handler for search
 	$effect(() => {
-		if (typeof window === 'undefined') return;
+		if (!browser) return;
 
 		const handleKeydown = (e: KeyboardEvent) => {
 			// Ctrl+F / Cmd+F to open search
@@ -520,11 +521,12 @@
 		let position: { x?: number; y?: number } = {};
 
 		if (!parentNode) {
-			const effectiveWidth = window.innerWidth - initialPlacementPadding.left;
+			const w = browser ? window.innerWidth : 1024;
+			const h = browser ? window.innerHeight : 768;
+			const effectiveWidth = w - initialPlacementPadding.left;
 			const centerX = initialPlacementPadding.left + effectiveWidth / 2;
 			const xPx = (centerX - viewport.offset.x) / viewport.scale + config.rootNodeOffsetX;
-			const yPx =
-				(window.innerHeight / 2 - viewport.offset.y) / viewport.scale + config.rootNodeOffsetY;
+			const yPx = (h / 2 - viewport.offset.y) / viewport.scale + config.rootNodeOffsetY;
 			const step = config.gridStep;
 			position = {
 				x: Math.round(xPx / step),
@@ -1091,6 +1093,10 @@
 			{/if}
 		</div>
 	{/if}
+{:else}
+	<!-- SSR skeleton: rendered server-side before JS hydrates.
+	     Matches the .viewport dimensions so there is no layout shift on mount. -->
+	<div class="viewport ssr-loading" aria-hidden="true"></div>
 {/if}
 
 <style>
@@ -1129,6 +1135,10 @@
 			outline: none;
 			/* Prevent browser default touch actions (scroll, zoom) — we handle them manually */
 			touch-action: none;
+		}
+		/* Shown during SSR before JS hydrates — same background, no content flicker */
+		.ssr-loading {
+			cursor: default;
 		}
 		.viewport:focus,
 		.viewport:focus-visible {
