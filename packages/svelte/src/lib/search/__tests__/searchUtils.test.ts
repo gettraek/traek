@@ -1,7 +1,30 @@
 import { describe, it, expect } from 'vitest';
-import { searchNodes, highlightMatch } from '../searchUtils';
+import { searchNodes, highlightMatch, type SearchFilters } from '../searchUtils';
 import type { Node, MessageNode } from '../../TraekEngine.svelte';
 import { BasicNodeTypes } from '../../TraekEngine.svelte';
+
+// Helper to create test nodes for extended filter tests
+const makeNode = (
+	id: string,
+	content: string,
+	tags: string[] = [],
+	color?: string,
+	bookmarked?: boolean
+) => ({
+	id,
+	parentIds: [],
+	role: 'user' as const,
+	type: 'text',
+	status: 'done' as const,
+	content,
+	metadata: {
+		x: 0,
+		y: 0,
+		tags,
+		...(color ? { color } : {}),
+		...(bookmarked !== undefined ? { bookmarked } : {})
+	}
+});
 
 describe('searchUtils', () => {
 	describe('searchNodes', () => {
@@ -85,6 +108,60 @@ describe('searchUtils', () => {
 		});
 	});
 
+	describe('role filters', () => {
+		const createNodeWithRole = (
+			id: string,
+			content: string,
+			role: 'user' | 'assistant' | 'system'
+		): MessageNode => ({
+			id,
+			parentIds: [],
+			content,
+			role,
+			type: BasicNodeTypes.TEXT,
+			metadata: { x: 0, y: 0 }
+		});
+
+		it('should filter by single role', () => {
+			const nodes: Node[] = [
+				createNodeWithRole('1', 'Hello world', 'user'),
+				createNodeWithRole('2', 'Hello world', 'assistant'),
+				createNodeWithRole('3', 'Hello world', 'system')
+			];
+			const filters: SearchFilters = { roles: ['user'] };
+			expect(searchNodes(nodes, 'hello', filters)).toEqual(['1']);
+		});
+
+		it('should filter by multiple roles', () => {
+			const nodes: Node[] = [
+				createNodeWithRole('1', 'Hello world', 'user'),
+				createNodeWithRole('2', 'Hello world', 'assistant'),
+				createNodeWithRole('3', 'Hello world', 'system')
+			];
+			const filters: SearchFilters = { roles: ['user', 'assistant'] };
+			expect(searchNodes(nodes, 'hello', filters)).toEqual(['1', '2']);
+		});
+
+		it('should return all roles when filter is empty', () => {
+			const nodes: Node[] = [
+				createNodeWithRole('1', 'Hello world', 'user'),
+				createNodeWithRole('2', 'Hello world', 'assistant')
+			];
+			expect(searchNodes(nodes, 'hello', {})).toEqual(['1', '2']);
+			expect(searchNodes(nodes, 'hello', { roles: [] })).toEqual(['1', '2']);
+		});
+
+		it('should combine content match and role filter', () => {
+			const nodes: Node[] = [
+				createNodeWithRole('1', 'Hello world', 'user'),
+				createNodeWithRole('2', 'Goodbye world', 'user'),
+				createNodeWithRole('3', 'Hello world', 'assistant')
+			];
+			const filters: SearchFilters = { roles: ['user'] };
+			expect(searchNodes(nodes, 'hello', filters)).toEqual(['1']);
+		});
+	});
+
 	describe('highlightMatch', () => {
 		it('should return escaped HTML when query is empty', () => {
 			const result = highlightMatch('Hello world', '');
@@ -140,5 +217,51 @@ describe('searchUtils', () => {
 			const result = highlightMatch('Hello WORLD', 'world');
 			expect(result).toBe('Hello <mark class="search-highlight">WORLD</mark>');
 		});
+	});
+});
+
+describe('searchNodes with extended filters', () => {
+	it('filters by tag (OR logic)', () => {
+		const nodes = [
+			makeNode('1', 'hello world', ['important']),
+			makeNode('2', 'hello world', ['todo']),
+			makeNode('3', 'hello world', [])
+		] as any[];
+		const result = searchNodes(nodes, 'hello', { tags: ['important'] });
+		expect(result).toContain('1');
+		expect(result).not.toContain('2');
+		expect(result).not.toContain('3');
+	});
+
+	it('filters bookmarked only', () => {
+		const nodes = [
+			makeNode('1', 'hello world', [], undefined, true),
+			makeNode('2', 'hello world', [], undefined, false)
+		] as any[];
+		const result = searchNodes(nodes, 'hello', { bookmarked: true });
+		expect(result).toContain('1');
+		expect(result).not.toContain('2');
+	});
+
+	it('filters by color', () => {
+		const nodes = [
+			makeNode('1', 'hello world', [], 'red'),
+			makeNode('2', 'hello world', [], 'blue'),
+			makeNode('3', 'hello world')
+		] as any[];
+		const result = searchNodes(nodes, 'hello', { colors: ['red'] as any });
+		expect(result).toContain('1');
+		expect(result).not.toContain('2');
+		expect(result).not.toContain('3');
+	});
+
+	it('no filter passes all matching content nodes', () => {
+		const nodes = [
+			makeNode('1', 'hello world', ['important'], 'red', true),
+			makeNode('2', 'hello world', [], undefined, false)
+		] as any[];
+		const result = searchNodes(nodes, 'hello', {});
+		expect(result).toContain('1');
+		expect(result).toContain('2');
 	});
 });

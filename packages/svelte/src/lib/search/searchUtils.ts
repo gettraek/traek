@@ -1,16 +1,47 @@
-import type { Node, MessageNode } from '../TraekEngine.svelte';
+import type { Node, MessageNode, NodeColor } from '../TraekEngine.svelte';
+
+export type SearchFilters = {
+	roles?: Array<'user' | 'assistant' | 'system'>;
+	statuses?: Array<string>;
+	tags?: string[]; // filter by tag slugs (OR logic)
+	colors?: NodeColor[]; // filter by color
+	bookmarked?: boolean; // show only bookmarked nodes
+};
 
 /**
- * Search nodes by content (case-insensitive).
- * Returns an array of node IDs that match the query.
+ * Search nodes by content (case-insensitive), with optional role/status filters.
+ * Returns an array of node IDs that match the query and filters.
  */
-export function searchNodes(nodes: Node[], query: string): string[] {
+export function searchNodes(nodes: Node[], query: string, filters?: SearchFilters): string[] {
 	if (!query || query.trim() === '') return [];
 
 	const lowerQuery = query.toLowerCase().trim();
 	const matches: string[] = [];
+	const roleFilter = filters?.roles && filters.roles.length > 0 ? filters.roles : null;
+	const statusFilter = filters?.statuses && filters.statuses.length > 0 ? filters.statuses : null;
+	const tagFilter = filters?.tags && filters.tags.length > 0 ? filters.tags : null;
+	const colorFilter = filters?.colors && filters.colors.length > 0 ? filters.colors : null;
+	const bookmarkedFilter = filters?.bookmarked ?? null;
 
 	for (const node of nodes) {
+		if (roleFilter && !roleFilter.includes(node.role as 'user' | 'assistant' | 'system')) {
+			continue;
+		}
+		if (statusFilter && node.status && !statusFilter.includes(node.status)) {
+			continue;
+		}
+		if (tagFilter) {
+			const nodeTags = (node.metadata?.tags as string[]) ?? [];
+			if (!tagFilter.some((t) => nodeTags.includes(t))) continue;
+		}
+		if (colorFilter) {
+			const nodeColor = node.metadata?.color as NodeColor | undefined;
+			if (!nodeColor || !colorFilter.includes(nodeColor)) continue;
+		}
+		if (bookmarkedFilter !== null && bookmarkedFilter === true) {
+			if (!node.metadata?.bookmarked) continue;
+		}
+
 		const messageNode = node as MessageNode;
 		if (messageNode.content) {
 			const lowerContent = messageNode.content.toLowerCase();
