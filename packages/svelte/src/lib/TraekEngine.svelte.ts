@@ -28,8 +28,10 @@ import {
 	type AddNodePayload,
 	type TraekEngineConfig,
 	type ConversationSnapshot,
-	type CustomTag
+	type CustomTag,
+	type NodeColor
 } from '@traek/core';
+import { listBuiltinTags } from '$lib/tags/tagUtils';
 
 /** Props every custom node component receives from the canvas. Use this to type your component's $props(). */
 export type TraekNodeComponentProps = {
@@ -1321,6 +1323,136 @@ export class TraekEngine {
 		const node = this.getNode(nodeId);
 		if (!node || !node.metadata) return [];
 		return (node.metadata.tags as string[]) ?? [];
+	}
+
+	// ── Color coding ──────────────────────────────────────────────────────────
+
+	/** Get the color for a node, or null if unset. */
+	getNodeColor(nodeId: string): NodeColor | null {
+		const node = this.getNode(nodeId);
+		return (node?.metadata?.color as NodeColor) ?? null;
+	}
+
+	/** Set or clear the color for a single node. */
+	setNodeColor(nodeId: string, color: NodeColor | null): void {
+		const node = this.getNode(nodeId);
+		if (!node) return;
+		node.metadata = { ...(node.metadata ?? { x: 0, y: 0 }), color };
+	}
+
+	/** Set or clear the color for a node and all its descendants. */
+	setNodeColorBranch(nodeId: string, color: NodeColor | null): void {
+		const node = this.getNode(nodeId);
+		if (!node) return;
+		this.setNodeColor(nodeId, color);
+		const children = this.childrenIdMap.get(nodeId) ?? [];
+		for (const childId of children) {
+			this.setNodeColorBranch(childId, color);
+		}
+	}
+
+	// ── Bookmarks ─────────────────────────────────────────────────────────────
+
+	/** Bookmark a node with an optional display label. */
+	bookmarkNode(nodeId: string, label?: string): void {
+		const node = this.getNode(nodeId);
+		if (!node) return;
+		node.metadata = {
+			...(node.metadata ?? { x: 0, y: 0 }),
+			bookmarked: true,
+			...(label !== undefined ? { bookmarkLabel: label } : {})
+		};
+	}
+
+	/** Remove the bookmark from a node. */
+	unbookmarkNode(nodeId: string): void {
+		const node = this.getNode(nodeId);
+		if (!node) return;
+		node.metadata = {
+			...(node.metadata ?? { x: 0, y: 0 }),
+			bookmarked: false,
+			bookmarkLabel: undefined
+		};
+	}
+
+	/** Get all bookmarked nodes, sorted by canvas y then x position. */
+	getBookmarks(): { node: Node; label?: string }[] {
+		return this.nodes
+			.filter((n) => n.metadata?.bookmarked === true)
+			.sort((a, b) => {
+				const ay = a.metadata?.y ?? 0;
+				const by = b.metadata?.y ?? 0;
+				if (ay !== by) return ay - by;
+				return (a.metadata?.x ?? 0) - (b.metadata?.x ?? 0);
+			})
+			.map((node) => ({
+				node,
+				label: node.metadata?.bookmarkLabel as string | undefined
+			}));
+	}
+
+	// ── Custom tags ───────────────────────────────────────────────────────────
+
+	/** Create a custom tag and store it in the registry. Returns the new tag. */
+	createCustomTag(label: string, color: string): CustomTag {
+		const slug = label
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-|-$/g, '')
+			.substring(0, 40);
+		const finalSlug = this.customTags.has(slug) ? `${slug}-${Date.now()}` : slug;
+		const tag: CustomTag = { slug: finalSlug, label, color };
+		this.customTags.set(finalSlug, tag);
+		return tag;
+	}
+
+	/** Remove a custom tag from the registry. */
+	deleteCustomTag(slug: string): void {
+		this.customTags.delete(slug);
+	}
+
+	/** Get all tags (predefined + custom) as a unified list. */
+	listAllTags(): Array<{
+		slug: string;
+		label: string;
+		color: string;
+		bgColor: string;
+		isCustom?: boolean;
+	}> {
+		const builtin = listBuiltinTags();
+		const custom = Array.from(this.customTags.values()).map((t) => ({
+			slug: t.slug,
+			label: t.label,
+			color: t.color,
+			bgColor: `${t.color}26`,
+			isCustom: true as const
+		}));
+		return [...builtin, ...custom];
+	}
+
+	// ── Bulk operations ───────────────────────────────────────────────────────
+
+	/** Set color on multiple nodes at once. */
+	bulkSetColor(nodeIds: string[], color: NodeColor | null): void {
+		for (const id of nodeIds) this.setNodeColor(id, color);
+	}
+
+	/** Add a tag to multiple nodes at once. */
+	bulkAddTag(nodeIds: string[], tag: string): void {
+		for (const id of nodeIds) this.addTag(id, tag);
+	}
+
+	/** Remove a tag from multiple nodes at once. */
+	bulkRemoveTag(nodeIds: string[], tag: string): void {
+		for (const id of nodeIds) this.removeTag(id, tag);
+	}
+
+	/** Set bookmark state on multiple nodes at once. */
+	bulkSetBookmark(nodeIds: string[], bookmarked: boolean): void {
+		for (const id of nodeIds) {
+			if (bookmarked) this.bookmarkNode(id);
+			else this.unbookmarkNode(id);
+		}
 	}
 
 	/**
