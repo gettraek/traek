@@ -179,6 +179,11 @@ export { markdownToHtml, safeMarkdownToHtml } from './utils';
 // Error boundary
 export { default as NodeErrorBoundary } from './canvas/NodeErrorBoundary.svelte';
 
+// Loading states
+export { default as CanvasSkeleton } from './canvas/CanvasSkeleton.svelte';
+export { default as NodeSkeleton } from './canvas/NodeSkeleton.svelte';
+export { default as ProgressBar } from './canvas/ProgressBar.svelte';
+
 // Icon System
 export { default as Icon } from './icons/Icon.svelte';
 export { ICONS, type IconName, type IconDef, type IconElement } from './icons/icons.js';
