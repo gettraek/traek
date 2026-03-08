@@ -79,6 +79,7 @@
 		resolveActions: resolveActionsProp,
 		registry,
 		onRetry,
+		onError,
 		defaultNodeActions: defaultNodeActionsProp,
 		filterNodeActions: filterNodeActionsProp,
 		onEditNode,
@@ -108,6 +109,8 @@
 		resolveActions?: ResolveActions;
 		registry?: NodeTypeRegistry;
 		onRetry?: (nodeId: string) => void;
+		/** Called when a node render, markdown parse, or image load error occurs. */
+		onError?: (error: Error, nodeId: string) => void;
 		defaultNodeActions?: NodeTypeAction[];
 		filterNodeActions?: (node: Node, actions: NodeTypeAction[]) => NodeTypeAction[];
 		onEditNode?: (nodeId: string) => void;
@@ -772,6 +775,7 @@
 					onEditCancel={handleEditCancel}
 					onEditNode={onEditNode ?? handleBuiltInEdit}
 					{onRetry}
+					{onError}
 					onNodeActivated={(nodeId) => (userSelectedNodeId = nodeId)}
 					focusedNodeId={keyboardNavigator?.focusedNodeId}
 					dropTargetNodeId={interaction?.dropTargetNodeId}

@@ -140,7 +140,10 @@ export { actionDefinitionSchema } from './actions/schemas';
 export { nodeTypeActionSchema, nodeTypeDefinitionSchema } from './node-types/schemas';
 
 // Utilities
-export { markdownToHtml } from './utils';
+export { markdownToHtml, safeMarkdownToHtml } from './utils';
+
+// Error boundary
+export { default as NodeErrorBoundary } from './canvas/NodeErrorBoundary.svelte';
 
 // Icon System
 export { default as Icon } from './icons/Icon.svelte';

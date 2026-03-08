@@ -107,6 +107,8 @@
 	// Cache stable HTML - only re-parse when stable content changes
 	let cachedStableHtml = $state('');
 	let lastStableContent = $state('');
+	/** Set when safeMarkdownToHtml catches a parse error; shows plain-text fallback. */
+	let markdownError = $state<Error | null>(null);
 
 	$effect(() => {
 		// Skip caching at low zoom levels
@@ -116,16 +118,54 @@
 
 		const { stable } = contentParts;
 		if (stable !== lastStableContent) {
-			cachedStableHtml = markdownToHtml(stable);
+			const { html, error } = safeMarkdownToHtml(stable);
+			if (error) {
+				markdownError = error;
+				onError?.(error, node.id);
+			}
+			cachedStableHtml = html;
 			lastStableContent = stable;
 		}
 	});
 
 	// Only re-parse the streaming part on each update
-	const streamingHtml = $derived(
-		detailLevel === 'full' ? markdownToHtml(contentParts.streaming) : ''
+	const streamingResult = $derived(
+		detailLevel === 'full' ? safeMarkdownToHtml(contentParts.streaming) : { html: '', error: null }
 	);
+	const streamingHtml = $derived(streamingResult.html);
 	const renderedContent = $derived(cachedStableHtml + streamingHtml);
+
+	// Report streaming markdown errors (deduplicated via error message equality)
+	$effect(() => {
+		const err = streamingResult.error;
+		if (err) {
+			onError?.(err, node.id);
+		}
+	});
+
+	/**
+	 * After each render, attach onerror handlers to <img> elements produced by
+	 * {@html renderedContent} so broken images show a visible placeholder instead
+	 * of a broken-image icon.
+	 */
+	function attachImageErrorHandlers(container: HTMLElement | null) {
+		if (!container) return;
+		container.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
+			if (img.dataset.errorHandled) return;
+			img.dataset.errorHandled = 'true';
+			img.addEventListener('error', () => {
+				const err = new Error(`Image failed to load: ${img.src}`);
+				onError?.(err, node.id);
+				// Replace broken image with inline placeholder
+				const placeholder = document.createElement('span');
+				placeholder.className = 'image-load-error';
+				placeholder.setAttribute('role', 'img');
+				placeholder.setAttribute('aria-label', img.alt || 'Image failed to load');
+				placeholder.textContent = img.alt ? `[Image: ${img.alt}]` : '[Image failed to load]';
+				img.replaceWith(placeholder);
+			});
+		});
+	}
 
 	function checkScrolledToEnd(el: HTMLElement | null) {
 		if (!el) return;
@@ -150,6 +190,12 @@
 				});
 			}
 		}
+	});
+
+	// Attach image error handlers after each content update
+	$effect(() => {
+		void renderedContent;
+		tick().then(() => attachImageErrorHandlers(scrollContainer));
 	});
 
 	/**
@@ -275,8 +321,16 @@
 		>
 			<div class="text-content markdown-body">
 				{#if node.content}
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					{@html renderedContent}
+					{#if markdownError}
+						<!-- Markdown parse failed — show plain text as safe fallback -->
+						<div class="markdown-fallback" role="alert">
+							<span class="markdown-fallback-badge">⚠ Markdown unavailable</span>
+							<pre class="markdown-fallback-text">{node.content}</pre>
+						</div>
+					{:else}
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+						{@html renderedContent}
+					{/if}
 				{:else if node.role === 'assistant'}
 					<span class="typing-cursor">|</span>
 				{/if}
@@ -419,6 +473,41 @@
 			color: inherit;
 			border-radius: 2px;
 			padding: 0 1px;
+		}
+
+		/* Markdown parse error fallback */
+		.markdown-fallback {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+		}
+
+		.markdown-fallback-badge {
+			font-size: 10px;
+			color: var(--traek-warn-text, #f59e0b);
+			opacity: 0.8;
+		}
+
+		.markdown-fallback-text {
+			margin: 0;
+			font-family: inherit;
+			font-size: 14px;
+			line-height: 1.6;
+			white-space: pre-wrap;
+			word-break: break-word;
+			color: var(--traek-textnode-text, #dddddd);
+		}
+
+		/* Broken image inline placeholder */
+		:global(.image-load-error) {
+			display: inline-block;
+			padding: 4px 8px;
+			background: var(--traek-error-bg, rgba(239, 68, 68, 0.08));
+			border: 1px dashed var(--traek-error-border-color, rgba(239, 68, 68, 0.3));
+			border-radius: 4px;
+			font-size: 12px;
+			color: var(--traek-error-text, #ef4444);
+			opacity: 0.8;
 		}
 
 		@keyframes blink {

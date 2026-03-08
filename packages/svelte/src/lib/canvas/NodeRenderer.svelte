@@ -7,6 +7,7 @@
 	} from '../TraekEngine.svelte';
 	import type { NodeTypeRegistry } from '../node-types/NodeTypeRegistry.svelte';
 	import TraekNodeWrapper from '../TraekNodeWrapper.svelte';
+	import NodeErrorBoundary from './NodeErrorBoundary.svelte';
 
 	let {
 		engine,
@@ -23,6 +24,7 @@
 		onEditNode,
 		onRetry,
 		onNodeActivated,
+		onError,
 		focusedNodeId = null,
 		dropTargetNodeId = null,
 		isDropTargetValid = false,
@@ -42,6 +44,8 @@
 		onEditNode: (nodeId: string) => void;
 		onRetry?: (nodeId: string) => void;
 		onNodeActivated?: (nodeId: string) => void;
+		/** Called when a node render, markdown parse, or image load error occurs. */
+		onError?: (error: Error, nodeId: string) => void;
 		focusedNodeId?: string | null;
 		dropTargetNodeId?: string | null;
 		isDropTargetValid?: boolean;
@@ -79,23 +83,52 @@
 			{#if ResolvedComponent}
 				{#if typeDef?.selfWrapping}
 					<!-- Self-wrapping registry component (e.g. TextNode) -->
-					<ResolvedComponent
-						{node}
-						{isActive}
-						{isFocused}
-						{engine}
-						viewportRoot={viewportEl}
-						gridStep={config.gridStep}
-						nodeWidth={config.nodeWidth}
-						{viewportResizeVersion}
-						{scale}
-						{editingNodeId}
-						{onEditSave}
-						{onEditCancel}
-						onStartEdit={onEditNode}
-					/>
+					<NodeErrorBoundary nodeId={node.id} {onError}>
+						<ResolvedComponent
+							{node}
+							{isActive}
+							{isFocused}
+							{engine}
+							viewportRoot={viewportEl}
+							gridStep={config.gridStep}
+							nodeWidth={config.nodeWidth}
+							{viewportResizeVersion}
+							{scale}
+							{editingNodeId}
+							{onEditSave}
+							{onEditCancel}
+							onStartEdit={onEditNode}
+							{onError}
+						/>
+					</NodeErrorBoundary>
 				{:else}
 					<!-- Wrapped component (registry, node.component, or componentMap) -->
+					<NodeErrorBoundary nodeId={node.id} {onError}>
+						<TraekNodeWrapper
+							{node}
+							{isActive}
+							{isFocused}
+							{engine}
+							viewportRoot={viewportEl}
+							gridStep={config.gridStep}
+							nodeWidth={config.nodeWidth}
+							{viewportResizeVersion}
+							{scale}
+							{onRetry}
+							{onNodeActivated}
+							{isSearchMatch}
+							{isCurrentMatch}
+							{isSearchDimmed}
+							{isSelected}
+							{dropTargetClass}
+						>
+							<ResolvedComponent {node} {engine} {isActive} {...uiData?.props ?? {}} />
+						</TraekNodeWrapper>
+					</NodeErrorBoundary>
+				{/if}
+			{:else if node.type !== 'thought'}
+				<!-- Fallback if no component found -->
+				<NodeErrorBoundary nodeId={node.id} {onError}>
 					<TraekNodeWrapper
 						{node}
 						{isActive}
@@ -114,34 +147,12 @@
 						{isSelected}
 						{dropTargetClass}
 					>
-						<ResolvedComponent {node} {engine} {isActive} {...uiData?.props ?? {}} />
+						<div class="node-card error">
+							<div class="role-tag">{node.type}</div>
+							<div class="node-card-content">Missing component for {node.type} node.</div>
+						</div>
 					</TraekNodeWrapper>
-				{/if}
-			{:else if node.type !== 'thought'}
-				<!-- Fallback if no component found -->
-				<TraekNodeWrapper
-					{node}
-					{isActive}
-					{isFocused}
-					{engine}
-					viewportRoot={viewportEl}
-					gridStep={config.gridStep}
-					nodeWidth={config.nodeWidth}
-					{viewportResizeVersion}
-					{scale}
-					{onRetry}
-					{onNodeActivated}
-					{isSearchMatch}
-					{isCurrentMatch}
-					{isSearchDimmed}
-					{isSelected}
-					{dropTargetClass}
-				>
-					<div class="node-card error">
-						<div class="role-tag">{node.type}</div>
-						<div class="node-card-content">Missing component for {node.type} node.</div>
-					</div>
-				</TraekNodeWrapper>
+				</NodeErrorBoundary>
 			{/if}
 		{:else if node.type !== 'thought'}
 			<!-- Placeholder for off-screen nodes to preserve scroll position -->
