@@ -121,6 +121,10 @@ export { nodeTypeActionSchema, nodeTypeDefinitionSchema } from './node-types/sch
 // Utilities
 export { markdownToHtml } from './utils';
 
+// Icon System
+export { default as Icon } from './icons/Icon.svelte';
+export { ICONS, type IconName, type IconDef } from './icons/icons.js';
+
 // Theme System
 export { default as ThemeProvider, useTheme, applyThemeToRoot } from './theme/ThemeProvider.svelte';
 export { default as ThemePicker } from './theme/ThemePicker.svelte';
@@ -152,12 +156,41 @@ export type {
 } from './theme/tokens';
 
 // i18n
-export { DEFAULT_TRANSLATIONS, setTraekI18n, getTraekI18n, mergeTranslations } from './i18n/index';
+export {
+	DEFAULT_TRANSLATIONS,
+	setTraekI18n,
+	getTraekI18n,
+	mergeTranslations,
+	TraekI18nProvider,
+	de,
+	fr,
+	ja,
+	zh
+} from './i18n/index';
 export type { TraekTranslations, PartialTraekTranslations } from './i18n/index';
 
 // Collaboration UI (requires @traek/collab peer dependency)
 export { default as CollabCursorsOverlay } from './collab/CollabCursorsOverlay.svelte';
 export { default as CollabPresenceBubbles } from './collab/CollabPresenceBubbles.svelte';
 export { default as CollabStatusIndicator } from './collab/CollabStatusIndicator.svelte';
-export { useCollab } from './collab/useCollab.svelte.js';
-export type { CollabHandle } from './collab/useCollab.svelte.js';
+export { default as CollabNodePresence } from './collab/CollabNodePresence.svelte';
+export { default as CollabConflictBanner } from './collab/CollabConflictBanner.svelte';
+export { useCollab, useFollowMode } from './collab/useCollab.svelte.js';
+export type { CollabHandle, FollowModeHandle, FollowTarget } from './collab/useCollab.svelte.js';
+
+// Resilience & offline support
+export { default as ConnectionStatus } from './resilience/ConnectionStatus.svelte';
+export { offlineQueue, type QueuedMessage } from './resilience/offlineQueue.svelte';
+
+// Analytics & Insights Dashboard
+export { default as InsightsDashboard } from './analytics/InsightsDashboard.svelte';
+
+// Node organization features (TRK-71)
+export { default as TagBookmarkSidebar } from './sidebar/TagBookmarkSidebar.svelte';
+export { default as BookmarkJumpOverlay } from './keyboard/BookmarkJumpOverlay.svelte';
+export { default as BulkActionToolbar } from './canvas/BulkActionToolbar.svelte';
+export { default as ColorPicker } from './canvas/ColorPicker.svelte';
+export { default as BookmarkBadge } from './canvas/BookmarkBadge.svelte';
+export { default as TagCreator } from './tags/TagCreator.svelte';
+export type { NodeColor, CustomTag } from './TraekEngine.svelte';
+export { listBuiltinTags, type Tag } from './tags/tagUtils';
