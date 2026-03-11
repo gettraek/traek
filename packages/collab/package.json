@@ -21,21 +21,25 @@
 	"scripts": {
 		"build": "tsc --project tsconfig.build.json",
 		"check": "tsc --noEmit",
-		"lint": "prettier --check .",
+		"lint": "prettier --check . && eslint .",
 		"clean": "rm -rf node_modules dist coverage .turbo",
 		"format": "prettier --write .",
 		"test": "vitest run"
 	},
 	"dependencies": {
 		"@traek/core": "workspace:*",
-		"lib0": "^0.2.100",
-		"y-websocket": "^2.1.0",
 		"yjs": "^13.6.27"
 	},
 	"devDependencies": {
+		"@eslint/compat": "^2.0.2",
+		"@eslint/js": "^9.39.2",
 		"@types/node": "^24",
+		"eslint": "^9.39.2",
+		"eslint-config-prettier": "^10.1.8",
+		"globals": "^17.3.0",
 		"prettier": "^3.8.1",
 		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.56.0",
 		"vitest": "^4.0.18"
 	},
 	"keywords": [

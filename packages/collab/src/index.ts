@@ -4,8 +4,8 @@
  * Real-time collaboration for Træk: multi-user cursors, shared conversation
  * trees with CRDT conflict resolution, and presence indicators.
  *
- * Powered by Yjs + y-websocket. Framework-agnostic — works with any TraekEngine
- * (core, svelte, react, vue).
+ * Powered by Yjs with a custom WebSocket sync protocol. Framework-agnostic —
+ * works with any TraekEngine (core, svelte, react, vue).
  *
  * @example
  * ```ts
@@ -32,6 +32,8 @@
  */
 
 export { CollabProvider } from './CollabProvider.js';
+export { YjsWebSocketProvider } from './YjsWebSocketProvider.js';
+export { Awareness } from './Awareness.js';
 
 export type {
 	CollabConfig,
@@ -41,6 +43,8 @@ export type {
 	CollabEvents,
 	CollabSerializedNode
 } from './types.js';
+
+export type { ProviderOptions, ProviderStatus } from './YjsWebSocketProvider.js';
 
 export {
 	PRESENCE_COLORS,
@@ -53,3 +57,5 @@ export {
 } from './presence.js';
 
 export { serialiseNode, hasChanged } from './serialise.js';
+
+export { MessageType, encodeMessage, decodeMessage } from './protocol.js';
