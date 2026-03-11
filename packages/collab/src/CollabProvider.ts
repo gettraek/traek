@@ -22,7 +22,7 @@
  */
 
 import * as Y from 'yjs';
-import { WebsocketProvider } from 'y-websocket';
+import { YjsWebSocketProvider } from './YjsWebSocketProvider.js';
 import type { TraekEngine } from '@traek/core';
 import type { Node, MessageNode } from '@traek/core';
 import type {
@@ -50,9 +50,9 @@ const Y_NODES_KEY = 'nodes';
 /**
  * Manages real-time collaboration for a single Traek conversation.
  *
- * - Connects to a y-websocket server
+ * - Connects to a custom YjsWebSocketProvider
  * - Keeps the shared Yjs document in sync with a local TraekEngine
- * - Broadcasts presence (cursor + active node) via Y.Awareness
+ * - Broadcasts presence (cursor + active node) via Awareness
  * - Emits typed events for status, presence, and node changes
  */
 export class CollabProvider {
@@ -70,7 +70,7 @@ export class CollabProvider {
 	// ─── Internal Yjs state ─────────────────────────────────────────────────
 
 	readonly doc: Y.Doc;
-	readonly provider: WebsocketProvider;
+	readonly provider: YjsWebSocketProvider;
 	/** Flat map of nodeId → serialised node data. */
 	private readonly yNodes: Y.Map<CollabSerializedNode>;
 
@@ -110,18 +110,17 @@ export class CollabProvider {
 		this.yNodes = this.doc.getMap<CollabSerializedNode>(Y_NODES_KEY);
 
 		// ── WebSocket provider ─────────────────────────────────────────────
-		this.provider = new WebsocketProvider(
-			config.serverUrl,
-			config.roomId,
-			this.doc,
-			config.providerOptions
-		);
+		this.provider = new YjsWebSocketProvider(config.serverUrl, config.roomId, this.doc, {
+			buildConnectionParams: config.buildConnectionParams,
+			initialBackoff: config.initialBackoff,
+			maxBackoff: config.maxBackoff
+		});
 
 		// ── Broadcast local presence ───────────────────────────────────────
 		this.provider.awareness.setLocalState(buildPresenceState(this.user));
 
 		// ── Listeners ──────────────────────────────────────────────────────
-		this._setupStatusListeners();
+		this._setupStatusListener();
 		this._setupAwarenessListener();
 		this._setupYjsObserver();
 		this._setupEngineSubscription();
@@ -251,16 +250,10 @@ export class CollabProvider {
 
 	// ─── Private: status ─────────────────────────────────────────────────────
 
-	private _setupStatusListeners(): void {
-		this.provider.on('status', ({ status }: { status: string }) => {
-			const next = status as CollabStatus;
-			this.status = next;
-			for (const fn of this._statusListeners) fn(next);
-		});
-
-		this.provider.on('connection-error', () => {
-			this.status = 'error';
-			for (const fn of this._statusListeners) fn('error');
+	private _setupStatusListener(): void {
+		this.provider.on('status', (status: CollabStatus) => {
+			this.status = status;
+			for (const fn of this._statusListeners) fn(status);
 		});
 	}
 
@@ -387,9 +380,9 @@ export class CollabProvider {
 		this.doc.transact(() => {
 			// ── Add / update nodes present in engine ──────────────────────
 			for (const node of engineNodes) {
-				const serialised = this._serialiseNode(node);
+				const serialised = serialiseNode(node);
 				const existing = this.yNodes.get(node.id);
-				if (!existing || this._hasChanged(existing, serialised)) {
+				if (!existing || hasChanged(existing, serialised)) {
 					this.yNodes.set(node.id, serialised);
 				}
 			}
@@ -401,13 +394,5 @@ export class CollabProvider {
 				}
 			}
 		});
-	}
-
-	private _serialiseNode(node: Node): CollabSerializedNode {
-		return serialiseNode(node);
-	}
-
-	private _hasChanged(prev: CollabSerializedNode, next: CollabSerializedNode): boolean {
-		return hasChanged(prev, next);
 	}
 }
