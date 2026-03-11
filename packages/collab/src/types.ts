@@ -34,17 +34,21 @@ export interface PresenceState {
 
 /** Options passed to {@link CollabProvider}. */
 export interface CollabConfig {
-	/** y-websocket server URL, e.g. "wss://collab.gettraek.com". */
+	/** WebSocket server URL, e.g. "wss://collab.gettraek.com". */
 	serverUrl: string;
 	/** Room/document identifier — determines which users share state. */
 	roomId: string;
 	/** The current local user. */
 	user: CollabUser;
 	/**
-	 * Extra options forwarded verbatim to the WebsocketProvider constructor.
-	 * See y-websocket docs for all available keys.
+	 * Called before each connection attempt. Returned key-value pairs are
+	 * appended as URL query parameters (e.g. `?token=abc`).
 	 */
-	providerOptions?: Record<string, unknown>;
+	buildConnectionParams?: () => Record<string, string> | Promise<Record<string, string>>;
+	/** Initial reconnect delay in ms. @default 100 */
+	initialBackoff?: number;
+	/** Maximum reconnect delay in ms. @default 30_000 */
+	maxBackoff?: number;
 	/**
 	 * Milliseconds of inactivity before a remote cursor fades out of view.
 	 * @default 10_000
