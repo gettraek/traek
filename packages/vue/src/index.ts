@@ -25,8 +25,8 @@ export type {
 } from './i18n/index.js';
 
 // Theme
-export { default as ThemeProvider, THEME_KEY } from './theme/ThemeProvider.vue';
-export type { ThemeContextValue, ThemeProviderProps } from './theme/ThemeProvider.vue';
+export { default as ThemeProvider } from './theme/ThemeProvider.vue';
+export type { ThemeContextValue, ThemeProviderProps } from './theme/index.js';
 export {
 	themes,
 	darkTheme,

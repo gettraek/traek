@@ -20,9 +20,9 @@
 	let shareError = $state<string | null>(null);
 
 	const componentMap: NodeComponentMap = {
-		text: TextNode,
-		image: ImageNode,
-		code: CodeNode
+		text: TextNode as any,
+		image: ImageNode as any,
+		code: CodeNode as any
 	};
 
 	async function shareConversation() {

@@ -4,6 +4,7 @@ import { themes, DEFAULT_THEME } from './themes.js';
 import type { ThemeName } from './themes.js';
 import type { ThemeProviderProps, ThemeContextValue } from './context.js';
 import { THEME_KEY } from './context.js';
+import type { TraekTheme } from './index.js';
 
 const props = withDefaults(defineProps<ThemeProviderProps>(), {
 	initialTheme: () => DEFAULT_THEME

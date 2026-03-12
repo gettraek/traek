@@ -413,10 +413,6 @@
 		color: #00ffa3;
 	}
 
-	.stat-trend--down {
-		color: #ff6b6b;
-	}
-
 	/* Main row (chart + top items) */
 	.main-row {
 		display: grid;

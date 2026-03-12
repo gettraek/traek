@@ -1,7 +1,15 @@
 {
-	"extends": ["../../tsconfig.base.json", "./.svelte-kit/tsconfig.json"],
-	"include": ["src/**/*", "*.ts"],
-	"exclude": ["node_modules", "dist", "**/*.stories.svelte"],
+	"extends": [
+		"../../tsconfig.base.json"
+	],
+	"include": [
+		"src/**/*",
+		"*.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"dist"
+	],
 	"compilerOptions": {
 		"rewriteRelativeImportExtensions": true,
 		"allowJs": true,
