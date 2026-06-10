@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
 	darkTheme,
 	lightTheme,
@@ -289,6 +289,39 @@ describe('createCustomTheme', () => {
 		expect(customTheme.colors.nodeActiveGlow).toContain('rgba(255, 0, 0');
 		expect(customTheme.colors.thoughtPanelGlow).toContain('rgba(255, 0, 0');
 		expect(customTheme.colors.overlayPillShadow).toContain('rgba(255, 0, 0');
+	});
+
+	it('should expand 3-digit hex when generating variations', () => {
+		const customTheme = createCustomTheme(darkTheme, '#0af');
+
+		// Base keeps the original (valid CSS) value
+		expect(customTheme.colors.nodeActiveBorder).toBe('#0af');
+		// Variations are derived from the expanded #00aaff — no NaN anywhere
+		expect(customTheme.colors.thoughtBadgeCyan).toMatch(/^#[0-9a-f]{6}$/i);
+		expect(customTheme.colors.nodeActiveGlow).toBe('rgba(0, 170, 255, 0.15)');
+		expect(customTheme.colors.overlayPillShadow).toBe('rgba(0, 170, 255, 0.2)');
+	});
+
+	it('should produce identical variations for #0af and #00aaff', () => {
+		const short = createCustomTheme(darkTheme, '#0af');
+		const long = createCustomTheme(darkTheme, '#00aaff');
+
+		expect(short.colors.thoughtBadgeCyan).toBe(long.colors.thoughtBadgeCyan);
+		expect(short.colors.nodeActiveGlow).toBe(long.colors.nodeActiveGlow);
+	});
+
+	it('should fall back to the default accent for invalid input instead of NaN colors', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		for (const invalid of ['not-a-color', '#12', '#12345', '', '#zzzzzz']) {
+			const customTheme = createCustomTheme(darkTheme, invalid);
+			expect(customTheme.colors.nodeActiveBorder).toBe('#00d8ff');
+			expect(customTheme.colors.nodeActiveGlow).toBe('rgba(0, 216, 255, 0.15)');
+			expect(customTheme.colors.thoughtBadgeCyan).toMatch(/^#[0-9a-f]{6}$/i);
+		}
+
+		expect(warn).toHaveBeenCalled();
+		warn.mockRestore();
 	});
 
 	it('should not mutate the original theme object', () => {

@@ -45,7 +45,8 @@ export function highlightMatch(text: string, query: string): string {
 		const idx = lowerText.indexOf(lowerQuery, pos);
 		if (idx === -1) break;
 		matches.push({ start: idx, end: idx + lowerQuery.length });
-		pos = idx + 1;
+		// Continue after the full match so ranges never overlap (no duplicated text)
+		pos = idx + lowerQuery.length;
 	}
 
 	if (matches.length === 0) return escapedText;

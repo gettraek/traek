@@ -573,6 +573,64 @@ describe('ReplayController', () => {
 		expect(ctrl.getEngine().activeNodeId).toBe('b');
 	});
 
+	it('should not fire onNodeDeleted (undo-toast hook) during backward seekTo', () => {
+		expect.assertions(3);
+		const ctrl = new ReplayController(snapshot);
+		const onNodeDeleted = vi.fn();
+		ctrl.getEngine().onNodeDeleted = onNodeDeleted;
+
+		ctrl.seekTo(2);
+		ctrl.seekTo(0);
+
+		expect(onNodeDeleted).not.toHaveBeenCalled();
+		// The host's handler is restored after the deletion loop
+		expect(ctrl.getEngine().onNodeDeleted).toBe(onNodeDeleted);
+		expect(ctrl.getEngine().nodes).toHaveLength(1);
+	});
+
+	it('should not fire onNodeDeleted during stepBack', () => {
+		expect.assertions(2);
+		const ctrl = new ReplayController(snapshot);
+		const onNodeDeleted = vi.fn();
+		ctrl.getEngine().onNodeDeleted = onNodeDeleted;
+
+		ctrl.step();
+		ctrl.step();
+		ctrl.stepBack();
+
+		expect(onNodeDeleted).not.toHaveBeenCalled();
+		expect(ctrl.getEngine().onNodeDeleted).toBe(onNodeDeleted);
+	});
+
+	it('should still fire onNodeDeleting for registry teardown during backward seekTo', () => {
+		expect.assertions(2);
+		const ctrl = new ReplayController(snapshot);
+		const onNodeDeleting = vi.fn();
+		ctrl.getEngine().onNodeDeleting = onNodeDeleting;
+
+		ctrl.seekTo(2);
+		ctrl.seekTo(0);
+
+		expect(onNodeDeleting).toHaveBeenCalledTimes(2);
+		expect(onNodeDeleting.mock.calls.map(([node]) => node.id)).toEqual(['c', 'b']);
+	});
+
+	it('should restore onNodeDeleted even when a deletion throws', () => {
+		expect.assertions(2);
+		const ctrl = new ReplayController(snapshot);
+		const onNodeDeleted = vi.fn();
+		const engine = ctrl.getEngine();
+		engine.onNodeDeleted = onNodeDeleted;
+		ctrl.seekTo(2);
+
+		engine.onNodeDeleting = () => {
+			throw new Error('teardown failed');
+		};
+
+		expect(() => ctrl.seekTo(1)).toThrow('teardown failed');
+		expect(engine.onNodeDeleted).toBe(onNodeDeleted);
+	});
+
 	it('should throw on an invalid snapshot in the constructor', () => {
 		expect.assertions(2);
 		expect(() => {

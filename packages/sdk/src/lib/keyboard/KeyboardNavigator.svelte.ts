@@ -46,11 +46,17 @@ export class KeyboardNavigator {
 	 * Returns true if event was handled
 	 */
 	handleKeyDown(e: KeyboardEvent): boolean {
-		// Don't handle when typing in input fields (except for fuzzy search trigger)
+		// Never handle while typing in input fields — '/' and all other keys must
+		// reach the field (e.g. slash commands in the chat textarea, search inputs).
 		const target = e.target as HTMLElement;
 		const isInputField =
 			target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-		if (isInputField && e.key !== '/') {
+		if (isInputField) {
+			return false;
+		}
+
+		// Don't swallow browser/OS shortcuts (Ctrl+F, Cmd+arrow, Alt+arrow, ...)
+		if (e.ctrlKey || e.metaKey || e.altKey) {
 			return false;
 		}
 
@@ -92,7 +98,7 @@ export class KeyboardNavigator {
 				}
 
 				// Unknown chord
-				this.#announce('Unknown chord sequence');
+				this.#announce(this.#t.unknownChord);
 				return true;
 			}
 		}
@@ -101,7 +107,7 @@ export class KeyboardNavigator {
 		if (e.key.toLowerCase() === 'g') {
 			e.preventDefault();
 			this.#chordState = { key: 'g', timestamp: Date.now() };
-			this.#announce('Chord started: g');
+			this.#announce(this.#t.chordStarted('g'));
 			return true;
 		}
 
@@ -167,9 +173,9 @@ export class KeyboardNavigator {
 		if (parent) {
 			this.focusedNodeId = parent.id;
 			this.lastDirection = 'parent';
-			this.#announce(`Navigated to parent: ${this.#getNodeLabel(parent.id)}`);
+			this.#announce(this.#t.navigatedToParent(this.#getNodeLabel(parent.id)));
 		} else {
-			this.#announce('Already at root');
+			this.#announce(this.#t.alreadyAtRoot);
 		}
 	}
 
@@ -184,7 +190,7 @@ export class KeyboardNavigator {
 			.getChildren(this.focusedNodeId)
 			.filter((c) => c.type !== 'thought');
 		if (children.length === 0) {
-			this.#announce('No children');
+			this.#announce(this.#t.noChildren);
 			return;
 		}
 
@@ -192,7 +198,7 @@ export class KeyboardNavigator {
 		if (firstChild) {
 			this.focusedNodeId = firstChild.id;
 			this.lastDirection = 'child';
-			this.#announce(`Navigated to child: ${this.#getNodeLabel(firstChild.id)}`);
+			this.#announce(this.#t.navigatedToChild(this.#getNodeLabel(firstChild.id)));
 		}
 	}
 
@@ -211,10 +217,10 @@ export class KeyboardNavigator {
 			if (prevSibling) {
 				this.focusedNodeId = prevSibling.id;
 				this.lastDirection = 'sibling';
-				this.#announce(`Navigated to previous sibling: ${this.#getNodeLabel(prevSibling.id)}`);
+				this.#announce(this.#t.navigatedToPreviousSibling(this.#getNodeLabel(prevSibling.id)));
 			}
 		} else {
-			this.#announce('No previous sibling');
+			this.#announce(this.#t.noPreviousSibling);
 		}
 	}
 
@@ -233,10 +239,10 @@ export class KeyboardNavigator {
 			if (nextSibling) {
 				this.focusedNodeId = nextSibling.id;
 				this.lastDirection = 'sibling';
-				this.#announce(`Navigated to next sibling: ${this.#getNodeLabel(nextSibling.id)}`);
+				this.#announce(this.#t.navigatedToNextSibling(this.#getNodeLabel(nextSibling.id)));
 			}
 		} else {
-			this.#announce('No next sibling');
+			this.#announce(this.#t.noNextSibling);
 		}
 	}
 
@@ -244,7 +250,7 @@ export class KeyboardNavigator {
 	activateFocusedNode(): void {
 		if (this.focusedNodeId) {
 			this.#engine.activeNodeId = this.focusedNodeId;
-			this.#announce(`Activated node: ${this.#getNodeLabel(this.focusedNodeId)}`);
+			this.#announce(this.#t.activatedNode(this.#getNodeLabel(this.focusedNodeId)));
 		}
 	}
 
@@ -256,13 +262,13 @@ export class KeyboardNavigator {
 			.getChildren(this.focusedNodeId)
 			.filter((c) => c.type !== 'thought');
 		if (children.length === 0) {
-			this.#announce('Node has no children to collapse');
+			this.#announce(this.#t.noChildrenToCollapse);
 			return;
 		}
 
 		this.#engine.toggleCollapse(this.focusedNodeId);
 		const isCollapsed = this.#engine.isCollapsed(this.focusedNodeId);
-		this.#announce(isCollapsed ? 'Collapsed node' : 'Expanded node');
+		this.#announce(isCollapsed ? this.#t.collapsedNode : this.#t.expandedNode);
 	}
 
 	/** Navigate to root node (Home) */
@@ -273,7 +279,7 @@ export class KeyboardNavigator {
 		if (root) {
 			this.focusedNodeId = root.id;
 			this.lastDirection = 'root';
-			this.#announce('Navigated to root');
+			this.#announce(this.#t.navigatedToRoot);
 		}
 	}
 
@@ -289,16 +295,16 @@ export class KeyboardNavigator {
 		if (leaf && leaf.id !== this.focusedNodeId) {
 			this.focusedNodeId = leaf.id;
 			this.lastDirection = 'leaf';
-			this.#announce(`Navigated to deepest leaf: ${this.#getNodeLabel(leaf.id)}`);
+			this.#announce(this.#t.navigatedToDeepestLeaf(this.#getNodeLabel(leaf.id)));
 		} else {
-			this.#announce('Already at leaf node');
+			this.#announce(this.#t.alreadyAtLeaf);
 		}
 	}
 
 	/** Toggle help overlay (?) */
 	toggleHelp(): void {
 		this.showHelp = !this.showHelp;
-		this.#announce(this.showHelp ? 'Showing keyboard shortcuts' : 'Hiding keyboard shortcuts');
+		this.#announce(this.showHelp ? this.#t.showingHelp : this.#t.hidingHelp);
 	}
 
 	/** Jump to nth child (1-9) */
@@ -313,12 +319,12 @@ export class KeyboardNavigator {
 			.filter((c) => c.type !== 'thought');
 
 		if (children.length === 0) {
-			this.#announce('No children available');
+			this.#announce(this.#t.noChildrenAvailable);
 			return;
 		}
 
 		if (n > children.length) {
-			this.#announce(`Only ${children.length} children available`);
+			this.#announce(this.#t.onlyNChildrenAvailable(children.length));
 			return;
 		}
 
@@ -326,20 +332,20 @@ export class KeyboardNavigator {
 		if (targetChild) {
 			this.focusedNodeId = targetChild.id;
 			this.lastDirection = 'child';
-			this.#announce(`Jumped to child ${n}: ${this.#getNodeLabel(targetChild.id)}`);
+			this.#announce(this.#t.jumpedToChild(n, this.#getNodeLabel(targetChild.id)));
 		}
 	}
 
 	/** Open fuzzy search overlay (/) */
 	openFuzzySearch(): void {
 		this.showFuzzySearch = true;
-		this.#announce('Fuzzy search opened');
+		this.#announce(this.#t.fuzzySearchOpened);
 	}
 
 	/** Close fuzzy search overlay */
 	closeFuzzySearch(): void {
 		this.showFuzzySearch = false;
-		this.#announce('Fuzzy search closed');
+		this.#announce(this.#t.fuzzySearchClosed);
 	}
 
 	/** Navigate to a node from fuzzy search */
@@ -347,7 +353,7 @@ export class KeyboardNavigator {
 		if (this.#engine.getNode(nodeId)) {
 			this.focusedNodeId = nodeId;
 			this.lastDirection = null;
-			this.#announce(`Navigated to: ${this.#getNodeLabel(nodeId)}`);
+			this.#announce(this.#t.navigatedTo(this.#getNodeLabel(nodeId)));
 		}
 	}
 
@@ -367,7 +373,7 @@ export class KeyboardNavigator {
 	/** Get accessible label for a node */
 	#getNodeLabel(nodeId: string): string {
 		const node = this.#engine.getNode(nodeId);
-		if (!node) return 'Unknown node';
+		if (!node) return this.#t.unknownNode;
 
 		// For message nodes, use truncated content
 		const messageNode = node as { content?: string };

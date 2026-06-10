@@ -262,7 +262,12 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		add: 'Add',
 		filterByTags: 'Filter by Tags',
 		clearFilters: 'Clear filters',
-		removeTag: 'Click to remove tag'
+		removeTag: 'Click to remove tag',
+		labelImportant: 'Important',
+		labelTodo: 'Todo',
+		labelIdea: 'Idea',
+		labelQuestion: 'Question',
+		labelResolved: 'Resolved'
 	},
 	theme: {
 		dark: 'Dark',

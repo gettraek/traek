@@ -10,7 +10,11 @@
 
 	let progress = $state(100);
 	let visible = $state(false);
-	let paused = $state(false);
+	let hovered = $state(false);
+	let focused = $state(false);
+	// Countdown pauses while the pointer hovers OR focus is inside the toast.
+	const paused = $derived(hovered || focused);
+	let counting = false;
 	let rafId = 0;
 	let startTime = 0;
 	// Each Toast instance belongs to one immutable toast entry; capture once.
@@ -33,55 +37,51 @@
 	};
 
 	function startCountdown() {
+		if (counting) return;
+		counting = true;
 		startTime = performance.now();
 		dismissTimer = setTimeout(() => toastStore.removeToast(toast.id), remaining);
 		rafId = requestAnimationFrame(tick);
 	}
 
-	function pauseCountdown() {
-		if (paused) return;
-		paused = true;
+	function stopCountdown() {
+		if (!counting) return;
+		counting = false;
 		clearTimeout(dismissTimer);
 		cancelAnimationFrame(rafId);
 		remaining = Math.max(0, remaining - (performance.now() - startTime));
-	}
-
-	function resumeCountdown() {
-		if (!paused) return;
-		paused = false;
-		startCountdown();
 	}
 
 	function handleFocusOut(e: FocusEvent) {
 		const next = e.relatedTarget;
 		if (next instanceof Node && e.currentTarget instanceof Node && e.currentTarget.contains(next))
 			return;
-		resumeCountdown();
+		focused = false;
 	}
 
 	onMount(() => {
+		// Take over auto-dismiss from the store so hover/focus can pause the countdown.
+		toastStore.claimTimer(toast.id);
+
 		// Trigger slide-in on next frame
 		requestAnimationFrame(() => {
 			visible = true;
 		});
 
-		// Take over auto-dismiss from the store so hover/focus can pause the countdown.
-		// The store's timer map is private at compile time only.
-		const storeTimers = (
-			toastStore as unknown as { timers: Map<string, ReturnType<typeof setTimeout>> }
-		).timers;
-		const storeTimer = storeTimers.get(toast.id);
-		if (storeTimer != null) {
-			clearTimeout(storeTimer);
-			storeTimers.delete(toast.id);
-		}
-
-		startCountdown();
-
 		return () => {
-			clearTimeout(dismissTimer);
-			cancelAnimationFrame(rafId);
+			stopCountdown();
+			// Hand the dismiss timer back to the store in case the toast entry
+			// outlives this component instance, so it can never linger forever.
+			toastStore.releaseTimer(toast.id, remaining);
 		};
+	});
+
+	$effect(() => {
+		if (paused) {
+			stopCountdown();
+		} else {
+			startCountdown();
+		}
 	});
 
 	function handleUndo() {
@@ -99,9 +99,9 @@
 	class:traek-toast--visible={visible}
 	role="status"
 	aria-live="polite"
-	onmouseenter={pauseCountdown}
-	onmouseleave={resumeCountdown}
-	onfocusin={pauseCountdown}
+	onmouseenter={() => (hovered = true)}
+	onmouseleave={() => (hovered = false)}
+	onfocusin={() => (focused = true)}
 	onfocusout={handleFocusOut}
 >
 	<div class="traek-toast__icon" aria-hidden="true">{icons[toast.type] ?? '\u2139'}</div>

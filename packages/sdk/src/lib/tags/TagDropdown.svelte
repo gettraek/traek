@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Node, TraekEngine } from '../TraekEngine.svelte';
-	import { PREDEFINED_TAGS, getNodeTags } from './tagUtils';
+	import { PREDEFINED_TAGS, getNodeTags, getTagLabel } from './tagUtils';
 	import { getTraekI18n } from '../i18n/index';
 
 	const t = getTraekI18n();
@@ -126,7 +126,7 @@
 						onclick={() => handleToggleTag(key)}
 					>
 						<span class="tag-item-check">{isActive ? '✓' : ''}</span>
-						<span class="tag-item-label">{config.label}</span>
+						<span class="tag-item-label">{getTagLabel(key, t)}</span>
 					</button>
 				{/each}
 			</div>

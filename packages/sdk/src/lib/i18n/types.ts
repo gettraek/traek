@@ -259,6 +259,11 @@ export interface TraekTranslations {
 		filterByTags: string;
 		clearFilters: string;
 		removeTag: string;
+		labelImportant: string;
+		labelTodo: string;
+		labelIdea: string;
+		labelQuestion: string;
+		labelResolved: string;
 	};
 	theme: {
 		dark: string;

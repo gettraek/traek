@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Node, TraekEngine } from '../TraekEngine.svelte';
-	import { getNodeTags, getTagConfig } from './tagUtils';
+	import { getNodeTags, getTagConfig, getTagLabel } from './tagUtils';
 	import { getTraekI18n } from '../i18n/index';
 
 	const t = getTraekI18n();
@@ -32,7 +32,7 @@
 				}}
 				title={t.tags.removeTag}
 			>
-				<span class="tag-badge-label">{config.label}</span>
+				<span class="tag-badge-label">{getTagLabel(tag, t)}</span>
 				<span class="tag-badge-remove" aria-hidden="true">×</span>
 			</button>
 		{/each}

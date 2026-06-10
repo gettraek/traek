@@ -31,6 +31,14 @@
 
 	let slashActiveOptionId = $state<string | undefined>(undefined);
 	const slashOpen = $derived(resolver !== null && resolver.slashFilter !== null);
+	// O(1) map-based lookups instead of per-render nodes.find/filter; engine.version
+	// tracks structural mutations so the count stays reactive.
+	const activeChildCount = $derived.by(() => {
+		void engine.version;
+		const activeId = engine.activeNodeId;
+		if (!activeId || !engine.getNode(activeId)) return 0;
+		return engine.getChildren(activeId).filter((n) => n.type !== 'thought').length;
+	});
 </script>
 
 <div class="floating-input-container" transition:fade>
@@ -42,13 +50,8 @@
 	{/if}
 	<div class="context-info">
 		{#if engine.activeNodeId}
-			{@const ctxNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
-			{@const childCount = ctxNode
-				? engine.nodes.filter((n) => n.parentIds.includes(ctxNode.id) && n.type !== 'thought')
-						.length
-				: 0}
 			<span class="dot"></span>
-			{#if childCount > 0}
+			{#if activeChildCount > 0}
 				{t.input.branchingFromSelected}
 			{:else}
 				{t.input.replyingToSelected}

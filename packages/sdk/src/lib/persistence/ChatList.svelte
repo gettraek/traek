@@ -64,7 +64,11 @@
 	function handleDelete(id: string) {
 		if (pendingDeleteId === id) {
 			resetPendingDelete();
-			store.delete(id);
+			store.delete(id).catch((err) => {
+				console.error('[ChatList] Failed to delete conversation:', err);
+				// Re-sync so the list reflects actual storage state after the failure
+				store.listAll().catch(() => {});
+			});
 			return;
 		}
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
-	import { PREDEFINED_TAGS } from './tagUtils';
+	import { PREDEFINED_TAGS, getTagLabel } from './tagUtils';
 	import { getTraekI18n } from '../i18n/index';
 
 	const t = getTraekI18n();
@@ -79,7 +79,7 @@
 						onclick={() => toggleTag(key)}
 					>
 						<span class="tag-filter-check">{isActive ? '✓' : ''}</span>
-						<span class="tag-filter-label">{config.label}</span>
+						<span class="tag-filter-label">{getTagLabel(key, t)}</span>
 					</button>
 				{/each}
 			</div>
