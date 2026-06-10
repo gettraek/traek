@@ -43,6 +43,7 @@ export class ActionResolver {
 		debounceMs = 300
 	) {
 		this.actions = actions;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		this.knownActionIds = new Set(actions.map((a) => a.id));
 		this.resolveCallback = resolveCallback ?? null;
 		this.debounceMs = debounceMs;
