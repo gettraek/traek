@@ -5,6 +5,12 @@ import { getComponentDoc, componentDocs } from '../data/components';
 import { getGuide, listGuides } from '../data/guides';
 import { getSnippet, listSnippets } from '../data/snippets';
 
+// The MCP spec recommends -32002 for "resource not found", but SDK 1.26 does not
+// expose such a code (its ErrorCode enum only covers the JSON-RPC codes plus
+// ConnectionClosed/RequestTimeout/UrlElicitationRequired), so we fall back to
+// InvalidParams (-32602). Swap this constant once the SDK ships a dedicated code.
+const RESOURCE_NOT_FOUND = ErrorCode.InvalidParams;
+
 function formatComponentAsMarkdown(name: string): string {
 	const doc = getComponentDoc(name);
 	if (!doc) return `No documentation found for "${name}".`;
@@ -84,7 +90,7 @@ export function registerResources(server: McpServer): void {
 			const matched = allNames.find((k) => k.toLowerCase() === name.toLowerCase());
 			if (!matched) {
 				throw new McpError(
-					ErrorCode.InvalidParams,
+					RESOURCE_NOT_FOUND,
 					`Resource not found: no component docs for "${name}". Available: ${allNames.join(', ')}`
 				);
 			}
@@ -117,7 +123,7 @@ export function registerResources(server: McpServer): void {
 					.map((g) => g.id)
 					.join(', ');
 				throw new McpError(
-					ErrorCode.InvalidParams,
+					RESOURCE_NOT_FOUND,
 					`Resource not found: no guide named "${name}". Available: ${available}`
 				);
 			}
@@ -150,7 +156,7 @@ export function registerResources(server: McpServer): void {
 					.map((s) => s.id)
 					.join(', ');
 				throw new McpError(
-					ErrorCode.InvalidParams,
+					RESOURCE_NOT_FOUND,
 					`Resource not found: no snippet named "${name}". Available: ${available}`
 				);
 			}

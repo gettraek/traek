@@ -122,13 +122,18 @@ async function main() {
 		// allowlist. On loopback we know the valid values; for other binds the
 		// operator must provide MCP_ALLOWED_HOSTS (otherwise protection is off,
 		// e.g. behind a reverse proxy that already validates Host).
-		const allowedHosts = process.env.MCP_ALLOWED_HOSTS
-			? process.env.MCP_ALLOWED_HOSTS.split(',')
-					.map((h) => h.trim())
-					.filter(Boolean)
-			: isLoopback
-				? ['127.0.0.1', `127.0.0.1:${port}`, 'localhost', `localhost:${port}`]
-				: undefined;
+		// An env value that parses to an empty list (e.g. ", ,") is treated as
+		// unset — an empty allowlist would reject every request.
+		const envAllowedHosts = (process.env.MCP_ALLOWED_HOSTS ?? '')
+			.split(',')
+			.map((h) => h.trim())
+			.filter(Boolean);
+		const allowedHosts =
+			envAllowedHosts.length > 0
+				? envAllowedHosts
+				: isLoopback
+					? ['127.0.0.1', `127.0.0.1:${port}`, 'localhost', `localhost:${port}`]
+					: undefined;
 
 		const httpServer = createServer((req, res) => {
 			void handleHttpRequest(req, res, allowedHosts);
