@@ -20,6 +20,11 @@ Create a `+page.svelte` file:
   import { TraekCanvas, TraekEngine } from 'traek'
 
   const engine = new TraekEngine()
+
+  function handleMessage(input, userNode) {
+    // The user node is already added by the canvas — respond to it:
+    engine.addNode(`You said: ${input}`, 'assistant', { parentIds: [userNode.id] })
+  }
 </script>
 
 <div class="canvas-container">
