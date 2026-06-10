@@ -650,10 +650,27 @@ export class TraekEngine {
 			this.nodes.splice(index, 1);
 			this.nodeIndexMap.delete(nodeId);
 			this.removeFromChildrenIdMap(nodeId, primaryParentId);
-			this.rebuildNodeIndexMap();
+			// Targeted index update: only entries after the removed slot shifted
+			for (let i = index; i < this.nodes.length; i++) {
+				this.nodeIndexMap.set(this.nodes[i].id, i);
+			}
+			// Strip the deleted id from surviving children's parentIds and re-key
+			// any primary children in childrenIdMap under their new primary parent
+			this.childrenIdMap.delete(nodeId);
+			for (const n of this.nodes) {
+				if (n.parentIds.includes(nodeId)) {
+					const oldPrimary = n.parentIds[0] ?? null;
+					n.parentIds = n.parentIds.filter((pid) => pid !== nodeId);
+					const newPrimary = n.parentIds[0] ?? null;
+					if (oldPrimary !== newPrimary) {
+						this.addToChildrenIdMap(n.id, newPrimary);
+					}
+				}
+			}
 			if (this.activeNodeId === nodeId) {
 				this.activeNodeId = null;
 			}
+			this.#bumpVersion();
 			this.onNodeDeleted?.(1, () => this.restoreDeleted());
 		}
 	}
@@ -663,8 +680,8 @@ export class TraekEngine {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const descendants = new Set<string>();
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
+		for (let qi = 0; qi < queue.length; qi++) {
+			const currentId = queue[qi];
 			const children = this.getChildren(currentId);
 			for (const child of children) {
 				if (!descendants.has(child.id)) {
@@ -686,8 +703,8 @@ export class TraekEngine {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const visited = new Set<string>();
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
+		for (let qi = 0; qi < queue.length; qi++) {
+			const currentId = queue[qi];
 			const children = this.getChildren(currentId);
 			for (const child of children) {
 				if (!visited.has(child.id)) {

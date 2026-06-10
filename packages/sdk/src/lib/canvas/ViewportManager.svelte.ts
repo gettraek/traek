@@ -112,11 +112,16 @@ export class ViewportManager {
 
 	/** Pan canvas so the given node is centered in the viewport, with a smooth transition. */
 	centerOnNode(node: Node, nodes: Node[], onComplete?: () => void) {
-		const nodeId = node.id;
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				const latest = nodes.find((n: Node) => n.id === nodeId);
-				if (!latest || !this.viewportEl) return;
+		// Cancel any in-flight centering before starting a new one
+		cancelAnimationFrame(this.#centerOuterRafId);
+		cancelAnimationFrame(this.#centerInnerRafId);
+		this.#centerOuterRafId = requestAnimationFrame(() => {
+			this.#centerInnerRafId = requestAnimationFrame(() => {
+				if (this.#destroyed) return;
+				// Engine mutations are in-place, so the passed reference stays live —
+				// no O(n) lookup needed to read the latest position after layout.
+				const latest = node;
+				if (!this.viewportEl) return;
 				const w = this.viewportEl.clientWidth;
 				const h = this.viewportEl.clientHeight;
 				if (w <= 0 || h <= 0) return;
@@ -135,6 +140,7 @@ export class ViewportManager {
 				const startTime = performance.now();
 
 				const tick = (now: number) => {
+					if (this.#destroyed) return;
 					const elapsed = now - startTime;
 					const t = Math.min(elapsed / this.#config.focusDurationMs, 1);
 					const eased = this.#easeOutCubic(t);
@@ -169,30 +175,14 @@ export class ViewportManager {
 	/** Fit all nodes into view with optional padding. Centers and scales to show entire tree. */
 	fitAll(nodes: Node[], padding: number = 50) {
 		if (!this.viewportEl) return;
-		const laidOut = nodes.filter((n) => n.type !== 'thought');
-		if (laidOut.length === 0) return;
 
 		const w = this.viewportEl.clientWidth;
 		const h = this.viewportEl.clientHeight;
 		if (w <= 0 || h <= 0) return;
 
-		const defaultH = this.#config.nodeHeightDefault;
-		const step = this.#config.gridStep;
-
-		let minX = Infinity;
-		let maxX = -Infinity;
-		let minY = Infinity;
-		let maxY = -Infinity;
-
-		for (const node of laidOut) {
-			const xPx = (node.metadata?.x ?? 0) * step;
-			const yPx = (node.metadata?.y ?? 0) * step;
-			const nodeH = node.metadata?.height ?? defaultH;
-			minX = Math.min(minX, xPx);
-			maxX = Math.max(maxX, xPx + this.#config.nodeWidth);
-			minY = Math.min(minY, yPx);
-			maxY = Math.max(maxY, yPx + nodeH);
-		}
+		const bounds = this.#getContentBounds(nodes);
+		if (!bounds) return;
+		const { minX, maxX, minY, maxY } = bounds;
 
 		const contentW = maxX - minX;
 		const contentH = maxY - minY;

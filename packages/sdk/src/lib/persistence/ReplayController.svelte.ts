@@ -1,4 +1,5 @@
 import type { ConversationSnapshot, SerializedNode } from './types';
+import { conversationSnapshotSchema } from './schemas';
 import { TraekEngine, type TraekEngineConfig } from '../TraekEngine.svelte';
 
 /**
