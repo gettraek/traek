@@ -56,6 +56,8 @@ export function highlightMatch(text: string, query: string): string {
 	let lastEnd = 0;
 
 	for (const match of matches) {
+		// Defensive: skip any range overlapping the previous one to avoid duplicating text
+		if (match.start < lastEnd) continue;
 		// Add text before match (already escaped above, but we need original)
 		result += escapeHtml(text.substring(lastEnd, match.start));
 		// Add highlighted match

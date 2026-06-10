@@ -120,10 +120,17 @@ describe('searchUtils', () => {
 			expect(result).toContain('<mark class="search-highlight">');
 		});
 
-		it('should handle overlapping matches correctly', () => {
+		it('should not duplicate text for potentially overlapping matches', () => {
 			const result = highlightMatch('aaaa', 'aa');
-			// Should match at positions 0 and 1 (overlapping)
-			expect(result).toContain('<mark class="search-highlight">');
+			// Non-overlapping scan: matches at positions 0 and 2, no duplicated characters
+			expect(result).toBe(
+				'<mark class="search-highlight">aa</mark><mark class="search-highlight">aa</mark>'
+			);
+		});
+
+		it('should leave the unmatched remainder intact after an odd-length overlap candidate', () => {
+			const result = highlightMatch('aaa', 'aa');
+			expect(result).toBe('<mark class="search-highlight">aa</mark>a');
 		});
 
 		it('should return original text when no match found', () => {

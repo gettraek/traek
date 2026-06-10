@@ -777,19 +777,11 @@ export class TraekEngine {
 			}
 		}
 
-		// Store deleted nodes for undo before firing callbacks, plus the parent edges
-		// that will be stripped from surviving children (for re-linking on undo).
+		// Store deleted nodes for undo before firing callbacks. No childEdges needed here:
+		// the BFS above follows ALL parent links, so any node referencing a deleted node
+		// is itself a descendant and included in the deletion (no surviving stripped edges).
 		const deletedNodes = this.nodes.filter((n) => toDelete.has(n.id));
-		const childEdges: { childId: string; parentId: string; index: number }[] = [];
-		for (const n of this.nodes) {
-			if (toDelete.has(n.id)) continue;
-			for (let i = 0; i < n.parentIds.length; i++) {
-				if (toDelete.has(n.parentIds[i])) {
-					childEdges.push({ childId: n.id, parentId: n.parentIds[i], index: i });
-				}
-			}
-		}
-		this.storeDeletedBuffer(deletedNodes, childEdges);
+		this.storeDeletedBuffer(deletedNodes);
 
 		// Fire onNodeDeleting for each
 		for (const id of toDelete) {
