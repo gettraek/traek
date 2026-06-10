@@ -137,6 +137,7 @@
 		bind:this={toolbarEl}
 		class="traek-node-toolbar"
 		role="toolbar"
+		tabindex="-1"
 		aria-label={t.toolbar.nodeActions}
 		style:left="{x}px"
 		style:top="{y}px"

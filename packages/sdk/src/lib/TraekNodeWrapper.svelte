@@ -60,6 +60,9 @@
 	import { getDetailLevel } from './canvas/AdaptiveRenderer.svelte';
 	import TagBadges from './tags/TagBadges.svelte';
 	import { detailLevelTransition } from './transitions';
+	import { getTraekI18n } from './i18n/index';
+
+	const t = getTraekI18n();
 
 	const DEFAULT_PLACEHOLDER_HEIGHT = 100;
 
@@ -141,10 +144,10 @@
 	const thoughtSteps = $derived((thoughtChild?.data as { steps?: string[] })?.steps ?? []);
 	const thoughtPillLabel = $derived(
 		thoughtChild?.content === 'Done'
-			? 'Thinking completed'
+			? t.nodeWrapper.thinkingCompleted
 			: thoughtSteps.length > 0
 				? thoughtSteps[thoughtSteps.length - 1]
-				: (thoughtChild?.content ?? 'Thought process')
+				: (thoughtChild?.content ?? t.nodeWrapper.thoughtProcess)
 	);
 
 	// Collapse & branch info — O(1) getChildren lookup; engine.version keeps it reactive
@@ -218,23 +221,25 @@
 			}}
 		>
 			<span class="role-indicator">
-				{node.role === 'user' ? '● User' : '◆ Assistant'}
+				{node.role === 'user'
+					? `● ${t.nodeWrapper.userLabel}`
+					: `◆ ${t.nodeWrapper.assistantLabel}`}
 				{#if isOutdated}
 					<span
 						class="header-status header-status--outdated"
-						title="This reply was based on a previous version of the message above."
-						aria-label="Outdated: this reply was based on a previous version of the message above."
+						title={t.nodeWrapper.outdatedTitle}
+						aria-label={t.nodeWrapper.outdatedAriaLabel}
 					>
-						· Outdated
+						· {t.nodeWrapper.outdatedLabel}
 					</span>
 				{:else if node.status === 'streaming'}
 					<span class="header-status header-status--streaming" role="status">
 						<span class="header-status-spinner"></span>
-						Processing…
+						{t.nodeWrapper.processing}
 					</span>
 				{:else if node.status === 'error'}
 					<span class="header-status header-status--error" role="alert">
-						· Error{#if node.errorMessage}: {node.errorMessage}{/if}
+						· {t.nodeWrapper.errorLabel}{#if node.errorMessage}: {node.errorMessage}{/if}
 					</span>
 				{/if}
 			</span>
@@ -247,7 +252,7 @@
 					e.stopPropagation();
 					engine.toggleCollapse(node.id);
 				}}
-				aria-label={isCollapsed ? 'Expand subtree' : 'Collapse subtree'}
+				aria-label={isCollapsed ? t.nodeWrapper.expandSubtree : t.nodeWrapper.collapseSubtree}
 				aria-expanded={!isCollapsed}
 			>
 				{isCollapsed ? '+' : '−'}
@@ -257,7 +262,7 @@
 	</div>
 	{#if isCollapsed && hiddenCount > 0}
 		<div class="hidden-count-badge">
-			{hiddenCount} hidden
+			{t.nodeWrapper.hiddenCount(hiddenCount)}
 		</div>
 	{/if}
 	{#if node.status === 'error'}
@@ -280,7 +285,7 @@
 				<circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
 			</svg>
 			<span class="error-banner-message">
-				{node.errorMessage || 'An error occurred'}
+				{node.errorMessage || t.nodeWrapper.errorFallback}
 			</span>
 			<div class="error-banner-actions">
 				{#if onRetry}
@@ -289,7 +294,7 @@
 						class="error-banner-btn error-banner-retry"
 						onclick={() => onRetry?.(node.id)}
 					>
-						Retry
+						{t.nodeWrapper.retry}
 					</button>
 				{/if}
 				<button
@@ -297,7 +302,7 @@
 					class="error-banner-btn error-banner-dismiss"
 					onclick={() => engine?.updateNode(node.id, { status: 'done', errorMessage: undefined })}
 				>
-					Dismiss
+					{t.nodeWrapper.dismiss}
 				</button>
 			</div>
 		</div>
@@ -382,7 +387,7 @@
 
 	{#if hasBranches && !isCollapsed}
 		<div class="branch-badge">
-			{nodeChildren.length} branches
+			{t.nodeWrapper.branchesCount(nodeChildren.length)}
 		</div>
 	{/if}
 

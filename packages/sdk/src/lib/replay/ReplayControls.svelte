@@ -87,7 +87,7 @@
 			class="replay-btn replay-btn-icon"
 			onclick={handleReset}
 			disabled={isAtStart}
-			title={t.replay.stepBack}
+			title={t.replay.reset}
 		>
 			<Icon icon="mdi:skip-previous" width="20" height="20" />
 		</button>

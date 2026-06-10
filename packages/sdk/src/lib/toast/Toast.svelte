@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Toast } from './toastStore.svelte';
 	import { toastStore } from './toastStore.svelte';
 	import { getTraekI18n } from '../i18n/index';
@@ -13,7 +13,8 @@
 	let paused = $state(false);
 	let rafId = 0;
 	let startTime = 0;
-	let remaining = toast.duration;
+	// Each Toast instance belongs to one immutable toast entry; capture once.
+	let remaining = untrack(() => toast.duration);
 	let dismissTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const icons: Record<string, string> = {

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { ActionDefinition } from './types.js';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		actions,
@@ -59,7 +62,12 @@
 </script>
 
 {#if filtered.length > 0}
-	<div class="slash-dropdown" role="listbox" id="traek-slash-listbox">
+	<div
+		class="slash-dropdown"
+		role="listbox"
+		id="traek-slash-listbox"
+		aria-label={t.actions.slashCommandsLabel}
+	>
 		{#each filtered as action, i (action.id)}
 			<button
 				type="button"

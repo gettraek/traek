@@ -12,6 +12,7 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 	},
 	input: {
 		placeholder: 'Ask the expert...',
+		messageAriaLabel: 'Message input',
 		sendAriaLabel: 'Send message',
 		branchingFromSelected: 'Branching from selected message',
 		replyingToSelected: 'Replying to selected message',
@@ -50,7 +51,8 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		goToDeepestLeafChord: 'Go to deepest leaf (chord)',
 		jumpToNthChild: 'Jump to nth child',
 		openFuzzySearch: 'Open fuzzy search',
-		close: 'Close'
+		close: 'Close',
+		leaveInput: 'Leave input'
 	},
 	fuzzySearch: {
 		placeholder: 'Type to search nodes...',
@@ -132,6 +134,7 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		tourProgress: 'Tour progress'
 	},
 	breadcrumb: {
+		navAriaLabel: 'Conversation path',
 		showFullPath: 'Show full path',
 		defaultNodeText: 'Message'
 	},
@@ -142,6 +145,7 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		nodeActions: 'Node actions'
 	},
 	replay: {
+		reset: 'Skip to start',
 		stepBack: 'Step back',
 		pause: 'Pause',
 		play: 'Play',
@@ -246,6 +250,7 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		close: 'Close comparison',
 		branchA: 'Branch A',
 		branchB: 'Branch B',
+		branchOption: (index: number, role: string) => `Branch ${index} (${role})`,
 		nodeCount: (count: number) => `${count} node${count !== 1 ? 's' : ''}`,
 		onlyInA: 'Only in A',
 		onlyInB: 'Only in B'
@@ -253,6 +258,9 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 	nodeWrapper: {
 		userLabel: 'User',
 		assistantLabel: 'Assistant',
+		outdatedLabel: 'Outdated',
+		outdatedTitle: 'This reply was based on a previous version of the message above.',
+		outdatedAriaLabel: 'Outdated: this reply was based on a previous version of the message above.',
 		processing: 'Processing…',
 		errorLabel: 'Error',
 		errorFallback: 'An error occurred',
@@ -278,5 +286,9 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 	},
 	ghostPreview: {
 		userRoleLabel: 'user'
+	},
+	actions: {
+		badgesGroupLabel: 'Message actions',
+		slashCommandsLabel: 'Slash commands'
 	}
 };

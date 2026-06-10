@@ -7,6 +7,9 @@
 	} from '../TraekEngine.svelte';
 	import type { NodeTypeRegistry } from '../node-types/NodeTypeRegistry.svelte';
 	import TraekNodeWrapper from '../TraekNodeWrapper.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -124,7 +127,7 @@
 				>
 					<div class="node-card error">
 						<div class="role-tag">{node.type}</div>
-						<div class="node-card-content">Missing component for {node.type} node.</div>
+						<div class="node-card-content">{t.nodeRenderer.missingComponent(node.type)}</div>
 					</div>
 				</TraekNodeWrapper>
 			{/if}

@@ -121,7 +121,7 @@
 					<select bind:value={selectedBranchA} class="compare-select">
 						{#each children as child, i (child.id)}
 							<option value={i} disabled={i === selectedBranchB}>
-								Branch {i + 1} ({child.role})
+								{t.compare.branchOption(i + 1, child.role)}
 							</option>
 						{/each}
 					</select>
@@ -131,7 +131,7 @@
 					<select bind:value={selectedBranchB} class="compare-select">
 						{#each children as child, i (child.id)}
 							<option value={i} disabled={i === selectedBranchA}>
-								Branch {i + 1} ({child.role})
+								{t.compare.branchOption(i + 1, child.role)}
 							</option>
 						{/each}
 					</select>

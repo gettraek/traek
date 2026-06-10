@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { ActionDefinition } from './types.js';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		actions,
@@ -15,7 +18,7 @@
 </script>
 
 {#if actions.length > 0}
-	<div class="action-badges" role="group" aria-label="Message actions">
+	<div class="action-badges" role="group" aria-label={t.actions.badgesGroupLabel}>
 		{#each actions as action (action.id)}
 			{@const isSuggested = suggestedIds.includes(action.id)}
 			{@const isSelected = selectedIds.includes(action.id)}

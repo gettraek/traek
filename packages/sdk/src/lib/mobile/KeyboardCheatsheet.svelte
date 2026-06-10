@@ -59,7 +59,7 @@
 			</div>
 			<div class="shortcut">
 				<kbd>Esc</kbd>
-				<span>{t.keyboard.close}</span>
+				<span>{t.keyboard.leaveInput}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>?</kbd>

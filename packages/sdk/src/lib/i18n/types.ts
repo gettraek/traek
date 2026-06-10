@@ -14,6 +14,7 @@ export interface TraekTranslations {
 	};
 	input: {
 		placeholder: string;
+		messageAriaLabel: string;
 		sendAriaLabel: string;
 		branchingFromSelected: string;
 		replyingToSelected: string;
@@ -53,6 +54,7 @@ export interface TraekTranslations {
 		jumpToNthChild: string;
 		openFuzzySearch: string;
 		close: string;
+		leaveInput: string;
 	};
 	fuzzySearch: {
 		placeholder: string;
@@ -128,6 +130,7 @@ export interface TraekTranslations {
 		tourProgress: string;
 	};
 	breadcrumb: {
+		navAriaLabel: string;
 		showFullPath: string;
 		defaultNodeText: string;
 	};
@@ -138,6 +141,7 @@ export interface TraekTranslations {
 		nodeActions: string;
 	};
 	replay: {
+		reset: string;
 		stepBack: string;
 		pause: string;
 		play: string;
@@ -242,6 +246,7 @@ export interface TraekTranslations {
 		close: string;
 		branchA: string;
 		branchB: string;
+		branchOption: (index: number, role: string) => string;
 		nodeCount: (count: number) => string;
 		onlyInA: string;
 		onlyInB: string;
@@ -249,6 +254,9 @@ export interface TraekTranslations {
 	nodeWrapper: {
 		userLabel: string;
 		assistantLabel: string;
+		outdatedLabel: string;
+		outdatedTitle: string;
+		outdatedAriaLabel: string;
 		processing: string;
 		errorLabel: string;
 		errorFallback: string;
@@ -274,6 +282,10 @@ export interface TraekTranslations {
 	};
 	ghostPreview: {
 		userRoleLabel: string;
+	};
+	actions: {
+		badgesGroupLabel: string;
+		slashCommandsLabel: string;
 	};
 }
 

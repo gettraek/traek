@@ -92,7 +92,7 @@
 		<textarea
 			bind:value={userInput}
 			placeholder={t.input.placeholder}
-			aria-label={t.input.placeholder}
+			aria-label={t.input.messageAriaLabel}
 			role={slashOpen ? 'combobox' : undefined}
 			aria-expanded={slashOpen ? true : undefined}
 			aria-controls={slashOpen ? 'traek-slash-listbox' : undefined}

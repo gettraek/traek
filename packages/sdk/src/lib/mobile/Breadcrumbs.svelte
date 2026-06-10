@@ -37,7 +37,7 @@
 	const maxVisibleCrumbs = 3;
 </script>
 
-<nav class="breadcrumbs" class:expanded={isExpanded}>
+<nav class="breadcrumbs" class:expanded={isExpanded} aria-label={t.breadcrumb.navAriaLabel}>
 	{#if breadcrumbPath.length > 0}
 		<div class="breadcrumb-container">
 			{#each breadcrumbPath as node, i (node.id)}
