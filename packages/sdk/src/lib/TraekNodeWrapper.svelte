@@ -508,7 +508,7 @@
 			font-size: 10px;
 			text-transform: uppercase;
 			letter-spacing: 0.5px;
-			color: var(--traek-thought-header-muted, #666666);
+			color: var(--traek-thought-header-muted, #8f8f8f);
 			flex-shrink: 0;
 			cursor: pointer;
 			flex: 1;
@@ -920,6 +920,12 @@
 			.thought-pill {
 				padding: 10px 14px;
 				min-height: 44px;
+			}
+
+			/* Larger touch target for the collapse toggle (≥32px hit area) */
+			.collapse-toggle {
+				width: 32px;
+				height: 32px;
 			}
 		}
 

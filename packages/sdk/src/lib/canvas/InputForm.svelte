@@ -28,12 +28,15 @@
 		onSubmit: () => void;
 		slashDropdownRef?: SlashCommandDropdown | null;
 	} = $props();
+
+	let slashActiveOptionId = $state<string | undefined>(undefined);
+	const slashOpen = $derived(resolver !== null && resolver.slashFilter !== null);
 </script>
 
 <div class="floating-input-container" transition:fade>
 	{#if branchCelebration}
-		<div class="branch-celebration" transition:fade>
-			<span class="celebration-icon">🌿</span>
+		<div class="branch-celebration" transition:fade role="status">
+			<span class="celebration-icon" aria-hidden="true">🌿</span>
 			{branchCelebration}
 		</div>
 	{/if}

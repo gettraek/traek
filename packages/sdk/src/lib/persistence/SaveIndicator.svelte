@@ -25,7 +25,7 @@
 			>
 				<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" />
 			</svg>
-			<span>Saving...</span>
+			<span>{t.saveIndicator.saving}</span>
 		{:else if saveState === 'saved'}
 			<svg
 				class="icon-check"
