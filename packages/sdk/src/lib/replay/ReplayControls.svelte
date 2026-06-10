@@ -60,7 +60,7 @@
 	<div class="replay-header">
 		<div class="replay-title">
 			<Icon icon="mdi:play-circle-outline" width="18" height="18" />
-			<span>Replay Mode</span>
+			<span>{t.replay.replayMode}</span>
 		</div>
 		<div class="replay-counter">
 			{currentIndex + 1} / {totalNodes}
@@ -74,6 +74,7 @@
 			min="0"
 			max={totalNodes}
 			value={currentIndex + 1}
+			aria-label={t.replay.scrubberAriaLabel}
 			oninput={handleSeek}
 			disabled={totalNodes === 0}
 		/>
@@ -126,7 +127,9 @@
 				type="button"
 				class="replay-btn replay-btn-speed"
 				onclick={() => (showSpeedMenu = !showSpeedMenu)}
-				title="Playback speed"
+				title={t.replay.playbackSpeed}
+				aria-label={t.replay.playbackSpeed}
+				aria-expanded={showSpeedMenu}
 			>
 				<Icon icon="mdi:speedometer" width="18" height="18" />
 				<span>{formatSpeed(speed)}</span>
@@ -139,6 +142,7 @@
 							type="button"
 							class="replay-speed-option"
 							class:active={speed === speedOpt}
+							aria-pressed={speed === speedOpt}
 							onclick={() => handleSpeedChange(speedOpt)}
 						>
 							{formatSpeed(speedOpt)}

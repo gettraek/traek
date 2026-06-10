@@ -38,7 +38,7 @@
 					fill="currentColor"
 				/>
 			</svg>
-			<span>Saved</span>
+			<span>{t.saveIndicator.saved}</span>
 		{:else if saveState === 'error'}
 			<svg
 				class="icon-error"
@@ -51,7 +51,7 @@
 					fill="currentColor"
 				/>
 			</svg>
-			<span>Save failed</span>
+			<span>{t.saveIndicator.saveFailed}</span>
 		{/if}
 	</div>
 {/if}
@@ -120,5 +120,16 @@
 	span {
 		font-weight: 500;
 		letter-spacing: 0.01em;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.save-indicator {
+			animation: none;
+			transition: none;
+		}
+
+		.spinner {
+			animation: none;
+		}
 	}
 </style>
