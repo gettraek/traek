@@ -1,4 +1,5 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { componentDocs, getComponentDoc, searchComponentDocs } from '../data/components';
 import { getGuide, listGuides, searchGuides } from '../data/guides';
 import { listSnippets } from '../data/snippets';
@@ -48,45 +49,7 @@ function formatComponentDoc(doc: ReturnType<typeof getComponentDoc>): string {
 	return parts.join('\n');
 }
 
-export const docTools = [
-	{
-		name: 'get_component_api',
-		description:
-			'Get the full API reference for a specific traek export. Returns props, state, methods, notes, and a usage example. Use this before integrating any Træk component.',
-		inputSchema: {
-			component: z
-				.string()
-				.describe(
-					'Name of the component or class. One of: TraekCanvas, TraekEngine, TextNode, ConversationStore, ReplayController, NodeTypeRegistry, ThemeProvider'
-				)
-		},
-		handler: async ({ component }: { component: string }) => {
-			const doc = getComponentDoc(component);
-			if (!doc) {
-				const available = Object.keys(componentDocs).join(', ');
-				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: `No docs found for "${component}". Available: ${available}`
-						}
-					],
-					isError: true
-				};
-			}
-			return {
-				content: [{ type: 'text' as const, text: formatComponentDoc(doc) }]
-			};
-		}
-	},
-
-	{
-		name: 'list_exports',
-		description:
-			'List all exported symbols from traek grouped by category. Use this to discover what is available before deciding what to import.',
-		inputSchema: {},
-		handler: async () => {
-			const text = `# traek Exports
+const EXPORTS_OVERVIEW = `# traek Exports
 
 ## Core Components
 - \`TraekCanvas\` — Main interactive canvas component
@@ -171,36 +134,78 @@ export const docTools = [
 - \`TraekEngineConfig\` — Engine configuration
 - \`AddNodePayload\` — Payload for bulk addNodes()`;
 
-			return { content: [{ type: 'text' as const, text }] };
+export function registerDocTools(server: McpServer): void {
+	server.registerTool(
+		'get_component_api',
+		{
+			description:
+				'Get the full API reference for a specific traek export. Returns props, state, methods, notes, and a usage example. Use this before integrating any Træk component.',
+			inputSchema: {
+				component: z
+					.string()
+					.describe(
+						'Name of the component or class. One of: TraekCanvas, TraekEngine, TextNode, ConversationStore, ReplayController, NodeTypeRegistry, ThemeProvider'
+					)
+			}
+		},
+		async ({ component }) => {
+			const doc = getComponentDoc(component);
+			if (!doc) {
+				const available = Object.keys(componentDocs).join(', ');
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: `No docs found for "${component}". Available: ${available}`
+						}
+					],
+					isError: true
+				};
+			}
+			return {
+				content: [{ type: 'text' as const, text: formatComponentDoc(doc) }]
+			};
 		}
-	},
+	);
 
-	{
-		name: 'list_guides',
-		description:
-			'List all available integration guides. Returns guide IDs you can pass to get_guide.',
-		inputSchema: {},
-		handler: async () => {
+	server.registerTool(
+		'list_exports',
+		{
+			description:
+				'List all exported symbols from traek grouped by category. Use this to discover what is available before deciding what to import.'
+		},
+		async () => ({ content: [{ type: 'text' as const, text: EXPORTS_OVERVIEW }] })
+	);
+
+	server.registerTool(
+		'list_guides',
+		{
+			description:
+				'List all available integration guides. Returns guide IDs you can pass to get_guide.'
+		},
+		async () => {
 			const guides = listGuides();
 			const text = guides.map((g) => `**${g.id}** — ${g.title}\n  ${g.description}`).join('\n\n');
 			return {
 				content: [{ type: 'text' as const, text: `# Available Guides\n\n${text}` }]
 			};
 		}
-	},
+	);
 
-	{
-		name: 'get_guide',
-		description:
-			'Get the full text of an integration guide. Guides cover: getting-started, openai-streaming, custom-nodes, persistence, theming, sveltekit-setup.',
-		inputSchema: {
-			guide: z
-				.string()
-				.describe(
-					'Guide ID. One of: getting-started, openai-streaming, custom-nodes, persistence, theming, sveltekit-setup'
-				)
+	server.registerTool(
+		'get_guide',
+		{
+			description:
+				'Get the full text of an integration guide. Guides cover: getting-started, openai-streaming, custom-nodes, persistence, theming, sveltekit-setup.',
+			inputSchema: {
+				guide: z
+					.string()
+					.describe(
+						'Guide ID. One of: getting-started, openai-streaming, custom-nodes, persistence, theming, sveltekit-setup'
+					)
+			}
 		},
-		handler: async ({ guide }: { guide: string }) => {
+		async ({ guide }) => {
 			const doc = getGuide(guide);
 			if (!doc) {
 				const available = listGuides()
@@ -218,16 +223,18 @@ export const docTools = [
 			}
 			return { content: [{ type: 'text' as const, text: doc.content }] };
 		}
-	},
+	);
 
-	{
-		name: 'search_docs',
-		description:
-			'Full-text search across all Træk documentation: component APIs, guides, and snippet descriptions. Use this when you need to find something but are not sure which component or guide covers it.',
-		inputSchema: {
-			query: z.string().describe('Search query — a term, concept, or feature name')
+	server.registerTool(
+		'search_docs',
+		{
+			description:
+				'Full-text search across all Træk documentation: component APIs, guides, and snippet descriptions. Use this when you need to find something but are not sure which component or guide covers it.',
+			inputSchema: {
+				query: z.string().describe('Search query — a term, concept, or feature name')
+			}
 		},
-		handler: async ({ query }: { query: string }) => {
+		async ({ query }) => {
 			const componentResults = searchComponentDocs(query);
 			const guideResults = searchGuides(query);
 
@@ -249,19 +256,20 @@ export const docTools = [
 
 			return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
 		}
-	},
+	);
 
-	{
-		name: 'list_snippets',
-		description:
-			'List all available code snippets. Returns snippet IDs you can pass to get_snippet.',
-		inputSchema: {},
-		handler: async () => {
+	server.registerTool(
+		'list_snippets',
+		{
+			description:
+				'List all available code snippets. Returns snippet IDs you can pass to get_snippet.'
+		},
+		async () => {
 			const items = listSnippets();
 			const text = items.map((s) => `**${s.id}** — ${s.title}\n  ${s.description}`).join('\n\n');
 			return {
 				content: [{ type: 'text' as const, text: `# Available Code Snippets\n\n${text}` }]
 			};
 		}
-	}
-];
+	);
+}

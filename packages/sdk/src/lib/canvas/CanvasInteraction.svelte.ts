@@ -1,4 +1,4 @@
-import type { TraekEngine, TraekEngineConfig, Node } from '../TraekEngine.svelte';
+import type { TraekEngine, TraekEngineConfig } from '../TraekEngine.svelte';
 import type { ViewportManager } from './ViewportManager.svelte';
 import type { ConnectionDragState } from './connectionPath';
 import { findScrollable, scrollableCanConsumeWheel, ScrollBoundaryGuard } from './scrollUtils';
@@ -31,6 +31,9 @@ export class CanvasInteraction {
 	} | null>(null);
 	#lastDropTargetEl: Element | null = null;
 	#scrollGuard = new ScrollBoundaryGuard();
+	/** rAF id for batched node-drag position updates (≤1 setNodePosition per frame). */
+	#dragRafId = 0;
+	#pendingDragPos: { x: number; y: number } | null = null;
 
 	#viewport: ViewportManager;
 	#engine: TraekEngine;
@@ -54,7 +57,7 @@ export class CanvasInteraction {
 		nodeId: string,
 		portType: 'input' | 'output'
 	): { x: number; y: number } | null {
-		const node = this.#engine.nodes.find((n: Node) => n.id === nodeId);
+		const node = this.#engine.getNode(nodeId);
 		if (!node) return null;
 		const step = this.#config.gridStep;
 		const x = (node.metadata?.x ?? 0) * step + this.#config.nodeWidth / 2;
@@ -74,6 +77,40 @@ export class CanvasInteraction {
 			x: (clientX - rect.left - this.#viewport.offset.x) / this.#viewport.scale,
 			y: (clientY - rect.top - this.#viewport.offset.y) / this.#viewport.scale
 		};
+	}
+
+	/** Queue a node-drag position; applied at most once per animation frame. */
+	#queueDragPosition(x: number, y: number) {
+		this.#pendingDragPos = { x, y };
+		if (this.#dragRafId) return;
+		this.#dragRafId = requestAnimationFrame(() => {
+			this.#dragRafId = 0;
+			this.#flushDragPosition();
+		});
+	}
+
+	/** Apply the pending drag position immediately (used by the rAF tick and on drag end). */
+	#flushDragPosition() {
+		if (!this.#pendingDragPos || !this.draggingNodeId) {
+			this.#pendingDragPos = null;
+			return;
+		}
+		const { x, y } = this.#pendingDragPos;
+		this.#pendingDragPos = null;
+		this.#engine.setNodePosition(this.draggingNodeId, x, y, 10);
+	}
+
+	#cancelDragFrame() {
+		if (this.#dragRafId) {
+			cancelAnimationFrame(this.#dragRafId);
+			this.#dragRafId = 0;
+		}
+	}
+
+	/** Cancel any scheduled work. Call when the canvas is torn down. */
+	destroy() {
+		this.#cancelDragFrame();
+		this.#pendingDragPos = null;
 	}
 
 	#touchDistance(touches: TouchList): number {
@@ -118,7 +155,7 @@ export class CanvasInteraction {
 			if (id && this.#engine.activeNodeId === id) {
 				// Allow text selection inside node content – don't start drag or preventDefault
 				if ((e.target as HTMLElement).closest('.message-node-content, .content-area')) return;
-				const node = this.#engine.nodes.find((n: Node) => n.id === id);
+				const node = this.#engine.getNode(id);
 				if (node) {
 					this.draggingNodeId = id;
 					this.#dragStartMouse = { x: e.clientX, y: e.clientY };
@@ -174,11 +211,9 @@ export class CanvasInteraction {
 		if (this.draggingNodeId && this.#dragStartMouse && this.#dragStartNodePosition) {
 			const dxCanvas = (e.clientX - this.#dragStartMouse.x) / this.#viewport.scale;
 			const dyCanvas = (e.clientY - this.#dragStartMouse.y) / this.#viewport.scale;
-			this.#engine.setNodePosition(
-				this.draggingNodeId,
+			this.#queueDragPosition(
 				this.#dragStartNodePosition.x + dxCanvas,
-				this.#dragStartNodePosition.y + dyCanvas,
-				10
+				this.#dragStartNodePosition.y + dyCanvas
 			);
 			return;
 		}
@@ -212,6 +247,9 @@ export class CanvasInteraction {
 		}
 
 		if (this.draggingNodeId) {
+			// Apply the last queued drag position before snapping to grid.
+			this.#cancelDragFrame();
+			this.#flushDragPosition();
 			this.#engine.snapNodeToGrid(this.draggingNodeId);
 			this.#onNodesChanged?.();
 		}
@@ -256,7 +294,7 @@ export class CanvasInteraction {
 			if (id && this.#engine.activeNodeId === id) {
 				// Allow text selection / don't start node drag when touching node content
 				if ((e.target as HTMLElement).closest('.message-node-content, .content-area')) return;
-				const node = this.#engine.nodes.find((n: Node) => n.id === id);
+				const node = this.#engine.getNode(id);
 				if (node) {
 					this.draggingNodeId = id;
 					this.#dragStartMouse = { x: single.clientX, y: single.clientY };
@@ -311,11 +349,9 @@ export class CanvasInteraction {
 			e.preventDefault();
 			const dxCanvas = (one.clientX - this.#dragStartMouse.x) / this.#viewport.scale;
 			const dyCanvas = (one.clientY - this.#dragStartMouse.y) / this.#viewport.scale;
-			this.#engine.setNodePosition(
-				this.draggingNodeId,
+			this.#queueDragPosition(
 				this.#dragStartNodePosition.x + dxCanvas,
-				this.#dragStartNodePosition.y + dyCanvas,
-				10
+				this.#dragStartNodePosition.y + dyCanvas
 			);
 			return;
 		}
@@ -332,6 +368,9 @@ export class CanvasInteraction {
 	handleTouchEnd = (e: TouchEvent) => {
 		if (e.touches.length === 0) {
 			if (this.draggingNodeId) {
+				// Apply the last queued drag position before snapping to grid.
+				this.#cancelDragFrame();
+				this.#flushDragPosition();
 				this.#engine.snapNodeToGrid(this.draggingNodeId);
 				this.#onNodesChanged?.();
 			}

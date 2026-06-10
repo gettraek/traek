@@ -1,4 +1,14 @@
+import { z } from 'zod';
 import type { ActionDefinition, ResolveActions } from './types';
+
+/** Stage-2 callbacks must return an array of action-id strings. */
+const resolveResultSchema = z.array(z.string());
+
+/** Maximum number of cached stage-2 results (oldest evicted first). */
+const MAX_CACHE_ENTRIES = 200;
+
+/** Hard timeout for stage-2 callbacks so `isResolving` cannot hang forever. */
+const RESOLVE_TIMEOUT_MS = 10_000;
 
 /**
  * Two-stage action resolver with debounce and caching.
@@ -17,12 +27,15 @@ export class ActionResolver {
 	slashFilter = $state<string | null>(null);
 
 	private actions: ActionDefinition[];
+	private knownActionIds: Set<string>;
 	private resolveCallback: ResolveActions | null;
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	private cache = new Map<string, string[]>();
 	private debounceTimer = 0;
 	private debounceMs: number;
 	private generation = 0;
+	/** Monotonic token: only the newest in-flight resolve may apply its results. */
+	private resolveToken = 0;
 
 	constructor(
 		actions: ActionDefinition[],
@@ -30,6 +43,7 @@ export class ActionResolver {
 		debounceMs = 300
 	) {
 		this.actions = actions;
+		this.knownActionIds = new Set(actions.map((a) => a.id));
 		this.resolveCallback = resolveCallback ?? null;
 		this.debounceMs = debounceMs;
 	}
@@ -45,6 +59,7 @@ export class ActionResolver {
 		// Slash-command detection: starts with `/` and has no space
 		if (trimmed.startsWith('/') && !trimmed.includes(' ')) {
 			this.slashFilter = trimmed.slice(1).toLowerCase();
+			this.cancelDebounce();
 			return;
 		}
 		this.slashFilter = null;
@@ -72,7 +87,7 @@ export class ActionResolver {
 				return;
 			}
 			this.debounceTimer = window.setTimeout(() => {
-				this.runResolve(trimmed, cacheKey, keywordMatches);
+				void this.runResolve(trimmed, cacheKey, keywordMatches);
 			}, this.debounceMs);
 		}
 	}
@@ -108,11 +123,14 @@ export class ActionResolver {
 		this.slashFilter = null;
 		this.cancelDebounce();
 		this.generation += 1;
+		this.resolveToken += 1;
 	}
 
-	/** Clean up timers. */
+	/** Clean up timers and invalidate any in-flight resolve. */
 	destroy(): void {
 		this.cancelDebounce();
+		this.resolveToken += 1;
+		this.isResolving = false;
 	}
 
 	private cancelDebounce(): void {
@@ -129,19 +147,48 @@ export class ActionResolver {
 	): Promise<void> {
 		if (!this.resolveCallback) return;
 		const gen = this.generation;
+		const token = ++this.resolveToken;
 		this.isResolving = true;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		try {
-			const result = await this.resolveCallback(input, this.actions);
-			if (gen !== this.generation) return;
-			this.cache.set(cacheKey, result);
-			this.mergeSuggestions(keywordMatches, result);
+			const result = await Promise.race([
+				this.resolveCallback(input, this.actions),
+				new Promise<never>((_, reject) => {
+					timeoutId = setTimeout(
+						() => reject(new Error('Action resolve timed out')),
+						RESOLVE_TIMEOUT_MS
+					);
+				})
+			]);
+			// Stale: a newer request started or reset() was called while awaiting
+			if (gen !== this.generation || token !== this.resolveToken) return;
+
+			// Validate at the boundary and drop unknown action ids
+			const parsed = resolveResultSchema.safeParse(result);
+			if (!parsed.success) {
+				console.warn('[ActionResolver] resolve callback returned invalid result:', parsed.error);
+				return;
+			}
+			const validIds = parsed.data.filter((id) => this.knownActionIds.has(id));
+
+			this.setCache(cacheKey, validIds);
+			this.mergeSuggestions(keywordMatches, validIds);
 		} catch {
-			// Silently fail — keyword matches remain
+			// Silently fail (error or timeout) — keyword matches remain
 		} finally {
-			if (gen === this.generation) {
+			if (timeoutId !== undefined) clearTimeout(timeoutId);
+			if (gen === this.generation && token === this.resolveToken) {
 				this.isResolving = false;
 			}
 		}
+	}
+
+	private setCache(key: string, ids: string[]): void {
+		if (!this.cache.has(key) && this.cache.size >= MAX_CACHE_ENTRIES) {
+			const oldest = this.cache.keys().next().value;
+			if (oldest !== undefined) this.cache.delete(oldest);
+		}
+		this.cache.set(key, ids);
 	}
 
 	private mergeSuggestions(keyword: string[], semantic: string[]): void {

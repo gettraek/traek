@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { getTraekI18n } from '../i18n/index';
+	import { focusTrap } from '../a11y/focusTrap';
 
 	const t = getTraekI18n();
 
@@ -31,25 +31,26 @@
 	let cutoutRect = $state<DOMRect | null>(null);
 	let tooltipStyle = $state('');
 
-	onMount(() => {
+	// Recompute target + cutout whenever the step (selector/position) changes
+	$effect(() => {
+		void currentStep;
+		void position;
 		if (targetSelector) {
 			targetEl = document.querySelector(targetSelector);
-			if (targetEl) {
-				cutoutRect = targetEl.getBoundingClientRect();
-				calculateTooltipPosition();
-			}
+			cutoutRect = targetEl ? targetEl.getBoundingClientRect() : null;
+		} else {
+			targetEl = null;
+			cutoutRect = null;
 		}
-
-		const handleResize = () => {
-			if (targetSelector && targetEl) {
-				cutoutRect = targetEl.getBoundingClientRect();
-				calculateTooltipPosition();
-			}
-		};
-
-		window.addEventListener('resize', handleResize);
-		return () => window.removeEventListener('resize', handleResize);
+		calculateTooltipPosition();
 	});
+
+	function handleResize() {
+		if (targetSelector && targetEl) {
+			cutoutRect = targetEl.getBoundingClientRect();
+		}
+		calculateTooltipPosition();
+	}
 
 	function calculateTooltipPosition() {
 		if (!cutoutRect || !tooltipEl) return;

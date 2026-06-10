@@ -153,7 +153,7 @@ describe('ActionResolver edge cases', () => {
 			expect(resolver.suggestedIds).toEqual([]);
 		});
 
-		it('should keep slashFilter from latest input even if prior debounce fires', async () => {
+		it('should cancel a pending debounce when switching to a slash command', async () => {
 			expect.assertions(2);
 			vi.useFakeTimers();
 			const resolveCallback = vi.fn().mockResolvedValue(['search']);
@@ -172,15 +172,15 @@ describe('ActionResolver edge cases', () => {
 			);
 
 			resolver.onInputChange('search for something');
-			// Switch to slash command — slash path does not cancel prior debounce
+			// Switch to slash command — slash path cancels the prior debounce
 			resolver.onInputChange('/code');
 
 			await vi.advanceTimersByTimeAsync(200);
 
 			// slashFilter reflects the latest slash command input
 			expect(resolver.slashFilter).toBe('code');
-			// Prior debounce still fires since slash path does not cancel it
-			expect(resolveCallback).toHaveBeenCalledTimes(1);
+			// Prior debounce was cancelled, so no stale resolve fires
+			expect(resolveCallback).not.toHaveBeenCalled();
 			vi.useRealTimers();
 		});
 	});
@@ -486,6 +486,178 @@ describe('ActionResolver edge cases', () => {
 			// Actually "  /  ".trim() === "/", and "/" has no space, starts with /
 			// So slashFilter = "/".slice(1).toLowerCase() = ""
 			expect(resolver.slashFilter).toBe('');
+		});
+	});
+
+	describe('stale responses without reset (per-request token)', () => {
+		it('should ignore a slow earlier resolve that lands after a newer one', async () => {
+			expect.assertions(2);
+			vi.useFakeTimers();
+
+			let resolveFirst: ((value: string[]) => void) | null = null;
+			let resolveSecond: ((value: string[]) => void) | null = null;
+			let callCount = 0;
+
+			const resolveCallback = vi.fn().mockImplementation(
+				() =>
+					new Promise<string[]>((resolve) => {
+						callCount++;
+						if (callCount === 1) {
+							resolveFirst = resolve;
+						} else {
+							resolveSecond = resolve;
+						}
+					})
+			);
+
+			const resolver = new ActionResolver(
+				[
+					{ id: 'search', label: 'Search', description: 'Search' },
+					{ id: 'code', label: 'Code', description: 'Code' }
+				],
+				resolveCallback,
+				0
+			);
+
+			// Two inputs, no reset in between — both resolves go in flight
+			resolver.onInputChange('first query');
+			await vi.advanceTimersByTimeAsync(5);
+			resolver.onInputChange('second query');
+			await vi.advanceTimersByTimeAsync(5);
+
+			// Newer request resolves first and applies
+			(resolveSecond as ((v: string[]) => void) | null)?.(['code']);
+			await vi.advanceTimersByTimeAsync(1);
+			expect(resolver.suggestedIds).toEqual(['code']);
+
+			// Older request resolves late — must not clobber the newer result
+			(resolveFirst as ((v: string[]) => void) | null)?.(['search']);
+			await vi.advanceTimersByTimeAsync(1);
+			expect(resolver.suggestedIds).toEqual(['code']);
+
+			vi.useRealTimers();
+		});
+	});
+
+	describe('resolve result validation', () => {
+		const actions: ActionDefinition[] = [
+			{ id: 'search', label: 'Search', description: 'Search', keywords: ['search'] },
+			{ id: 'code', label: 'Code', description: 'Code', keywords: ['code'] }
+		];
+
+		it('should ignore a non-array callback result and keep keyword matches', async () => {
+			expect.assertions(2);
+			vi.useFakeTimers();
+			const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			const resolveCallback = vi.fn().mockResolvedValue('garbage' as unknown as string[]);
+			const resolver = new ActionResolver(actions, resolveCallback, 0);
+
+			resolver.onInputChange('search this');
+			await vi.advanceTimersByTimeAsync(10);
+
+			expect(resolver.suggestedIds).toEqual(['search']);
+			expect(resolver.isResolving).toBe(false);
+			consoleWarn.mockRestore();
+			vi.useRealTimers();
+		});
+
+		it('should ignore an array with non-string entries', async () => {
+			expect.assertions(1);
+			vi.useFakeTimers();
+			const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			const resolveCallback = vi
+				.fn()
+				.mockResolvedValue([42, { id: 'code' }] as unknown as string[]);
+			const resolver = new ActionResolver(actions, resolveCallback, 0);
+
+			resolver.onInputChange('search this');
+			await vi.advanceTimersByTimeAsync(10);
+
+			expect(resolver.suggestedIds).toEqual(['search']);
+			consoleWarn.mockRestore();
+			vi.useRealTimers();
+		});
+
+		it('should filter out unknown action ids from the callback result', async () => {
+			expect.assertions(3);
+			vi.useFakeTimers();
+			const resolveCallback = vi
+				.fn()
+				.mockResolvedValue(['code', 'hallucinated-action', 'another-fake']);
+			const resolver = new ActionResolver(actions, resolveCallback, 0);
+
+			resolver.onInputChange('search this');
+			await vi.advanceTimersByTimeAsync(10);
+
+			expect(resolver.suggestedIds).toContain('search');
+			expect(resolver.suggestedIds).toContain('code');
+			expect(resolver.suggestedIds).not.toContain('hallucinated-action');
+			vi.useRealTimers();
+		});
+	});
+
+	describe('resolve timeout', () => {
+		it('should clear isResolving when the callback never settles', async () => {
+			expect.assertions(3);
+			vi.useFakeTimers();
+			const resolveCallback = vi.fn().mockImplementation(() => new Promise<string[]>(() => {}));
+			const resolver = new ActionResolver(
+				[{ id: 'search', label: 'Search', description: 'Search', keywords: ['search'] }],
+				resolveCallback,
+				0
+			);
+
+			resolver.onInputChange('search this');
+			await vi.advanceTimersByTimeAsync(10);
+			expect(resolver.isResolving).toBe(true);
+
+			// Past the 10s hard timeout the resolver must give up
+			await vi.advanceTimersByTimeAsync(11_000);
+			expect(resolver.isResolving).toBe(false);
+			// Keyword matches remain after the timeout
+			expect(resolver.suggestedIds).toEqual(['search']);
+			vi.useRealTimers();
+		});
+	});
+
+	describe('cache cap', () => {
+		it('should evict the oldest cache entry beyond 200 entries', async () => {
+			expect.assertions(2);
+			vi.useFakeTimers();
+			const resolveCallback = vi.fn().mockResolvedValue([]);
+			const resolver = new ActionResolver([], resolveCallback, 0);
+
+			// Fill the cache with 201 distinct inputs (cap is 200)
+			for (let i = 0; i < 201; i++) {
+				resolver.onInputChange(`query number ${i}`);
+				await vi.advanceTimersByTimeAsync(5);
+			}
+			expect(resolveCallback).toHaveBeenCalledTimes(201);
+
+			// The first input was evicted, so it triggers a fresh resolve;
+			// a recent input would have been served from cache instead.
+			resolver.onInputChange('query number 0');
+			await vi.advanceTimersByTimeAsync(5);
+			expect(resolveCallback).toHaveBeenCalledTimes(202);
+			vi.useRealTimers();
+		});
+
+		it('should serve recent inputs from cache without a new resolve', async () => {
+			expect.assertions(1);
+			vi.useFakeTimers();
+			const resolveCallback = vi.fn().mockResolvedValue([]);
+			const resolver = new ActionResolver([], resolveCallback, 0);
+
+			for (let i = 0; i < 201; i++) {
+				resolver.onInputChange(`query number ${i}`);
+				await vi.advanceTimersByTimeAsync(5);
+			}
+
+			// Recent entry is still cached — no additional callback invocation
+			resolver.onInputChange('query number 200');
+			await vi.advanceTimersByTimeAsync(5);
+			expect(resolveCallback).toHaveBeenCalledTimes(201);
+			vi.useRealTimers();
 		});
 	});
 

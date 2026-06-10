@@ -2,6 +2,7 @@
 	import type { Node, TraekEngineConfig } from '../TraekEngine.svelte';
 	import type { ConnectionDragState } from './connectionPath.js';
 	import { getConnectionPath } from './connectionPath.js';
+	import { SVG_ORIGIN_OFFSET } from './constants.js';
 
 	let {
 		nodes,

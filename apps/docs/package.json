@@ -7,6 +7,7 @@
 		"dev": "astro dev",
 		"build": "astro build",
 		"preview": "astro preview",
+		"check": "astro check",
 		"clean": "rm -rf node_modules dist coverage build .turbo"
 	},
 	"dependencies": {
@@ -15,6 +16,7 @@
 		"sharp": "^0.34.2"
 	},
 	"devDependencies": {
+		"@astrojs/check": "^0.9.9",
 		"typescript": "^5.9.3"
 	}
 }

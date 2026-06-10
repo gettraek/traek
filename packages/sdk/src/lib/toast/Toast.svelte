@@ -10,8 +10,11 @@
 
 	let progress = $state(100);
 	let visible = $state(false);
+	let paused = $state(false);
 	let rafId = 0;
 	let startTime = 0;
+	let remaining = toast.duration;
+	let dismissTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const icons: Record<string, string> = {
 		success: '\u2713',
@@ -20,24 +23,62 @@
 		undo: '\u21A9'
 	};
 
+	const tick = (now: number) => {
+		const elapsed = now - startTime;
+		progress = Math.max(0, ((remaining - elapsed) / toast.duration) * 100);
+		if (progress > 0) {
+			rafId = requestAnimationFrame(tick);
+		}
+	};
+
+	function startCountdown() {
+		startTime = performance.now();
+		dismissTimer = setTimeout(() => toastStore.removeToast(toast.id), remaining);
+		rafId = requestAnimationFrame(tick);
+	}
+
+	function pauseCountdown() {
+		if (paused) return;
+		paused = true;
+		clearTimeout(dismissTimer);
+		cancelAnimationFrame(rafId);
+		remaining = Math.max(0, remaining - (performance.now() - startTime));
+	}
+
+	function resumeCountdown() {
+		if (!paused) return;
+		paused = false;
+		startCountdown();
+	}
+
+	function handleFocusOut(e: FocusEvent) {
+		const next = e.relatedTarget;
+		if (next instanceof Node && e.currentTarget instanceof Node && e.currentTarget.contains(next))
+			return;
+		resumeCountdown();
+	}
+
 	onMount(() => {
 		// Trigger slide-in on next frame
 		requestAnimationFrame(() => {
 			visible = true;
 		});
 
-		// Animate progress bar
-		startTime = performance.now();
-		const tick = (now: number) => {
-			const elapsed = now - startTime;
-			progress = Math.max(0, 100 - (elapsed / toast.duration) * 100);
-			if (progress > 0) {
-				rafId = requestAnimationFrame(tick);
-			}
-		};
-		rafId = requestAnimationFrame(tick);
+		// Take over auto-dismiss from the store so hover/focus can pause the countdown.
+		// The store's timer map is private at compile time only.
+		const storeTimers = (
+			toastStore as unknown as { timers: Map<string, ReturnType<typeof setTimeout>> }
+		).timers;
+		const storeTimer = storeTimers.get(toast.id);
+		if (storeTimer != null) {
+			clearTimeout(storeTimer);
+			storeTimers.delete(toast.id);
+		}
+
+		startCountdown();
 
 		return () => {
+			clearTimeout(dismissTimer);
 			cancelAnimationFrame(rafId);
 		};
 	});
@@ -52,16 +93,24 @@
 	}
 </script>
 
-<div class="traek-toast traek-toast--{toast.type}" class:traek-toast--visible={visible}>
-	<div class="traek-toast__icon">{icons[toast.type] ?? '\u2139'}</div>
+<div
+	class="traek-toast traek-toast--{toast.type}"
+	class:traek-toast--visible={visible}
+	role="status"
+	aria-live="polite"
+	onmouseenter={pauseCountdown}
+	onmouseleave={resumeCountdown}
+	onfocusin={pauseCountdown}
+	onfocusout={handleFocusOut}
+>
+	<div class="traek-toast__icon" aria-hidden="true">{icons[toast.type] ?? '\u2139'}</div>
 	<div class="traek-toast__body">
 		<span class="traek-toast__message">{toast.message}</span>
 		{#if toast.type === 'undo' && toast.onUndo}
 			<button class="traek-toast__undo" onclick={handleUndo}>{i18n.toast.undo}</button>
 		{/if}
 	</div>
-	<button class="traek-toast__close" onclick={handleClose} aria-label={i18n.toast.dismiss}
-		>\u2715</button
+	<button class="traek-toast__close" onclick={handleClose} aria-label={i18n.toast.dismiss}>✕</button
 	>
 	<div class="traek-toast__progress" style:width="{progress}%"></div>
 </div>

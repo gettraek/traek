@@ -206,7 +206,12 @@ export class ViewportManager {
 	}
 
 	destroy() {
+		this.#destroyed = true;
 		cancelAnimationFrame(this.#focusAnimationId);
+		cancelAnimationFrame(this.#centerOuterRafId);
+		cancelAnimationFrame(this.#centerInnerRafId);
+		cancelAnimationFrame(this.#boundsInvalidateRafId);
+		this.#boundsInvalidateRafId = 0;
 		if (this.#viewportChangeTimeoutId) clearTimeout(this.#viewportChangeTimeoutId);
 	}
 }
