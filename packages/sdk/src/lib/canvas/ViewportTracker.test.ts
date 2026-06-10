@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ViewportTracker } from './ViewportTracker.svelte';
 import { DEFAULT_TRACK_ENGINE_CONFIG, type Node } from '../TraekEngine.svelte';
 
@@ -223,6 +223,64 @@ describe('ViewportTracker', () => {
 			const visible = tracker.getVisibleNodeIds(nodes, collapsedNodes, el, 1, { x: 0, y: 0 });
 			expect(visible.has('parent')).toBe(true);
 			expect(visible.has('child')).toBe(false);
+		});
+
+		describe('node map cache invalidation', () => {
+			beforeEach(() => {
+				vi.stubGlobal(
+					'requestAnimationFrame',
+					(cb: FrameRequestCallback) =>
+						setTimeout(() => cb(performance.now()), 0) as unknown as number
+				);
+				vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
+			});
+
+			afterEach(() => {
+				vi.unstubAllGlobals();
+			});
+
+			const makeNode = (id: string, parentIds: string[]): Node => ({
+				id,
+				parentIds,
+				role: 'user',
+				type: 'text',
+				metadata: { x: 10, y: 20, height: 100 }
+			});
+
+			it('should not serve a stale node map after delete-then-add (same identity and length)', async () => {
+				const localTracker = new ViewportTracker(config, 200);
+				const el = { clientWidth: 1000, clientHeight: 800 } as HTMLElement;
+				const nodes: Node[] = [
+					{
+						id: 'parent',
+						parentIds: [],
+						role: 'user',
+						type: 'text',
+						metadata: { x: 10, y: 10, height: 100 }
+					},
+					makeNode('child-a', ['parent'])
+				];
+				const collapsedNodes = new Set(['parent']);
+
+				// Prime the memoized node map
+				const first = localTracker.getVisibleNodeIds(nodes, collapsedNodes, el, 1, { x: 0, y: 0 });
+				expect(first.has('child-a')).toBe(false);
+
+				// Delete-then-add: splice + push keep array identity and restore the length
+				nodes.splice(1, 1);
+				nodes.push(makeNode('child-b', ['parent']));
+
+				// Cache expires on the next animation frame
+				await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+
+				const second = localTracker.getVisibleNodeIds(nodes, collapsedNodes, el, 1, {
+					x: 0,
+					y: 0
+				});
+				expect(second.has('parent')).toBe(true);
+				// With a stale map, child-b would be unknown → treated as root → visible
+				expect(second.has('child-b')).toBe(false);
+			});
 		});
 
 		it('should handle large number of nodes efficiently', () => {

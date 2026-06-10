@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { KeyboardNavigator } from '../KeyboardNavigator.svelte';
 import { TraekEngine } from '../../TraekEngine.svelte';
+import { mergeTranslations } from '../../i18n/context';
 
 describe('KeyboardNavigator', () => {
 	let engine: TraekEngine;
@@ -20,6 +21,31 @@ describe('KeyboardNavigator', () => {
 
 		it('should initialize with showHelp false', () => {
 			expect(navigator.showHelp).toBe(false);
+		});
+	});
+
+	describe('translations', () => {
+		it('should announce with default English strings when no translations are passed', () => {
+			const root = engine.addNode('Root', 'user', { parentIds: [] });
+			navigator.focusedNodeId = root.id;
+
+			navigator.navigateToParent();
+
+			expect(announcements).toContain('Already at root');
+		});
+
+		it('should use injected translations for announcements', () => {
+			const t = mergeTranslations({
+				keyboardNavigator: { alreadyAtRoot: 'Schon an der Wurzel' }
+			});
+			const messages: string[] = [];
+			const localNavigator = new KeyboardNavigator(engine, (msg) => messages.push(msg), t);
+			const root = engine.addNode('Root', 'user', { parentIds: [] });
+			localNavigator.focusedNodeId = root.id;
+
+			localNavigator.navigateToParent();
+
+			expect(messages).toContain('Schon an der Wurzel');
 		});
 	});
 
@@ -371,6 +397,69 @@ describe('KeyboardNavigator', () => {
 			const handled = navigator.handleKeyDown(event);
 
 			expect(handled).toBe(false);
+		});
+
+		it('should not hijack "/" when typing in an input', () => {
+			const event = {
+				key: '/',
+				preventDefault: vi.fn(),
+				target: { tagName: 'INPUT', isContentEditable: false }
+			} as unknown as KeyboardEvent;
+
+			const handled = navigator.handleKeyDown(event);
+
+			expect(handled).toBe(false);
+			expect(event.preventDefault).not.toHaveBeenCalled();
+			expect(navigator.showFuzzySearch).toBe(false);
+		});
+
+		it('should not hijack "/" when typing in a textarea (slash commands)', () => {
+			const event = {
+				key: '/',
+				preventDefault: vi.fn(),
+				target: { tagName: 'TEXTAREA', isContentEditable: false }
+			} as unknown as KeyboardEvent;
+
+			const handled = navigator.handleKeyDown(event);
+
+			expect(handled).toBe(false);
+			expect(event.preventDefault).not.toHaveBeenCalled();
+			expect(navigator.showFuzzySearch).toBe(false);
+		});
+
+		it('should not hijack "/" in contentEditable elements', () => {
+			const event = {
+				key: '/',
+				preventDefault: vi.fn(),
+				target: { tagName: 'DIV', isContentEditable: true }
+			} as unknown as KeyboardEvent;
+
+			const handled = navigator.handleKeyDown(event);
+
+			expect(handled).toBe(false);
+			expect(navigator.showFuzzySearch).toBe(false);
+		});
+
+		it.each([
+			['ctrlKey', 'ArrowUp'],
+			['metaKey', 'Home'],
+			['altKey', 'ArrowLeft'],
+			['ctrlKey', '/']
+		])('should not swallow %s+%s browser shortcuts', (modifier, key) => {
+			const node = engine.addNode('Node', 'user', { parentIds: [] });
+			navigator.focusedNodeId = node.id;
+
+			const event = {
+				key,
+				[modifier]: true,
+				preventDefault: vi.fn(),
+				target: { tagName: 'DIV', isContentEditable: false }
+			} as unknown as KeyboardEvent;
+
+			const handled = navigator.handleKeyDown(event);
+
+			expect(handled).toBe(false);
+			expect(event.preventDefault).not.toHaveBeenCalled();
 		});
 
 		it('should return false for unhandled keys', () => {

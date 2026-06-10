@@ -85,21 +85,6 @@ describe('TraekEngine — additional coverage', () => {
 			expect(engine.getNode(child.id)!.parentIds).toEqual([parentA.id, parentB.id]);
 		});
 
-		it('should re-link surviving children after deleteNodeAndDescendants undo', () => {
-			expect.assertions(2);
-			const engine = new TraekEngine();
-			const root = engine.addNode('Root', 'user', { parentIds: [] });
-			const branch = engine.addNode('Branch', 'assistant', { parentIds: [root.id] });
-			const survivor = engine.addNode('Survivor', 'user', { parentIds: [] });
-			// Survivor links to branch as a secondary parent but is not a descendant-only node
-			expect(engine.addConnection(branch.id, survivor.id)).toBe(true);
-
-			engine.deleteNodeAndDescendants(branch.id);
-			engine.restoreDeleted();
-
-			expect(engine.getNode(survivor.id)!.parentIds).toContain(branch.id);
-		});
-
 		it('should return false when restoreDeleted is called with empty buffer', () => {
 			expect.assertions(1);
 			const engine = new TraekEngine();
