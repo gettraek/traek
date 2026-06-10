@@ -15,6 +15,7 @@ import { UnsupportedSnapshotVersionError } from './types';
 import {
 	conversationSnapshotSchema,
 	storedConversationSchema,
+	conversationListItemSchema,
 	snapshotVersionProbeSchema,
 	CURRENT_SNAPSHOT_VERSION
 } from './schemas';

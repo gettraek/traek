@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { ConversationStore } from './ConversationStore.svelte.js';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	interface Props {
 		store: ConversationStore;
