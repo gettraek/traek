@@ -176,6 +176,25 @@ Organized into parallel workstreams with strict file ownership. Severity: **H**i
 - [x] **L** `toast/Toast.svelte:23-43` — auto-dismiss not pausable on hover/focus (undo window).
 - [x] **L** touch targets <44px: TagBadges remove buttons, Breadcrumbs rows, Minimap toggle, SearchBar nav buttons.
 
+## Round 2 — review findings (all fixed)
+
+A second audit round (full-diff review + fresh sweep) found and fixed:
+
+- [x] **H** `TraekEngine.deleteNode` undo: restoring a deleted parent permanently re-parented its children — stripped child edges are now recorded and re-linked on `restoreDeleted()`.
+- [x] **H** `KeyboardNavigator` hijacked `/` from every input (slash commands untypable) and swallowed ctrl/meta/alt shortcuts; inputs are now ignored entirely.
+- [x] **H** `/api/chat` Zod schema rejected payloads the demo client legitimately sends (system debug nodes in path, >8k assistant replies, >40-message threads) — server coerces (filter/slice/window), client sanitizes.
+- [x] **H** apps/docs API pages documented a fabricated API (object-form `addNode`, `parentId`, `moveNode`, `focusedNodeId`, `components` prop, invented config fields) — rewritten against the real surface.
+- [x] **M** `ConversationStore.destroy()` closed IndexedDB before the flushed autosave ran (final save lost to localStorage) — teardown chained on the flush.
+- [x] **M** `ReplayController` backward seek fired an undo toast per deleted node — `onNodeDeleted` suppressed during seeks.
+- [x] **M** `ViewportTracker` node-map cache went stale on delete-then-add (same array identity+length) — per-frame expiry.
+- [x] **M** ThemePicker/ThemeProvider clobbered the system light preference set pre-hydration; prop-driven theme switches didn't apply CSS vars.
+- [x] **M** Toast hover-pause reached into the store's private timer map via cast — replaced with public `claimTimer`/`releaseTimer` API; pause respects focus.
+- [x] **M** rate-limiter eviction removed the most-active keys first (insertion order) — recency refreshed on update.
+- [x] **M** chat stream logged a fake upstream error on every client disconnect.
+- [x] **M** `GravityDotsBackground` ran an unconditional 60fps loop with per-frame `getComputedStyle` — idles when converged, honors reduced motion.
+- [x] **M** KeyboardNavigator SR announcements and predefined tag labels bypassed i18n; `InputForm` did O(n) scans per render; stream-complete pulse could stick.
+- [x] **L** `highlightMatch` duplicated text on overlapping matches; `createCustomTheme` broke on 3-digit hex; LiveRegion role for assertive; ChatList floating delete promise; landing code sample invalid; CI turbo cache key collisions; MCP empty allowlist guard.
+
 ## Deferred (intentionally not done)
 
 - **TraekCanvas `role="tree"` restructure** (a11y #20): correct fix needs an interaction-model decision (roving tabindex over treeitems vs `role="application"`); too invasive for this pass.
