@@ -41,12 +41,29 @@
 		onNodeActivated?: (nodeId: string) => void;
 		focusedNodeId?: string | null;
 	} = $props();
+
+	/**
+	 * Hoisted cache of node IDs hidden inside collapsed subtrees. Computed once per
+	 * structural change instead of one O(depth) ancestor walk per node per render.
+	 * Returns null when nothing is collapsed (the common case) so the loop below
+	 * does a cheap optional-chain check.
+	 */
+	const hiddenByCollapse = $derived.by(() => {
+		if (engine.collapsedNodes.size === 0) return null;
+		void engine.version;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const hidden = new Set<string>();
+		for (const node of engine.nodes) {
+			if (engine.isInCollapsedSubtree(node.id)) hidden.add(node.id);
+		}
+		return hidden;
+	});
 </script>
 
 {#each engine.nodes as node (node.id)}
 	{@const isActive = engine.activeNodeId === node.id}
 	{@const isFocused = focusedNodeId === node.id}
-	{@const isNodeHidden = engine.isInCollapsedSubtree(node.id)}
+	{@const isNodeHidden = hiddenByCollapse?.has(node.id) ?? false}
 	{@const isVisible = visibleNodeIds.has(node.id)}
 	{#if !isNodeHidden}
 		{#if isVisible || isActive || isFocused}

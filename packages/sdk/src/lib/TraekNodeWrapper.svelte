@@ -1,3 +1,57 @@
+<script module lang="ts">
+	/**
+	 * One IntersectionObserver shared by all node wrappers per viewport root,
+	 * instead of one observer instance per node.
+	 */
+	type VisibilityCallback = (isIntersecting: boolean) => void;
+	type ObserverEntry = {
+		observer: IntersectionObserver;
+		callbacks: Map<Element, VisibilityCallback>;
+	};
+
+	const rootObservers = new WeakMap<Element, ObserverEntry>();
+	let documentRootObserver: ObserverEntry | null = null;
+
+	function createObserverEntry(root: Element | null): ObserverEntry {
+		const callbacks = new Map<Element, VisibilityCallback>();
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) callbacks.get(entry.target)?.(entry.isIntersecting);
+			},
+			{ root, rootMargin: '100px', threshold: 0 }
+		);
+		return { observer, callbacks };
+	}
+
+	function getObserverEntry(root: Element | null): ObserverEntry {
+		if (root) {
+			let entry = rootObservers.get(root);
+			if (!entry) {
+				entry = createObserverEntry(root);
+				rootObservers.set(root, entry);
+			}
+			return entry;
+		}
+		if (!documentRootObserver) documentRootObserver = createObserverEntry(null);
+		return documentRootObserver;
+	}
+
+	/** Observe `el` with the shared observer for `root`. Returns an unsubscribe function. */
+	function observeVisibility(
+		root: Element | null,
+		el: Element,
+		callback: VisibilityCallback
+	): () => void {
+		const entry = getObserverEntry(root);
+		entry.callbacks.set(el, callback);
+		entry.observer.observe(el);
+		return () => {
+			entry.callbacks.delete(el);
+			entry.observer.unobserve(el);
+		};
+	}
+</script>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
@@ -41,7 +95,9 @@
 	let wrapper = $state<HTMLElement | null>(null);
 	let isInView = $state(true);
 	let isThoughtExpanded = $state(false);
-	let previousStatus = $state<string | undefined>(undefined);
+	// Plain variable on purpose: only read/written inside the status effect below,
+	// so making it $state would create a self-read/self-write effect loop.
+	let previousStatus: string | undefined = undefined;
 	let showCompletePulse = $state(false);
 
 	const detailLevel = $derived(getDetailLevel(scale));
@@ -54,17 +110,19 @@
 	});
 
 	$effect(() => {
-		if (previousStatus === 'streaming' && node.status === 'done') {
+		const status = node.status;
+		const wasStreaming = previousStatus === 'streaming';
+		previousStatus = status;
+		if (wasStreaming && status === 'done') {
 			showCompletePulse = true;
-			setTimeout(() => {
+			const pulseTimeoutId = setTimeout(() => {
 				showCompletePulse = false;
 			}, 300);
+			return () => clearTimeout(pulseTimeoutId);
 		}
-		previousStatus = node.status;
 	});
 	let expandedStepIndices = $state<Record<number, boolean>>({});
 	let resizeObserver: ResizeObserver;
-	let intersectionObserverRef: IntersectionObserver | null = null;
 
 	function toggleStepExpand(i: number) {
 		expandedStepIndices = {
@@ -74,11 +132,12 @@
 	}
 	const placeholderHeight = $derived(node.metadata?.height ?? DEFAULT_PLACEHOLDER_HEIGHT);
 
-	const thoughtChild = $derived(
-		(engine?.nodes.find(
-			(n) => n.parentIds.includes(node.id) && n.type === 'thought'
-		) as MessageNode) ?? null
-	);
+	const thoughtChild = $derived.by(() => {
+		if (!engine) return null;
+		// engine.version tracks structural mutations; getChildren is O(1) map-based
+		void engine.version;
+		return (engine.getChildren(node.id).find((n) => n.type === 'thought') as MessageNode) ?? null;
+	});
 	const thoughtSteps = $derived((thoughtChild?.data as { steps?: string[] })?.steps ?? []);
 	const thoughtPillLabel = $derived(
 		thoughtChild?.content === 'Done'
@@ -88,11 +147,12 @@
 				: (thoughtChild?.content ?? 'Thought process')
 	);
 
-	// Collapse & branch info
-	// Use direct filtering over nodes array for reactivity instead of getChildren
-	const nodeChildren = $derived(
-		engine?.nodes.filter((n) => n.parentIds[0] === node.id && n.type !== 'thought') ?? []
-	);
+	// Collapse & branch info — O(1) getChildren lookup; engine.version keeps it reactive
+	const nodeChildren = $derived.by(() => {
+		if (!engine) return [];
+		void engine.version;
+		return engine.getChildren(node.id).filter((n) => n.type !== 'thought');
+	});
 	const hasChildren = $derived(nodeChildren.length > 0);
 	const hasBranches = $derived(nodeChildren.length > 1);
 	const isCollapsed = $derived(engine?.isCollapsed(node.id) ?? false);
@@ -101,34 +161,19 @@
 	);
 	const isOutdated = $derived(node.metadata?.outdated === true);
 
+	// Viewport intersection via the shared per-root observer. Re-subscribing on
+	// viewportResizeVersion forces a fresh intersection check after viewport resizes.
 	$effect(() => {
-		// Track viewportResizeVersion to trigger effect on change
 		void viewportResizeVersion;
-		if (wrapper && intersectionObserverRef) {
-			intersectionObserverRef.unobserve(wrapper);
-			intersectionObserverRef.observe(wrapper);
-		}
+		const el = wrapper;
+		if (!el) return;
+		return observeVisibility(viewportRoot, el, (intersecting) => {
+			if (intersecting !== isInView) isInView = intersecting;
+		});
 	});
 
 	onMount(() => {
 		if (!wrapper) return;
-
-		intersectionObserverRef = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0];
-				if (!entry) return;
-				const nowInView = entry.isIntersecting;
-				if (nowInView !== isInView) {
-					isInView = nowInView;
-				}
-			},
-			{
-				root: viewportRoot,
-				rootMargin: '100px',
-				threshold: 0
-			}
-		);
-		intersectionObserverRef.observe(wrapper);
 
 		if (engine) {
 			resizeObserver = new ResizeObserver(() => {
@@ -140,7 +185,6 @@
 		}
 
 		return () => {
-			intersectionObserverRef?.disconnect();
 			resizeObserver?.disconnect();
 		};
 	});
@@ -172,13 +216,6 @@
 				if (engine) engine.activeNodeId = node.id;
 				onNodeActivated?.(node.id);
 			}}
-			onkeydown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					if (engine) engine.activeNodeId = node.id;
-					onNodeActivated?.(node.id);
-				}
-			}}
 		>
 			<span class="role-indicator">
 				{node.role === 'user' ? '● User' : '◆ Assistant'}
@@ -209,13 +246,6 @@
 				onclick={(e) => {
 					e.stopPropagation();
 					engine.toggleCollapse(node.id);
-				}}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') {
-						e.preventDefault();
-						e.stopPropagation();
-						engine.toggleCollapse(node.id);
-					}
 				}}
 				aria-label={isCollapsed ? 'Expand subtree' : 'Collapse subtree'}
 				aria-expanded={!isCollapsed}
@@ -279,7 +309,6 @@
 				class="thought-pill"
 				class:thinking={thoughtChild.content === 'Thinking...'}
 				onclick={() => (isThoughtExpanded = !isThoughtExpanded)}
-				onkeydown={(e) => e.key === 'Enter' && (isThoughtExpanded = !isThoughtExpanded)}
 			>
 				<span class="thought-pill-icon" aria-hidden="true">
 					<Ghost />
@@ -302,7 +331,6 @@
 										type="button"
 										class="thought-step-row"
 										onclick={() => toggleStepExpand(i)}
-										onkeydown={(e) => e.key === 'Enter' && toggleStepExpand(i)}
 									>
 										{#if inProgress}
 											<span class="thought-spinner"></span>

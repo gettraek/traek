@@ -525,4 +525,100 @@ describe('ReplayController', () => {
 		expect(ctrl.currentIndex).toBe(1);
 		vi.useRealTimers();
 	});
+
+	it('should keep the same engine instance across seekTo and reset', () => {
+		expect.assertions(4);
+		const ctrl = new ReplayController(snapshot);
+		const engine = ctrl.getEngine();
+
+		ctrl.seekTo(2);
+		expect(ctrl.getEngine()).toBe(engine);
+		expect(engine.nodes).toHaveLength(3);
+
+		ctrl.seekTo(0);
+		expect(ctrl.getEngine()).toBe(engine);
+
+		ctrl.reset();
+		expect(ctrl.getEngine()).toBe(engine);
+	});
+
+	it('should reflect seekTo mutations through an external engine reference', () => {
+		expect.assertions(3);
+		const ctrl = new ReplayController(snapshot);
+		// Consumer grabs the engine once (e.g. passed to a canvas component)
+		const engine = ctrl.getEngine();
+
+		ctrl.seekTo(1);
+		expect(engine.nodes).toHaveLength(2);
+
+		ctrl.seekTo(2);
+		expect(engine.nodes).toHaveLength(3);
+
+		ctrl.reset();
+		expect(engine.nodes).toHaveLength(0);
+	});
+
+	it('should seek forward and backward repeatedly without duplicating nodes', () => {
+		expect.assertions(4);
+		const ctrl = new ReplayController(snapshot);
+
+		ctrl.seekTo(2);
+		ctrl.seekTo(0);
+		ctrl.seekTo(2);
+		expect(ctrl.getEngine().nodes).toHaveLength(3);
+		expect(ctrl.currentIndex).toBe(2);
+
+		ctrl.seekTo(1);
+		expect(ctrl.getEngine().nodes).toHaveLength(2);
+		expect(ctrl.getEngine().activeNodeId).toBe('b');
+	});
+
+	it('should throw on an invalid snapshot in the constructor', () => {
+		expect.assertions(2);
+		expect(() => {
+			new ReplayController({ version: 1, nodes: 'bad' } as unknown as ConversationSnapshot);
+		}).toThrow(/Invalid conversation snapshot/);
+		expect(() => {
+			new ReplayController({
+				version: 99,
+				createdAt: 1,
+				activeNodeId: null,
+				nodes: []
+			} as unknown as ConversationSnapshot);
+		}).toThrow(/Invalid conversation snapshot/);
+	});
+
+	it('should accept legacy parentId snapshots via schema normalization', () => {
+		expect.assertions(2);
+		const legacySnapshot = {
+			version: 1,
+			createdAt: Date.now(),
+			activeNodeId: null,
+			nodes: [
+				{
+					id: 'n1',
+					parentId: null,
+					content: 'Root',
+					role: 'user',
+					type: 'text',
+					createdAt: 1000,
+					metadata: { x: 0, y: 0 }
+				},
+				{
+					id: 'n2',
+					parentId: 'n1',
+					content: 'Child',
+					role: 'assistant',
+					type: 'text',
+					createdAt: 2000,
+					metadata: { x: 0, y: 0 }
+				}
+			]
+		} as unknown as ConversationSnapshot;
+
+		const ctrl = new ReplayController(legacySnapshot);
+		ctrl.seekTo(1);
+		expect(ctrl.getEngine().nodes).toHaveLength(2);
+		expect(ctrl.getEngine().nodes[1].parentIds).toEqual(['n1']);
+	});
 });

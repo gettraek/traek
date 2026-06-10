@@ -715,7 +715,13 @@ export class ConversationStore {
 		try {
 			const raw = localStorage.getItem(LS_LIST_KEY);
 			if (!raw) return [];
-			return JSON.parse(raw) as ConversationListItem[];
+			const parsed: unknown = JSON.parse(raw);
+			if (!Array.isArray(parsed)) return [];
+			// Validate per entry; drop corrupt items instead of failing the list
+			return parsed
+				.map((entry) => conversationListItemSchema.safeParse(entry))
+				.filter((result) => result.success)
+				.map((result) => result.data);
 		} catch {
 			return [];
 		}

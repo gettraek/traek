@@ -122,13 +122,15 @@
 	}
 </script>
 
-<!-- SVG defs for gradients (userSpaceOnUse so vertical lines get a valid gradient) -->
+<!-- SVG defs for gradients (userSpaceOnUse so vertical lines get a valid gradient).
+     Mirrors the visibility/collapsed filtering of the path loop below so we only
+     emit gradients for connections that are actually rendered. -->
 <defs>
 	{#each nodes as node (node.id)}
-		{#if node.parentIds.length > 0 && node.type !== 'thought'}
+		{#if node.parentIds.length > 0 && node.type !== 'thought' && !(collapsedCache.get(node.id) ?? false)}
 			{#each node.parentIds as pid (pid)}
 				{@const parent = nodeMap.get(pid)}
-				{#if parent}
+				{#if parent && (visibleNodeIds.has(node.id) || visibleNodeIds.has(pid))}
 					{@const gradientId = `gradient-${pid}-${node.id}`}
 					{@const parentColor = getRoleColor(parent.role)}
 					{@const childColor = getRoleColor(node.role)}
@@ -233,7 +235,7 @@
 							const ctm = svg.getScreenCTM();
 							if (!ctm) return;
 							const svgPt = pt.matrixTransform(ctm.inverse());
-							hoverPos = { x: svgPt.x - 25000, y: svgPt.y - 25000 };
+							hoverPos = { x: svgPt.x - SVG_ORIGIN_OFFSET, y: svgPt.y - SVG_ORIGIN_OFFSET };
 						}}
 						onmouseleave={() => {
 							hoveredConnection = null;

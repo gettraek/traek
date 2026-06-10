@@ -5,12 +5,15 @@
 		actions,
 		filter,
 		onSelect,
-		onDismiss
+		onDismiss,
+		activeOptionId = $bindable(undefined)
 	}: {
 		actions: ActionDefinition[];
 		filter: string;
 		onSelect: (id: string) => void;
 		onDismiss: () => void;
+		/** Bindable DOM id of the active option, for aria-activedescendant on the textarea. */
+		activeOptionId?: string | undefined;
 	} = $props();
 
 	let activeIndex = $state(0);
@@ -26,6 +29,12 @@
 		// Track filtered to trigger effect on change
 		void filtered;
 		activeIndex = 0;
+	});
+
+	// Expose the active option id for combobox wiring on the input
+	$effect(() => {
+		const active = filtered[activeIndex];
+		activeOptionId = active ? `traek-slash-option-${active.id}` : undefined;
 	});
 
 	function handleKeydown(e: KeyboardEvent): void {
@@ -50,12 +59,13 @@
 </script>
 
 {#if filtered.length > 0}
-	<div class="slash-dropdown" role="listbox">
+	<div class="slash-dropdown" role="listbox" id="traek-slash-listbox">
 		{#each filtered as action, i (action.id)}
 			<button
 				type="button"
 				class="slash-item"
 				class:active={i === activeIndex}
+				id="traek-slash-option-{action.id}"
 				role="option"
 				aria-selected={i === activeIndex}
 				onclick={() => onSelect(action.id)}

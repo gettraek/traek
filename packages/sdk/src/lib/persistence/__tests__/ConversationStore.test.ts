@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ConversationStore } from '../ConversationStore.svelte';
 import type { ConversationSnapshot } from '../types';
 
@@ -272,6 +272,248 @@ describe('ConversationStore', () => {
 			await store.init();
 
 			expect(store.saveState).toBe('idle');
+		});
+	});
+
+	describe('init memoization', () => {
+		it('should return the same promise for concurrent init calls', () => {
+			const store = new ConversationStore();
+			const first = store.init();
+			const second = store.init();
+			expect(first).toBe(second);
+		});
+
+		it('should allow re-init after destroy', async () => {
+			const store = new ConversationStore();
+			await store.init();
+			store.destroy();
+			expect(store.isReady).toBe(false);
+			await store.init();
+			expect(store.isReady).toBe(true);
+		});
+	});
+
+	describe('localStorage list pruning on delete', () => {
+		it('should remove the deleted conversation from the list key', async () => {
+			const store = new ConversationStore();
+			await store.init();
+
+			const id = await store.create('To delete');
+			const listBefore = JSON.parse(localStorage.getItem('traek-conversations-list') ?? '[]');
+			expect(listBefore.some((c: { id: string }) => c.id === id)).toBe(true);
+
+			await store.delete(id);
+
+			const listAfter = JSON.parse(localStorage.getItem('traek-conversations-list') ?? '[]');
+			expect(listAfter.some((c: { id: string }) => c.id === id)).toBe(false);
+		});
+	});
+
+	describe('maxConversations enforcement', () => {
+		it('should prune the oldest conversations beyond the maximum', async () => {
+			// Monotonic clock so updatedAt ordering is deterministic
+			let now = 1_000_000;
+			const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => ++now);
+
+			const store = new ConversationStore({ maxConversations: 2 });
+			await store.init();
+
+			const first = await store.create('First');
+			await store.create('Second');
+			await store.create('Third');
+
+			nowSpy.mockRestore();
+
+			expect(store.conversations).toHaveLength(2);
+			expect(await store.load(first)).toBeNull();
+			const titles = store.conversations.map((c) => c.title).sort();
+			expect(titles).toEqual(['Second', 'Third']);
+		});
+	});
+
+	describe('unsupported snapshot versions', () => {
+		it('should throw UnsupportedSnapshotVersionError for future versions', async () => {
+			const store = new ConversationStore();
+			await store.init();
+
+			localStorage.setItem(
+				'traek-conv-future',
+				JSON.stringify({
+					id: 'future',
+					title: 'Future',
+					createdAt: 1,
+					updatedAt: 1,
+					snapshot: { version: 99, createdAt: 1, activeNodeId: null, nodes: [] }
+				})
+			);
+
+			await expect(store.load('future')).rejects.toMatchObject({
+				name: 'UnsupportedSnapshotVersionError',
+				version: 99
+			});
+		});
+
+		it('should return null for corrupt records (not a version issue)', async () => {
+			const store = new ConversationStore();
+			await store.init();
+
+			localStorage.setItem(
+				'traek-conv-corrupt',
+				JSON.stringify({ id: 'corrupt', snapshot: { version: 1, nodes: 'not-an-array' } })
+			);
+
+			const loaded = await store.load('corrupt');
+			expect(loaded).toBeNull();
+		});
+	});
+
+	describe('invalid records in list reads', () => {
+		it('should skip invalid stored conversations instead of throwing', async () => {
+			localStorage.setItem('traek-conv-bad', JSON.stringify({ totally: 'wrong' }));
+			localStorage.setItem('traek-conv-worse', '{not even json');
+
+			const store = new ConversationStore();
+			await store.init();
+			const id = await store.create('Valid');
+
+			const list = await store.listAll();
+			expect(list).toHaveLength(1);
+			expect(list[0].id).toBe(id);
+		});
+	});
+
+	describe('legacy migration', () => {
+		it('should migrate valid entries, skip invalid ones and keep the list key on failure', async () => {
+			const legacyValid = {
+				id: 'legacy-1',
+				title: 'Legacy One',
+				createdAt: 1000,
+				updatedAt: 2000,
+				nodes: [
+					{
+						id: 'n1',
+						parentIds: [],
+						content: 'old message',
+						role: 'user',
+						type: 'text',
+						metadata: { x: 0, y: 0 }
+					}
+				],
+				activeNodeId: 'n1'
+			};
+
+			localStorage.setItem(
+				'traek-demo-conversations',
+				JSON.stringify([
+					{ id: 'legacy-1', title: 'Legacy One', updatedAt: 2000 },
+					{ id: 'legacy-2', title: 'Legacy Two', updatedAt: 3000 }
+				])
+			);
+			localStorage.setItem('traek-demo-conv-legacy-1', JSON.stringify(legacyValid));
+			localStorage.setItem('traek-demo-conv-legacy-2', JSON.stringify({ nope: true }));
+
+			const store = new ConversationStore();
+			await store.init();
+
+			// Valid entry migrated and its legacy key removed
+			const migrated = await store.load('legacy-1');
+			expect(migrated?.nodes).toHaveLength(1);
+			expect(migrated?.nodes[0].content).toBe('old message');
+			expect(localStorage.getItem('traek-demo-conv-legacy-1')).toBeNull();
+
+			// Invalid entry skipped, list key retained for a later retry
+			expect(localStorage.getItem('traek-demo-conversations')).not.toBeNull();
+		});
+
+		it('should remove the legacy list key when all entries migrate', async () => {
+			const legacyValid = {
+				id: 'legacy-ok',
+				title: 'Legacy OK',
+				createdAt: 1000,
+				updatedAt: 2000,
+				nodes: [],
+				activeNodeId: null
+			};
+
+			localStorage.setItem(
+				'traek-demo-conversations',
+				JSON.stringify([{ id: 'legacy-ok', title: 'Legacy OK', updatedAt: 2000 }])
+			);
+			localStorage.setItem('traek-demo-conv-legacy-ok', JSON.stringify(legacyValid));
+
+			const store = new ConversationStore();
+			await store.init();
+
+			expect(localStorage.getItem('traek-demo-conversations')).toBeNull();
+			expect(await store.load('legacy-ok')).not.toBeNull();
+		});
+	});
+
+	describe('quota errors', () => {
+		it('should reject save() when localStorage write fails', async () => {
+			const store = new ConversationStore();
+			await store.init();
+			const id = await store.create('Quota victim');
+
+			const originalSetItem = localStorageMock.setItem;
+			localStorageMock.setItem = () => {
+				throw new DOMException('quota exceeded', 'QuotaExceededError');
+			};
+
+			const snapshot: ConversationSnapshot = {
+				version: 1,
+				createdAt: Date.now(),
+				title: 'Quota victim',
+				activeNodeId: null,
+				nodes: []
+			};
+
+			await expect(store.save(id, snapshot)).rejects.toThrow(/quota/i);
+			localStorageMock.setItem = originalSetItem;
+		});
+	});
+
+	describe('serialized writes', () => {
+		it('should apply concurrent save and rename without losing either', async () => {
+			const store = new ConversationStore();
+			await store.init();
+			const id = await store.create('Race');
+
+			const snapshot: ConversationSnapshot = {
+				version: 1,
+				createdAt: Date.now(),
+				title: 'Race',
+				activeNodeId: null,
+				nodes: [
+					{
+						id: 'n1',
+						parentIds: [],
+						content: 'racing',
+						role: 'user',
+						type: 'text',
+						createdAt: Date.now(),
+						metadata: { x: 0, y: 0 }
+					}
+				]
+			};
+
+			await Promise.all([store.save(id, snapshot), store.rename(id, 'Renamed')]);
+
+			const loaded = await store.load(id);
+			expect(loaded?.nodes).toHaveLength(1);
+			expect(store.conversations[0].title).toBe('Renamed');
+		});
+
+		it('should keep the write chain alive after a rejected write', async () => {
+			const store = new ConversationStore();
+			await store.init();
+
+			await expect(store.rename('missing-id', 'nope')).rejects.toThrow(/not found/);
+
+			// Subsequent writes still work
+			const id = await store.create('After failure');
+			expect(id).toBeTruthy();
+			expect(store.conversations.some((c) => c.title === 'After failure')).toBe(true);
 		});
 	});
 });

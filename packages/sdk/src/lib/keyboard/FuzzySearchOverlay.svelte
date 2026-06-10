@@ -2,6 +2,7 @@
 	import type { TraekEngine } from '../TraekEngine.svelte';
 	import type { MessageNode } from '../TraekEngine.svelte';
 	import { getTraekI18n } from '../i18n/index';
+	import { focusTrap } from '../a11y/focusTrap';
 
 	const t = getTraekI18n();
 
@@ -17,7 +18,6 @@
 
 	let searchQuery = $state('');
 	let selectedIndex = $state(0);
-	let inputRef: HTMLInputElement | null = $state(null);
 
 	// Fuzzy matching function
 	function fuzzyMatch(text: string, query: string): boolean {
@@ -58,11 +58,10 @@
 		selectedIndex = 0;
 	});
 
-	// Auto-focus input
+	// Keep the selected option visible in the scrollable results list
 	$effect(() => {
-		if (inputRef) {
-			inputRef.focus();
-		}
+		const el = document.getElementById(`traek-fuzzy-option-${selectedIndex}`);
+		el?.scrollIntoView({ block: 'nearest' });
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -106,24 +105,36 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="fuzzy-search-overlay" role="dialog" aria-modal="true" aria-labelledby="fuzzy-title">
+<div
+	class="fuzzy-search-overlay"
+	role="dialog"
+	aria-modal="true"
+	aria-label={t.fuzzySearch.ariaLabel}
+>
 	<div class="fuzzy-backdrop" onclick={handleBackdropClick}></div>
-	<div class="fuzzy-content">
+	<div class="fuzzy-content" use:focusTrap>
 		<div class="fuzzy-header">
 			<input
-				bind:this={inputRef}
 				type="text"
 				bind:value={searchQuery}
 				placeholder={t.fuzzySearch.placeholder}
 				class="fuzzy-input"
 				aria-label={t.fuzzySearch.ariaLabel}
+				role="combobox"
+				aria-expanded={filteredNodes.length > 0}
+				aria-controls="traek-fuzzy-results"
+				aria-activedescendant={filteredNodes[selectedIndex]
+					? `traek-fuzzy-option-${selectedIndex}`
+					: undefined}
+				aria-autocomplete="list"
+				data-autofocus
 			/>
-			<div class="fuzzy-count">
+			<div class="fuzzy-count" role="status">
 				{t.fuzzySearch.resultCount(filteredNodes.length)}
 			</div>
 		</div>
 
-		<div class="fuzzy-results" role="listbox">
+		<div class="fuzzy-results" role="listbox" id="traek-fuzzy-results">
 			{#each filteredNodes as node, index (node.id)}
 				{@const messageNode = node as MessageNode}
 				{@const isSelected = index === selectedIndex}
@@ -131,6 +142,7 @@
 				<div
 					class="fuzzy-result"
 					class:selected={isSelected}
+					id="traek-fuzzy-option-{index}"
 					role="option"
 					aria-selected={isSelected}
 					tabindex="-1"

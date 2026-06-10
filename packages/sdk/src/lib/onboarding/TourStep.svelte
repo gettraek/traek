@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { getTraekI18n } from '../i18n/index';
 	import { focusTrap } from '../a11y/focusTrap';
 
@@ -31,10 +32,7 @@
 	let cutoutRect = $state<DOMRect | null>(null);
 	let tooltipStyle = $state('');
 
-	// Recompute target + cutout whenever the step (selector/position) changes
-	$effect(() => {
-		void currentStep;
-		void position;
+	function updateCutout() {
 		if (targetSelector) {
 			targetEl = document.querySelector(targetSelector);
 			cutoutRect = targetEl ? targetEl.getBoundingClientRect() : null;
@@ -42,13 +40,22 @@
 			targetEl = null;
 			cutoutRect = null;
 		}
-		calculateTooltipPosition();
+	}
+
+	// Recompute target + cutout whenever the step (selector/position) changes
+	$effect(() => {
+		void currentStep;
+		void position;
+		void targetSelector;
+		void tooltipEl;
+		untrack(() => {
+			updateCutout();
+			calculateTooltipPosition();
+		});
 	});
 
 	function handleResize() {
-		if (targetSelector && targetEl) {
-			cutoutRect = targetEl.getBoundingClientRect();
-		}
+		updateCutout();
 		calculateTooltipPosition();
 	}
 
@@ -94,6 +101,16 @@
 		if (e.key === 'Escape') {
 			onSkip();
 		} else if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+			// Let buttons inside the tooltip (Back/Skip/Next) handle Enter/Space themselves,
+			// otherwise activating them would also advance the tour.
+			if (
+				(e.key === 'Enter' || e.key === ' ') &&
+				e.target instanceof HTMLElement &&
+				tooltipEl?.contains(e.target) &&
+				e.target.closest('button')
+			) {
+				return;
+			}
 			e.preventDefault();
 			onNext();
 		} else if (e.key === 'ArrowLeft') {
@@ -103,7 +120,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onresize={handleResize} />
 
 <div class="tour-step-overlay" role="dialog" aria-modal="true" aria-labelledby="tour-step-title">
 	<!-- Backdrop with cutout -->
@@ -147,7 +164,7 @@
 	{/if}
 
 	<!-- Tooltip -->
-	<div bind:this={tooltipEl} class="tour-tooltip" style={tooltipStyle}>
+	<div bind:this={tooltipEl} class="tour-tooltip" style={tooltipStyle} use:focusTrap>
 		<button class="tour-skip-button" onclick={onSkip} aria-label={t.tour.skipAriaLabel}>
 			{t.tour.skip}
 		</button>
@@ -175,7 +192,7 @@
 						>{t.tour.back}</button
 					>
 				{/if}
-				<button class="tour-button tour-button-primary" onclick={onNext}>
+				<button class="tour-button tour-button-primary" onclick={onNext} data-autofocus>
 					{currentStep < totalSteps - 1 ? t.tour.next : t.tour.letsGo}
 				</button>
 			</div>

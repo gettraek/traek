@@ -5,6 +5,9 @@
 	 */
 
 	import type { TraekEngine, Node, MessageNode } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -16,7 +19,7 @@
 		onNavigate: (nodeId: string) => void;
 	} = $props();
 
-	const breadcrumbPath = $derived(() => {
+	const breadcrumbPath = $derived.by(() => {
 		if (!currentNodeId) return [];
 		const path: Node[] = [];
 		let node: Node | null | undefined = engine.getNode(currentNodeId);
@@ -34,27 +37,27 @@
 	const maxVisibleCrumbs = 3;
 </script>
 
-<div class="breadcrumbs" class:expanded={isExpanded}>
-	{#if breadcrumbPath().length > 0}
+<nav class="breadcrumbs" class:expanded={isExpanded}>
+	{#if breadcrumbPath.length > 0}
 		<div class="breadcrumb-container">
-			{#each breadcrumbPath() as node, i (i)}
-				{@const isLast = i === breadcrumbPath().length - 1}
+			{#each breadcrumbPath as node, i (node.id)}
+				{@const isLast = i === breadcrumbPath.length - 1}
 				{@const isHidden =
 					!isExpanded &&
-					breadcrumbPath().length > maxVisibleCrumbs &&
-					i < breadcrumbPath().length - maxVisibleCrumbs}
+					breadcrumbPath.length > maxVisibleCrumbs &&
+					i < breadcrumbPath.length - maxVisibleCrumbs}
 
 				{#if i > 0 && !isHidden}
 					<span class="separator" aria-hidden="true">›</span>
 				{/if}
 
-				{#if i === 0 && breadcrumbPath().length > maxVisibleCrumbs && !isExpanded}
+				{#if i === 0 && breadcrumbPath.length > maxVisibleCrumbs && !isExpanded}
 					<button
 						class="expand-button"
 						onclick={() => {
 							isExpanded = true;
 						}}
-						aria-label="Zeige vollständigen Pfad"
+						aria-label={t.breadcrumb.showFullPath}
 					>
 						...
 					</button>
@@ -71,7 +74,7 @@
 					>
 						<span class="role-icon">{node.role === 'user' ? '👤' : '🤖'}</span>
 						<span class="crumb-text">
-							{(node as MessageNode).content?.slice(0, 15) ?? 'Nachricht'}
+							{(node as MessageNode).content?.slice(0, 15) ?? t.breadcrumb.defaultNodeText}
 							{(node as MessageNode).content && (node as MessageNode).content.length > 15
 								? '...'
 								: ''}
@@ -81,7 +84,7 @@
 			{/each}
 		</div>
 	{/if}
-</div>
+</nav>
 
 <style>
 	.breadcrumbs {
@@ -102,7 +105,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		min-height: 32px;
+		min-height: 44px;
 	}
 
 	.breadcrumb-item {
@@ -110,7 +113,7 @@
 		align-items: center;
 		gap: 6px;
 		padding: 6px 10px;
-		min-height: 32px;
+		min-height: 44px;
 		background: transparent;
 		border: none;
 		border-radius: 8px;
@@ -155,7 +158,8 @@
 		color: var(--traek-input-context-text, #888888);
 		font-size: 16px;
 		cursor: pointer;
-		min-height: 32px;
+		min-height: 44px;
+		min-width: 44px;
 		border-radius: 8px;
 		transition: all 0.15s ease;
 	}

@@ -12,6 +12,13 @@ async function makeStore(): Promise<ConversationStore> {
 	return store;
 }
 
+/** Drain the microtask queue so promise-chained saves can settle (no timers involved). */
+async function flushMicrotasks(turns = 20): Promise<void> {
+	for (let i = 0; i < turns; i++) {
+		await Promise.resolve();
+	}
+}
+
 describe('ConversationStore auto-save (jsdom)', () => {
 	beforeEach(() => {
 		localStorage.clear();
@@ -73,10 +80,12 @@ describe('ConversationStore auto-save (jsdom)', () => {
 
 		engine.addNode('about to disable', 'user');
 		flushSync();
+		// Effects re-run on a microtask; drain so the debounced save is scheduled
+		await flushMicrotasks();
 
 		// Debounce has not elapsed — disable must flush instead of dropping
 		store.disableAutoSave();
-		await vi.advanceTimersByTimeAsync(0);
+		await flushMicrotasks();
 
 		const loaded = await store.load(id);
 		expect(loaded?.nodes).toHaveLength(1);
@@ -94,9 +103,10 @@ describe('ConversationStore auto-save (jsdom)', () => {
 
 		engine.addNode('about to destroy', 'user');
 		flushSync();
+		await flushMicrotasks();
 
 		store.destroy();
-		await vi.advanceTimersByTimeAsync(0);
+		await flushMicrotasks();
 
 		const verify = new ConversationStore();
 		await verify.init();
@@ -116,9 +126,10 @@ describe('ConversationStore auto-save (jsdom)', () => {
 
 		engine.addNode('hidden away', 'user');
 		flushSync();
+		await flushMicrotasks();
 
 		window.dispatchEvent(new Event('pagehide'));
-		await vi.advanceTimersByTimeAsync(0);
+		await flushMicrotasks();
 
 		const loaded = await store.load(id);
 		expect(loaded?.nodes).toHaveLength(1);
