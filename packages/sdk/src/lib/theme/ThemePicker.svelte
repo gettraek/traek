@@ -2,6 +2,9 @@
 	import { onMount } from 'svelte';
 	import { useTheme } from './ThemeProvider.svelte';
 	import { themes, type ThemeName, createCustomTheme } from './themes';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	const STORAGE_KEY_THEME = 'traek-selected-theme';
 	const STORAGE_KEY_ACCENT = 'traek-custom-accent';
@@ -64,10 +67,24 @@
 	}
 
 	const themeLabels: Record<ThemeName, string> = {
-		dark: 'Dark',
-		light: 'Light',
-		highContrast: 'High Contrast'
+		dark: t.theme.dark,
+		light: t.theme.light,
+		highContrast: t.theme.highContrast
 	};
+
+	let containerEl = $state<HTMLDivElement | null>(null);
+
+	function handleWindowKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && isOpen) {
+			isOpen = false;
+		}
+	}
+
+	function handleWindowClick(e: MouseEvent) {
+		if (isOpen && containerEl && e.target instanceof Node && !containerEl.contains(e.target)) {
+			isOpen = false;
+		}
+	}
 
 	const themePreviewColors: Record<ThemeName, { bg: string; border: string; accent: string }> = {
 		dark: { bg: '#161616', border: '#2a2a2a', accent: '#00d8ff' },
@@ -76,12 +93,14 @@
 	};
 </script>
 
-<div class="theme-picker" class:compact>
+<svelte:window onkeydown={handleWindowKeydown} onclick={handleWindowClick} />
+
+<div class="theme-picker" class:compact bind:this={containerEl}>
 	<button
 		type="button"
 		class="theme-toggle"
 		onclick={() => (isOpen = !isOpen)}
-		aria-label="Toggle theme picker"
+		aria-label={t.theme.togglePicker}
 		aria-expanded={isOpen}
 	>
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -94,7 +113,7 @@
 			<circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5" />
 		</svg>
 		{#if !compact}
-			<span class="theme-toggle-label">Theme</span>
+			<span class="theme-toggle-label">{t.theme.themeTitle}</span>
 		{/if}
 	</button>
 
@@ -109,7 +128,8 @@
 						class="theme-preview-card"
 						class:selected={selectedThemeName === themeName}
 						onclick={() => selectTheme(themeName)}
-						aria-label="Select {themeLabels[themeName]} theme"
+						aria-label={t.theme.selectTheme(themeLabels[themeName])}
+						aria-pressed={selectedThemeName === themeName}
 					>
 						<div
 							class="theme-preview-sample"
@@ -124,7 +144,7 @@
 			</div>
 
 			<div class="accent-picker">
-				<label for="accent-color" class="accent-label">Accent Color</label>
+				<label for="accent-color" class="accent-label">{t.theme.accentColor}</label>
 				<div class="accent-input-wrapper">
 					<input
 						id="accent-color"

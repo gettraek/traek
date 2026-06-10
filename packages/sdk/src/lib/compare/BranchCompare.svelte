@@ -2,6 +2,10 @@
 	import { fade, fly } from 'svelte/transition';
 	import { wordDiff } from './diffUtils.js';
 	import type { TraekEngine, Node, MessageNode } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+	import { focusTrap } from '../a11y/focusTrap';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -87,13 +91,18 @@
 		aria-modal="true"
 		aria-labelledby="compare-title"
 		tabindex="-1"
+		data-autofocus
+		use:focusTrap
 		transition:fly={{ y: 20, duration: 250 }}
 		onclick={(e) => e.stopPropagation()}
-		onkeydown={(e) => e.stopPropagation()}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') onClose();
+			e.stopPropagation();
+		}}
 	>
 		<div class="compare-header">
-			<h2 id="compare-title" class="compare-title">Compare Branches</h2>
-			<button type="button" class="compare-close" onclick={onClose} aria-label="Close comparison">
+			<h2 id="compare-title" class="compare-title">{t.compare.title}</h2>
+			<button type="button" class="compare-close" onclick={onClose} aria-label={t.compare.close}>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
 					<path
 						d="M5 5L15 15M15 5L5 15"
@@ -108,7 +117,7 @@
 		{#if children.length > 2}
 			<div class="compare-selectors">
 				<label class="compare-selector">
-					<span class="compare-selector-label">Branch A:</span>
+					<span class="compare-selector-label">{t.compare.branchA}:</span>
 					<select bind:value={selectedBranchA} class="compare-select">
 						{#each children as child, i (child.id)}
 							<option value={i} disabled={i === selectedBranchB}>

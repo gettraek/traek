@@ -2,6 +2,9 @@
 	import { slide } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
 	import { PREDEFINED_TAGS } from './tagUtils';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		activeTags = $bindable([]),
@@ -12,6 +15,19 @@
 	} = $props();
 
 	let isExpanded = $state(false);
+	let containerEl = $state<HTMLDivElement | null>(null);
+
+	function handleWindowKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && isExpanded) {
+			isExpanded = false;
+		}
+	}
+
+	function handleWindowClick(e: MouseEvent) {
+		if (isExpanded && containerEl && e.target instanceof Node && !containerEl.contains(e.target)) {
+			isExpanded = false;
+		}
+	}
 
 	function toggleTag(tag: string) {
 		if (activeTags.includes(tag)) {
@@ -28,7 +44,9 @@
 	}
 </script>
 
-<div class="tag-filter">
+<svelte:window onkeydown={handleWindowKeydown} onclick={handleWindowClick} />
+
+<div class="tag-filter" bind:this={containerEl}>
 	<button
 		type="button"
 		class="tag-filter-toggle"
@@ -37,7 +55,7 @@
 		aria-expanded={isExpanded}
 	>
 		<Icon icon="mdi:filter-outline" width="16" height="16" />
-		<span>Filter by Tags</span>
+		<span>{t.tags.filterByTags}</span>
 		{#if activeTags.length > 0}
 			<span class="tag-filter-count">{activeTags.length}</span>
 		{/if}
@@ -57,6 +75,7 @@
 						class:active={isActive}
 						style:--tag-color={config.color}
 						style:--tag-bg={config.bgColor}
+						aria-pressed={isActive}
 						onclick={() => toggleTag(key)}
 					>
 						<span class="tag-filter-check">{isActive ? '✓' : ''}</span>
@@ -68,7 +87,7 @@
 			{#if activeTags.length > 0}
 				<button type="button" class="tag-filter-clear" onclick={clearAll}>
 					<Icon icon="mdi:close-circle-outline" width="14" height="14" />
-					Clear filters
+					{t.tags.clearFilters}
 				</button>
 			{/if}
 		</div>
