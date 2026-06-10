@@ -328,46 +328,42 @@ The traek MCP (Model Context Protocol) server gives AI assistants like Claude Co
 | `get_snippet` | Runnable code snippet for a scenario |
 | `scaffold_page` | Generate a complete SvelteKit page + API route |
 
-### Option 1: Remote MCP (recommended)
+> The MCP server lives in this repo as `@traek/mcp` (`servers/mcp`). It is **not yet published to npm**, so run it from a checkout of this repository (or use the hosted instance once available at `https://mcp.gettraek.com`).
 
-Add to your `.mcp.json` (project root) or `~/.claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "traek": {
-      "type": "url",
-      "url": "https://mcp.gettraek.com"
-    }
-  }
-}
-```
-
-### Option 2: Local via npx
-
-```json
-{
-  "mcpServers": {
-    "traek": {
-      "command": "npx",
-      "args": ["-y", "@gettraek/mcp"]
-    }
-  }
-}
-```
-
-### Option 3: Install locally
+### Option 1: Run from this repo (stdio)
 
 ```bash
-npm install -D @gettraek/mcp
+git clone https://github.com/gettraek/traek.git
+cd traek
+pnpm install
+pnpm --filter @traek/mcp run build
 ```
+
+Then add to your `.mcp.json` (project root) or `~/.claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "traek": {
       "command": "node",
-      "args": ["node_modules/@gettraek/mcp/dist/index.js"]
+      "args": ["/path/to/traek/servers/mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+### Option 2: Docker (Streamable HTTP)
+
+```bash
+docker compose up mcp   # serves Streamable HTTP on port 3010
+```
+
+```json
+{
+  "mcpServers": {
+    "traek": {
+      "type": "url",
+      "url": "http://localhost:3010"
     }
   }
 }

@@ -26,3 +26,8 @@ services:
       - '3010:3010'
     environment:
       - PORT=3010
+      # Bind to all interfaces inside the container; the host port mapping
+      # controls external exposure. Host header validation stays off unless
+      # MCP_ALLOWED_HOSTS is provided.
+      - MCP_HOST=0.0.0.0
+      - MCP_ALLOWED_HOSTS=${MCP_ALLOWED_HOSTS:-}

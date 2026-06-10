@@ -1,7 +1,9 @@
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { getComponentDoc, componentDocs } from '../data/components';
-import { getGuide } from '../data/guides';
-import { getSnippet } from '../data/snippets';
+import { getGuide, listGuides } from '../data/guides';
+import { getSnippet, listSnippets } from '../data/snippets';
 
 function formatComponentAsMarkdown(name: string): string {
 	const doc = getComponentDoc(name);
@@ -67,69 +69,101 @@ function formatComponentAsMarkdown(name: string): string {
 	return lines.join('\n');
 }
 
-export const resourceHandlers = [
-	{
-		name: 'traek-component-docs',
-		uri: new ResourceTemplate('traek://component/{name}', { list: undefined }),
-		handler: async (uri: URL, variables: Record<string, string | string[]>) => {
+export function registerResources(server: McpServer): void {
+	server.registerResource(
+		'traek-component-docs',
+		new ResourceTemplate('traek://component/{name}', { list: undefined }),
+		{
+			title: 'Træk component API reference',
+			description: 'API reference for a traek component or class',
+			mimeType: 'text/markdown'
+		},
+		async (uri, variables) => {
 			const name = String(variables.name);
 			const allNames = Object.keys(componentDocs);
-			const matched = allNames.find((k) => k.toLowerCase() === name.toLowerCase()) ?? name;
-			const content = formatComponentAsMarkdown(matched);
+			const matched = allNames.find((k) => k.toLowerCase() === name.toLowerCase());
+			if (!matched) {
+				throw new McpError(
+					ErrorCode.InvalidParams,
+					`Resource not found: no component docs for "${name}". Available: ${allNames.join(', ')}`
+				);
+			}
 
 			return {
 				contents: [
 					{
 						uri: uri.toString(),
 						mimeType: 'text/markdown',
-						text: content
+						text: formatComponentAsMarkdown(matched)
 					}
 				]
 			};
 		}
-	},
+	);
 
-	{
-		name: 'traek-guide',
-		uri: new ResourceTemplate('traek://guide/{name}', { list: undefined }),
-		handler: async (uri: URL, variables: Record<string, string | string[]>) => {
+	server.registerResource(
+		'traek-guide',
+		new ResourceTemplate('traek://guide/{name}', { list: undefined }),
+		{
+			title: 'Træk integration guide',
+			description: 'Full text of a traek integration guide',
+			mimeType: 'text/markdown'
+		},
+		async (uri, variables) => {
 			const name = String(variables.name);
 			const guide = getGuide(name);
-			const text = guide
-				? guide.content
-				: `Guide "${name}" not found. Available: getting-started, openai-streaming, custom-nodes, persistence, theming, sveltekit-setup`;
+			if (!guide) {
+				const available = listGuides()
+					.map((g) => g.id)
+					.join(', ');
+				throw new McpError(
+					ErrorCode.InvalidParams,
+					`Resource not found: no guide named "${name}". Available: ${available}`
+				);
+			}
 
 			return {
 				contents: [
 					{
 						uri: uri.toString(),
 						mimeType: 'text/markdown',
-						text
+						text: guide.content
 					}
 				]
 			};
 		}
-	},
+	);
 
-	{
-		name: 'traek-snippet',
-		uri: new ResourceTemplate('traek://snippet/{name}', { list: undefined }),
-		handler: async (uri: URL, variables: Record<string, string | string[]>) => {
+	server.registerResource(
+		'traek-snippet',
+		new ResourceTemplate('traek://snippet/{name}', { list: undefined }),
+		{
+			title: 'Træk code snippet',
+			description: 'Runnable code snippet for a traek integration scenario',
+			mimeType: 'text/markdown'
+		},
+		async (uri, variables) => {
 			const name = String(variables.name);
 			const snippet = getSnippet(name);
-			const text = snippet
-				? `# ${snippet.title}\n\n${snippet.description}\n\n\`\`\`${snippet.language}\n${snippet.code}\n\`\`\``
-				: `Snippet "${name}" not found. Run list_snippets to see all available IDs.`;
+			if (!snippet) {
+				const available = listSnippets()
+					.map((s) => s.id)
+					.join(', ');
+				throw new McpError(
+					ErrorCode.InvalidParams,
+					`Resource not found: no snippet named "${name}". Available: ${available}`
+				);
+			}
 
 			return {
 				contents: [
 					{
 						uri: uri.toString(),
 						mimeType: 'text/markdown',
-						text
+						text: `# ${snippet.title}\n\n${snippet.description}\n\n\`\`\`${snippet.language}\n${snippet.code}\n\`\`\``
 					}
 				]
 			};
 		}
-	}
-];
+	);
+}
