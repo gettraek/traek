@@ -651,6 +651,16 @@
 
 		return filterNodeActionsProp ? filterNodeActionsProp(activeNode, filtered) : filtered;
 	});
+
+	// Hoisted count so the template doesn't re-filter the nodes array on every render
+	const nonThoughtNodeCount = $derived.by(() => {
+		if (!engine) return 0;
+		let count = 0;
+		for (const n of engine.nodes) {
+			if (n.type !== 'thought') count += 1;
+		}
+		return count;
+	});
 </script>
 
 {#if engine && viewport}
@@ -720,8 +730,14 @@
 					if (!related) interaction.hoveredNodeId = null;
 				}}
 			>
-				<svg class="connections">
-					<g transform="translate(25000, 25000)">
+				<svg
+					class="connections"
+					style:left="{-SVG_ORIGIN_OFFSET}px"
+					style:top="{-SVG_ORIGIN_OFFSET}px"
+					style:width="{SVG_ORIGIN_OFFSET * 2}px"
+					style:height="{SVG_ORIGIN_OFFSET * 2}px"
+				>
+					<g transform="translate({SVG_ORIGIN_OFFSET}, {SVG_ORIGIN_OFFSET})">
 						{#if interaction}
 							<ConnectionLayer
 								nodes={engine.nodes}
@@ -761,7 +777,7 @@
 				/>
 
 				{#if engine.activeNodeId && activeNodeActions.length > 0}
-					{@const activeNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
+					{@const activeNode = engine.getNode(engine.activeNodeId)}
 					{#if activeNode}
 						{@const step = config.gridStep}
 						<NodeToolbar
@@ -776,7 +792,7 @@
 				{/if}
 
 				{#if lastEditedNodeId}
-					{@const editedNode = engine.nodes.find((n) => n.id === lastEditedNodeId)}
+					{@const editedNode = engine.getNode(lastEditedNodeId)}
 					{#if editedNode}
 						{@const step = config.gridStep}
 						<div
@@ -842,7 +858,7 @@
 				<div class="floating-input-container" transition:fade>
 					{@render inputActions({
 						engine,
-						activeNode: engine.nodes.find((n) => n.id === engine.activeNodeId) ?? null,
+						activeNode: (engine.activeNodeId ? engine.getNode(engine.activeNodeId) : null) ?? null,
 						userInput,
 						setUserInput: (value: string) => (userInput = value),
 						sendMessage,
@@ -873,7 +889,7 @@
 			</div>
 
 			<ZoomControls {viewport} nodes={engine.nodes} {config} />
-			{#if engine.nodes.filter((n) => n.type !== 'thought').length >= minimapMinNodes}
+			{#if nonThoughtNodeCount >= minimapMinNodes}
 				<Minimap {viewport} nodes={engine.nodes} {config} />
 			{/if}
 
@@ -958,11 +974,8 @@
 		}
 
 		.connections {
+			/* left/top/width/height come from SVG_ORIGIN_OFFSET via inline styles */
 			position: absolute;
-			left: -25000px;
-			top: -25000px;
-			width: 50000px;
-			height: 50000px;
 			pointer-events: none;
 			stroke: var(--traek-connection-stroke, #333333);
 			stroke-width: 1.5;
