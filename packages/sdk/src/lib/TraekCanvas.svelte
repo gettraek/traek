@@ -223,9 +223,13 @@
 	let liveRegionMessage = $state('');
 	$effect(() => {
 		if (!engine || resolvedMode !== 'canvas') return;
-		keyboardNavigator = new KeyboardNavigator(engine, (message) => {
-			liveRegionMessage = message;
-		});
+		keyboardNavigator = new KeyboardNavigator(
+			engine,
+			(message) => {
+				liveRegionMessage = message;
+			},
+			t
+		);
 		return () => keyboardNavigator?.destroy();
 	});
 

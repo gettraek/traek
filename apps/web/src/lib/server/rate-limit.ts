@@ -62,6 +62,10 @@ export function checkDailyLimit(
 			Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
 		);
 		const retryAfter = Math.ceil((tomorrow.getTime() - now.getTime()) / 1000);
+		// Refresh recency for blocked keys too — at-limit entries are exactly the
+		// ones the limiter must remember; without this they age out first and reset.
+		store.delete(key);
+		store.set(key, entry);
 		return { allowed: false, retryAfter };
 	}
 
