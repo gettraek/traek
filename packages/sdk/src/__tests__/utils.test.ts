@@ -1,3 +1,10 @@
+/**
+ * @vitest-environment jsdom
+ *
+ * markdownToHtml sanitizes with DOMPurify, which requires a DOM (`window`).
+ * jsdom provides it; in a plain node environment the function falls back to
+ * returning escaped plain text.
+ */
 import { describe, it, expect } from 'vitest';
 import { markdownToHtml } from '../lib/utils';
 
@@ -85,6 +92,29 @@ describe('markdownToHtml', () => {
 		});
 	});
 
+	describe('link hardening', () => {
+		it('should add target="_blank" and rel="noopener noreferrer" to markdown links', () => {
+			expect.assertions(3);
+			const result = markdownToHtml('[example](https://example.com)');
+			expect(result).toContain('href="https://example.com"');
+			expect(result).toContain('target="_blank"');
+			expect(result).toContain('rel="noopener noreferrer"');
+		});
+
+		it('should keep target and rel on raw HTML links instead of stripping them', () => {
+			expect.assertions(2);
+			const result = markdownToHtml('<a href="https://example.com" target="_blank">x</a>');
+			expect(result).toContain('target="_blank"');
+			expect(result).toContain('rel="noopener noreferrer"');
+		});
+
+		it('should not add target to anchors without an href', () => {
+			expect.assertions(1);
+			const result = markdownToHtml('<a name="anchor">x</a>');
+			expect(result).not.toContain('target=');
+		});
+	});
+
 	describe('code blocks', () => {
 		it('should render fenced code blocks with language tag', () => {
 			expect.assertions(2);
@@ -121,34 +151,55 @@ describe('markdownToHtml', () => {
 		});
 	});
 
-	describe('XSS safety', () => {
-		// markdownToHtml does NOT sanitize — it is designed for trusted content only.
-		// These tests document the actual behavior: raw HTML passes through marked.
-		// Consumers must sanitize separately (e.g. with DOMPurify) for untrusted input.
+	describe('XSS sanitization', () => {
+		// markdownToHtml sanitizes its output with DOMPurify, so untrusted content
+		// (LLM-streamed, user-edited, imported) is safe to render via {@html}.
 
-		it('should pass through script tags (not sanitized — trusted content only)', () => {
-			expect.assertions(1);
+		it('should strip script tags', () => {
+			expect.assertions(2);
 			const result = markdownToHtml('<script>alert("xss")</script>');
-			// Documenting that script tags are preserved — callers must sanitize
-			expect(result).toContain('<script>');
+			expect(result).not.toContain('<script');
+			expect(result).not.toContain('alert("xss")');
 		});
 
-		it('should pass through img onerror handlers (not sanitized — trusted content only)', () => {
+		it('should strip img onerror handlers', () => {
 			expect.assertions(1);
-			const result = markdownToHtml('<img onerror="alert(\'xss\')">');
-			expect(result).toContain('onerror');
+			const result = markdownToHtml('<img src="x" onerror="alert(\'xss\')">');
+			expect(result).not.toContain('onerror');
 		});
 
-		it('should pass through javascript: URLs (not sanitized — trusted content only)', () => {
+		it('should neutralize javascript: URLs in markdown links', () => {
+			expect.assertions(2);
+			const result = markdownToHtml('[x](javascript:alert(1))');
+			expect(result).not.toContain('javascript:');
+			expect(result).toContain('x');
+		});
+
+		it('should neutralize javascript: URLs in raw HTML links', () => {
 			expect.assertions(1);
 			const result = markdownToHtml('<a href="javascript:alert(\'xss\')">click</a>');
-			expect(result).toContain('javascript:');
+			expect(result).not.toContain('javascript:');
 		});
 
-		it('should pass through iframe tags (not sanitized — trusted content only)', () => {
+		it('should neutralize data: URLs in links', () => {
+			expect.assertions(1);
+			const result = markdownToHtml(
+				'[x](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)'
+			);
+			expect(result).not.toContain('data:text/html');
+		});
+
+		it('should strip iframe tags', () => {
 			expect.assertions(1);
 			const result = markdownToHtml('<iframe src="evil.com"></iframe>');
-			expect(result).toContain('<iframe');
+			expect(result).not.toContain('<iframe');
+		});
+
+		it('should keep highlight.js classes after sanitization', () => {
+			expect.assertions(2);
+			const result = markdownToHtml('```typescript\nconst x = 1;\n```');
+			expect(result).toContain('class="hljs language-typescript"');
+			expect(result).toContain('hljs-keyword');
 		});
 
 		it('should escape angle brackets inside markdown code spans', () => {
