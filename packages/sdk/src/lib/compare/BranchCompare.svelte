@@ -127,7 +127,7 @@
 					</select>
 				</label>
 				<label class="compare-selector">
-					<span class="compare-selector-label">Branch B:</span>
+					<span class="compare-selector-label">{t.compare.branchB}:</span>
 					<select bind:value={selectedBranchB} class="compare-select">
 						{#each children as child, i (child.id)}
 							<option value={i} disabled={i === selectedBranchA}>
@@ -142,10 +142,10 @@
 		<div class="compare-content">
 			<div class="compare-pane compare-pane--left">
 				<div class="compare-pane-header">
-					Branch A
+					{t.compare.branchA}
 					{#if children[selectedBranchA]}
 						<span class="compare-pane-meta">
-							({branchPathA.length} node{branchPathA.length !== 1 ? 's' : ''})
+							({t.compare.nodeCount(branchPathA.length)})
 						</span>
 					{/if}
 				</div>
@@ -162,10 +162,10 @@
 
 			<div class="compare-pane compare-pane--right">
 				<div class="compare-pane-header">
-					Branch B
+					{t.compare.branchB}
 					{#if children[selectedBranchB]}
 						<span class="compare-pane-meta">
-							({branchPathB.length} node{branchPathB.length !== 1 ? 's' : ''})
+							({t.compare.nodeCount(branchPathB.length)})
 						</span>
 					{/if}
 				</div>
@@ -183,11 +183,11 @@
 			<div class="compare-legend">
 				<span class="compare-legend-item">
 					<span class="compare-legend-swatch compare-legend-swatch--removed"></span>
-					Only in A
+					{t.compare.onlyInA}
 				</span>
 				<span class="compare-legend-item">
 					<span class="compare-legend-swatch compare-legend-swatch--added"></span>
-					Only in B
+					{t.compare.onlyInB}
 				</span>
 			</div>
 		</div>
@@ -395,6 +395,10 @@
 	.diff-segment--added {
 		background: rgba(0, 255, 163, 0.15);
 		color: #99ffcc;
+		/* Non-color cue so added text is distinguishable without color perception */
+		text-decoration: underline;
+		text-decoration-color: rgba(0, 255, 163, 0.6);
+		text-underline-offset: 2px;
 	}
 
 	.compare-divider {

@@ -101,6 +101,12 @@
 		}
 	}
 
+	@media (prefers-reduced-motion: reduce) {
+		.action-badge.suggested {
+			animation: none;
+		}
+	}
+
 	.action-badge:focus-visible {
 		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
 		outline-offset: 2px;

@@ -4,9 +4,9 @@
 	const t = getTraekI18n();
 </script>
 
-<div class="demo-intro-overlay">
+<div class="demo-intro-overlay" role="status" aria-busy="true">
 	<div class="demo-intro-pill">
-		<span class="demo-intro-dot"></span>
+		<span class="demo-intro-dot" aria-hidden="true"></span>
 		<span>{t.loading.preparingCanvas}</span>
 	</div>
 </div>

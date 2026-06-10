@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { TraekEngine, TraekEngineConfig } from '../TraekEngine.svelte';
 	import { fade } from 'svelte/transition';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -42,12 +45,13 @@
 {#if ghostPosition && userInput.trim()}
 	<div
 		class="ghost-preview"
+		aria-hidden="true"
 		transition:fade={{ duration: 200 }}
 		style:left="{ghostPosition.x}px"
 		style:top="{ghostPosition.y}px"
 		style:width="{config.nodeWidth}px"
 	>
-		<div class="ghost-role-tag">user</div>
+		<div class="ghost-role-tag">{t.ghostPreview.userRoleLabel}</div>
 		<div class="ghost-content">
 			{userInput}
 		</div>
