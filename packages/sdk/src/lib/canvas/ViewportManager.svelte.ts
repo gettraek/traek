@@ -41,21 +41,28 @@ export class ViewportManager {
 		this.offset = { x: initialOffset?.x ?? 0, y: initialOffset?.y ?? 0 };
 	}
 
-	/** Clamp pan offset so the nodes' bounding box cannot be panned fully out of view. */
-	clampOffset(nodes: Node[]) {
-		if (!this.viewportEl) return;
-		const laidOut = nodes.filter((n) => n.type !== 'thought');
-		if (laidOut.length === 0) return;
-		const w = this.viewportEl.clientWidth;
-		const h = this.viewportEl.clientHeight;
-		if (w <= 0 || h <= 0) return;
+	/** Compute (or reuse) the bounding box of all non-thought nodes in canvas px. */
+	#getContentBounds(
+		nodes: Node[]
+	): { minX: number; maxX: number; minY: number; maxY: number } | null {
+		if (
+			this.#boundsCache &&
+			this.#boundsCacheNodes === nodes &&
+			this.#boundsCacheLength === nodes.length
+		) {
+			return this.#boundsCache;
+		}
+
 		const defaultH = this.#config.nodeHeightDefault;
+		const step = this.#config.gridStep;
 		let minX = Infinity;
 		let maxX = -Infinity;
 		let minY = Infinity;
 		let maxY = -Infinity;
-		const step = this.#config.gridStep;
-		for (const node of laidOut) {
+		let found = false;
+		for (const node of nodes) {
+			if (node.type === 'thought') continue;
+			found = true;
 			const xPx = (node.metadata?.x ?? 0) * step;
 			const yPx = (node.metadata?.y ?? 0) * step;
 			const nodeH = node.metadata?.height ?? defaultH;
@@ -64,10 +71,37 @@ export class ViewportManager {
 			minY = Math.min(minY, yPx);
 			maxY = Math.max(maxY, yPx + nodeH);
 		}
-		const minOffsetX = -maxX * this.scale;
-		const maxOffsetX = w - minX * this.scale;
-		const minOffsetY = -maxY * this.scale;
-		const maxOffsetY = h - minY * this.scale;
+		if (!found) return null;
+
+		const bounds = { minX, maxX, minY, maxY };
+		this.#boundsCache = bounds;
+		this.#boundsCacheNodes = nodes;
+		this.#boundsCacheLength = nodes.length;
+		// In-place mutations don't change array identity/length, so expire the cache
+		// on the next animation frame (at most one recompute per frame).
+		if (typeof requestAnimationFrame === 'function' && !this.#boundsInvalidateRafId) {
+			this.#boundsInvalidateRafId = requestAnimationFrame(() => {
+				this.#boundsInvalidateRafId = 0;
+				this.#boundsCache = null;
+				this.#boundsCacheNodes = null;
+				this.#boundsCacheLength = -1;
+			});
+		}
+		return bounds;
+	}
+
+	/** Clamp pan offset so the nodes' bounding box cannot be panned fully out of view. */
+	clampOffset(nodes: Node[]) {
+		if (!this.viewportEl) return;
+		const w = this.viewportEl.clientWidth;
+		const h = this.viewportEl.clientHeight;
+		if (w <= 0 || h <= 0) return;
+		const bounds = this.#getContentBounds(nodes);
+		if (!bounds) return;
+		const minOffsetX = -bounds.maxX * this.scale;
+		const maxOffsetX = w - bounds.minX * this.scale;
+		const minOffsetY = -bounds.maxY * this.scale;
+		const maxOffsetY = h - bounds.minY * this.scale;
 		this.offset.x = Math.min(maxOffsetX, Math.max(minOffsetX, this.offset.x));
 		this.offset.y = Math.min(maxOffsetY, Math.max(minOffsetY, this.offset.y));
 	}

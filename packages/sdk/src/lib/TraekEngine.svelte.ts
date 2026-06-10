@@ -615,6 +615,7 @@ export class TraekEngine {
 		const node = this.getNode(nodeId);
 		if (node) {
 			Object.assign(node, updates);
+			this.#bumpVersion();
 		}
 	}
 
@@ -627,6 +628,7 @@ export class TraekEngine {
 		if (Math.abs(currentHeight - height) < this.config.heightChangeThreshold) return;
 
 		node.metadata.height = height;
+		this.#bumpVersion();
 
 		if (this.pendingHeightLayoutRafId == null) {
 			this.pendingHeightLayoutRafId = requestAnimationFrame(() => {

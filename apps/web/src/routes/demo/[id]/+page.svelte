@@ -100,39 +100,45 @@
 	// Initialize store and load conversation
 	onMount(() => {
 		(async () => {
-			await store.init();
+			try {
+				await store.init();
 
-			const currentId = id;
-			if (!currentId) {
-				error = 'No conversation ID provided';
-				return;
-			}
-
-			const loaded = await store.load(currentId);
-
-			if (loaded) {
-				snapshot = loaded;
-				engine = TraekEngine.fromSnapshot(loaded, DEFAULT_TRACK_ENGINE_CONFIG);
-			} else {
-				// Create new conversation
-				const newId = await store.create('New chat');
-				if (newId !== currentId) {
-					// Redirect case: ID mismatch
-					console.warn(`Created ID ${newId} doesn't match requested ${currentId}`);
+				const currentId = id;
+				if (!currentId) {
+					error = 'No conversation ID provided';
+					return;
 				}
-				snapshot = {
-					version: 1,
-					createdAt: Date.now(),
-					title: 'New chat',
-					activeNodeId: null,
-					nodes: []
-				};
-				engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
-			}
 
-			// Enable auto-save
-			if (engine) {
-				store.enableAutoSave(engine, currentId);
+				let conversationId = currentId;
+				const loaded = await store.load(currentId);
+
+				if (loaded) {
+					snapshot = loaded;
+					engine = TraekEngine.fromSnapshot(loaded, DEFAULT_TRACK_ENGINE_CONFIG);
+				} else {
+					// Unknown ID: create a new conversation and move to its canonical URL
+					const newId = await store.create('New chat');
+					conversationId = newId;
+					if (newId !== currentId) {
+						await goto(resolve('/demo/[id]', { id: newId }), { replaceState: true });
+					}
+					snapshot = {
+						version: 1,
+						createdAt: Date.now(),
+						title: 'New chat',
+						activeNodeId: null,
+						nodes: []
+					};
+					engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
+				}
+
+				// Enable auto-save
+				if (engine) {
+					store.enableAutoSave(engine, conversationId);
+				}
+			} catch (e) {
+				console.error('Failed to initialize conversation', e);
+				error = e instanceof Error ? e.message : 'Failed to load conversation';
 			}
 		})();
 
@@ -446,9 +452,7 @@
 
 {#if error}
 	<p class="error">{error}</p>
-{/if}
-
-{#if engine}
+{:else if engine}
 	<div class="chat-layout">
 		<HeaderBar backHref={resolve('/demo')} {store} />
 		<div class="canvas-wrap">
