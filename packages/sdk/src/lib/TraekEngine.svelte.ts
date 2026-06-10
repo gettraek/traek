@@ -607,6 +607,23 @@ export class TraekEngine {
 		}
 	}
 
+	/**
+	 * Re-layout a single subtree using the cached layout path (one childrenMap build plus
+	 * memoized subtree sizes) instead of the uncached recursive layoutChildren. Used by the
+	 * hot drag/position methods where layout runs on every pointer move.
+	 */
+	private layoutSubtreeCached(parentId: string): void {
+		if (!this.nodeIndexMap.has(parentId)) return;
+		const childrenMap = this.buildChildrenMap();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const subtreeHeightCache = new Map<string, number>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const subtreeWidthCache = new Map<string, number>();
+		this.fillSubtreeHeightCache(parentId, childrenMap, subtreeHeightCache);
+		this.fillSubtreeWidthCache(parentId, childrenMap, subtreeWidthCache);
+		this.layoutChildrenWithCache(parentId, childrenMap, subtreeHeightCache, subtreeWidthCache);
+	}
+
 	clearPendingFocus() {
 		this.pendingFocusNodeId = null;
 	}
@@ -786,6 +803,7 @@ export class TraekEngine {
 		}
 
 		this.flushLayoutFromRoot();
+		this.#bumpVersion();
 
 		const count = toDelete.size;
 		this.onNodeDeleted?.(count, () => this.restoreDeleted());
@@ -795,7 +813,7 @@ export class TraekEngine {
 	private storeDeletedBuffer(nodes: Node[]): void {
 		clearTimeout(this.deleteUndoTimeoutId);
 		this.lastDeletedBuffer = {
-			nodes: nodes.map((n) => structuredClone($state.snapshot(n))),
+			nodes: nodes.map((n) => $state.snapshot(n)),
 			activeNodeId: this.activeNodeId,
 			timestamp: Date.now()
 		};
@@ -827,6 +845,7 @@ export class TraekEngine {
 		}
 
 		this.flushLayoutFromRoot();
+		this.#bumpVersion();
 		return true;
 	}
 
@@ -878,6 +897,7 @@ export class TraekEngine {
 
 		this.nodes.push(newNode);
 		this.syncMapsAfterPush(newNode);
+		this.#bumpVersion();
 		this.activeNodeId = newNode.id;
 		this.onNodeCreated?.(newNode);
 
@@ -898,7 +918,8 @@ export class TraekEngine {
 		node.metadata.x = (node.metadata.x ?? 0) + dx / step;
 		node.metadata.y = (node.metadata.y ?? 0) + dy / step;
 		node.metadata.manualPosition = true;
-		this.layoutChildren(nodeId);
+		this.#bumpVersion();
+		this.layoutSubtreeCached(nodeId);
 	}
 
 	/**
@@ -922,7 +943,8 @@ export class TraekEngine {
 		node.metadata.x = xGrid;
 		node.metadata.y = yGrid;
 		node.metadata.manualPosition = true;
-		this.layoutChildren(nodeId);
+		this.#bumpVersion();
+		this.layoutSubtreeCached(nodeId);
 	}
 
 	/** Snap a node's position to integer grid (e.g. on drop). Re-layouts subtree. */
@@ -932,7 +954,8 @@ export class TraekEngine {
 		if (!node.metadata) node.metadata = { x: 0, y: 0 };
 		node.metadata.x = Math.round(node.metadata.x ?? 0);
 		node.metadata.y = Math.round(node.metadata.y ?? 0);
-		this.layoutChildren(nodeId);
+		this.#bumpVersion();
+		this.layoutSubtreeCached(nodeId);
 	}
 
 	/** Subtree width in grid units: width of the horizontal row of children. */
@@ -1073,14 +1096,41 @@ export class TraekEngine {
 	/** Get the maximum depth across all leaf nodes. -1 for empty tree. */
 	getMaxDepth(): number {
 		if (this.nodes.length === 0) return -1;
+		// Single pass with memoized depths: each node's depth along the primary-parent
+		// chain is computed at most once, so the whole call is O(nodes) instead of
+		// O(nodes × depth). Max over all non-thought nodes equals max over leaves.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const depthCache = new Map<string, number>();
 		let max = 0;
 		for (const node of this.nodes) {
 			if (node.type === 'thought') continue;
-			const children = this.getChildren(node.id).filter((c) => c.type !== 'thought');
-			if (children.length === 0) {
-				const d = this.getDepth(node.id);
-				if (d > max) max = d;
+			// Walk up until we hit a cached depth, the root, or a cycle.
+			const chain: string[] = [];
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const onChain = new Set<string>();
+			let current: Node | undefined = node;
+			let startDepth = 0;
+			while (current) {
+				const cached = depthCache.get(current.id);
+				if (cached !== undefined) {
+					startDepth = cached + 1;
+					break;
+				}
+				if (onChain.has(current.id)) {
+					console.warn(`Cycle detected in getMaxDepth from node ${node.id}`);
+					break;
+				}
+				onChain.add(current.id);
+				chain.push(current.id);
+				const primaryParentId: string | undefined = current.parentIds[0];
+				current = primaryParentId ? this.getNode(primaryParentId) : undefined;
 			}
+			// Assign depths from the top of the walked chain back down to this node.
+			for (let i = chain.length - 1; i >= 0; i--) {
+				depthCache.set(chain[i], startDepth + (chain.length - 1 - i));
+			}
+			const d = depthCache.get(node.id) ?? 0;
+			if (d > max) max = d;
 		}
 		return max;
 	}
@@ -1119,6 +1169,7 @@ export class TraekEngine {
 
 	branchFrom(nodeId: string) {
 		this.activeNodeId = nodeId;
+		this.#bumpVersion();
 	}
 
 	/** Toggle collapse state of a node. When collapsed, descendants are hidden. */
@@ -1143,8 +1194,8 @@ export class TraekEngine {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const hidden = new Set<string>();
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
+		for (let qi = 0; qi < queue.length; qi++) {
+			const currentId = queue[qi];
 			const children = this.getChildren(currentId);
 			for (const child of children) {
 				if (!hidden.has(child.id) && child.type !== 'thought') {
@@ -1191,6 +1242,7 @@ export class TraekEngine {
 			this.removeFromChildrenIdMap(childId, oldPrimary);
 			this.addToChildrenIdMap(childId, newPrimary);
 		}
+		this.#bumpVersion();
 		this.flushLayoutFromRoot();
 		return true;
 	}
@@ -1210,6 +1262,7 @@ export class TraekEngine {
 			this.removeFromChildrenIdMap(childId, oldPrimary);
 			this.addToChildrenIdMap(childId, newPrimary);
 		}
+		this.#bumpVersion();
 		this.flushLayoutFromRoot();
 		return true;
 	}
@@ -1231,7 +1284,7 @@ export class TraekEngine {
 		// Find all matching nodes
 		const matches = searchNodesUtil(this.nodes, this.searchQuery);
 		this.searchMatches = matches;
-		this.currentSearchIndex = matches.length > 0 ? 0 : 0;
+		this.currentSearchIndex = 0;
 
 		// Auto-expand collapsed subtrees containing matches
 		for (const matchId of matches) {
@@ -1315,6 +1368,7 @@ export class TraekEngine {
 		const tags = (node.metadata.tags as string[]) ?? [];
 		if (!tags.includes(tag)) {
 			node.metadata.tags = [...tags, tag];
+			this.#bumpVersion();
 		}
 	}
 
@@ -1327,7 +1381,10 @@ export class TraekEngine {
 		if (!node.metadata) return;
 
 		const tags = (node.metadata.tags as string[]) ?? [];
-		node.metadata.tags = tags.filter((t) => t !== tag);
+		if (tags.includes(tag)) {
+			node.metadata.tags = tags.filter((t) => t !== tag);
+			this.#bumpVersion();
+		}
 	}
 
 	/**
