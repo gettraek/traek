@@ -9,16 +9,24 @@ import { env } from '$env/dynamic/private';
 import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit';
 import { z } from 'zod';
 
+const MAX_MESSAGES = 40;
+const MAX_CONTENT_LENGTH = 8000;
+
 const chatRequestSchema = z.object({
 	messages: z
 		.array(
 			z.object({
-				role: z.string(),
-				content: z.string()
+				role: z.enum(['user', 'assistant']),
+				content: z.string().max(MAX_CONTENT_LENGTH)
 			})
 		)
 		.min(1)
+		.max(MAX_MESSAGES)
 });
+
+// Server-controlled system prompt; client-supplied system messages are rejected by the schema.
+const SYSTEM_PROMPT =
+	'You are the Træk demo assistant, a helpful AI inside a spatial, tree-structured conversation canvas. Answer concisely and use markdown where it helps.';
 
 const DEFAULT_DAILY_LIMIT = dev ? 1000 : 50;
 
@@ -29,29 +37,6 @@ export async function POST({ request, getClientAddress }) {
 			status: 500,
 			headers: { 'Content-Type': 'application/json' }
 		});
-	}
-
-	pruneOldEntries();
-	const ip = getClientAddress();
-	const limit = Math.max(
-		1,
-		parseInt(env.CHAT_DAILY_LIMIT_PER_IP ?? String(DEFAULT_DAILY_LIMIT), 10) || DEFAULT_DAILY_LIMIT
-	);
-	const rate = checkDailyLimit(ip, limit);
-	if (!rate.allowed) {
-		return new Response(
-			JSON.stringify({
-				error: 'Daily request limit reached',
-				retryAfter: rate.retryAfter
-			}),
-			{
-				status: 429,
-				headers: {
-					'Content-Type': 'application/json',
-					'Retry-After': String(rate.retryAfter)
-				}
-			}
-		);
 	}
 
 	let raw: unknown;
@@ -73,6 +58,29 @@ export async function POST({ request, getClientAddress }) {
 	}
 	const { messages } = parsed.data;
 
+	pruneOldEntries();
+	const ip = getClientAddress();
+	const limit = Math.max(
+		1,
+		parseInt(env.CHAT_DAILY_LIMIT_PER_IP ?? String(DEFAULT_DAILY_LIMIT), 10) || DEFAULT_DAILY_LIMIT
+	);
+	const rate = checkDailyLimit('chat', ip, limit);
+	if (!rate.allowed) {
+		return new Response(
+			JSON.stringify({
+				error: 'Daily request limit reached',
+				retryAfter: rate.retryAfter
+			}),
+			{
+				status: 429,
+				headers: {
+					'Content-Type': 'application/json',
+					'Retry-After': String(rate.retryAfter)
+				}
+			}
+		);
+	}
+
 	const res = await fetch('https://api.openai.com/v1/chat/completions', {
 		method: 'POST',
 		headers: {
@@ -81,18 +89,20 @@ export async function POST({ request, getClientAddress }) {
 		},
 		body: JSON.stringify({
 			model: 'gpt-5-mini',
-			messages: messages.map((m) => ({
-				role: m.role as 'user' | 'assistant' | 'system',
-				content: String(m.content ?? '')
-			})),
+			messages: [
+				{ role: 'system', content: SYSTEM_PROMPT },
+				...messages.map((m) => ({ role: m.role, content: m.content }))
+			],
 			stream: true
-		})
+		}),
+		signal: request.signal
 	});
 
 	if (!res.ok) {
-		const err = await res.text();
-		return new Response(JSON.stringify({ error: 'OpenAI request failed', detail: err }), {
-			status: res.status,
+		const err = await res.text().catch(() => '');
+		console.error('OpenAI chat request failed', res.status, err);
+		return new Response(JSON.stringify({ error: 'Upstream request failed' }), {
+			status: 502,
 			headers: { 'Content-Type': 'application/json' }
 		});
 	}
@@ -126,9 +136,14 @@ export async function POST({ request, getClientAddress }) {
 						}
 					}
 				}
-			} finally {
 				controller.close();
+			} catch (e) {
+				console.error('OpenAI chat stream error', e);
+				controller.error(e);
 			}
+		},
+		cancel() {
+			reader.cancel().catch(() => {});
 		}
 	});
 

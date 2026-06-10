@@ -1,34 +1,53 @@
 /**
- * In-memory daily rate limiter by IP.
- * Key format: "YYYY-MM-DD:ip". Counts are reset conceptually per calendar day.
+ * In-memory daily rate limiter by namespace + IP.
+ * Key format: "namespace:ip". Counts are reset conceptually per calendar day.
  */
 
 const store = new Map<string, { date: string; count: number }>();
+
+/** Hard cap on tracked entries to bound memory; oldest (insertion order) are evicted first. */
+const MAX_ENTRIES = 50_000;
 
 function today(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
+function setEntry(key: string, entry: { date: string; count: number }): void {
+	if (!store.has(key) && store.size >= MAX_ENTRIES) {
+		// Evict oldest entries (Map preserves insertion order)
+		const excess = store.size - MAX_ENTRIES + 1;
+		let evicted = 0;
+		for (const oldKey of store.keys()) {
+			store.delete(oldKey);
+			evicted += 1;
+			if (evicted >= excess) break;
+		}
+	}
+	store.set(key, entry);
+}
+
 /**
- * Check and consume one request for the given IP.
+ * Check and consume one request for the given namespace + IP.
+ * @param namespace endpoint-specific bucket (e.g. 'chat', 'image') so limits aren't shared
  * @returns { allowed: true } or { allowed: false, retryAfter: number } (seconds until midnight UTC)
  */
 export function checkDailyLimit(
+	namespace: string,
 	ip: string,
 	limit: number
 ): { allowed: true } | { allowed: false; retryAfter: number } {
-	const key = ip;
+	const key = `${namespace}:${ip}`;
 	const todayStr = today();
 	const entry = store.get(key);
 
 	if (!entry) {
-		store.set(key, { date: todayStr, count: 1 });
+		setEntry(key, { date: todayStr, count: 1 });
 		return { allowed: true };
 	}
 
 	// New day: reset count
 	if (entry.date !== todayStr) {
-		store.set(key, { date: todayStr, count: 1 });
+		setEntry(key, { date: todayStr, count: 1 });
 		return { allowed: true };
 	}
 

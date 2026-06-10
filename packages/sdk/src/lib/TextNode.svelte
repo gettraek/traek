@@ -240,6 +240,7 @@
 				bind:this={editTextarea}
 				bind:value={editContent}
 				class="edit-textarea"
+				aria-label={t.nodeActions.edit}
 				onkeydown={(e) => {
 					if (e.key === 'Enter' && !e.shiftKey) {
 						e.preventDefault();
