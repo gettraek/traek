@@ -9,7 +9,7 @@
 	const store = new ConversationStore();
 
 	onMount(() => {
-		store.init();
+		store.init().catch((e) => console.error('Failed to initialize conversation store', e));
 		return () => store.destroy();
 	});
 
