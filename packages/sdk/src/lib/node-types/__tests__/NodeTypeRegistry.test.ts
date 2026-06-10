@@ -36,6 +36,49 @@ describe('NodeTypeRegistry', () => {
 			expect(registry.list()).toHaveLength(1);
 		});
 
+		it('should throw on a definition missing required fields', () => {
+			expect.assertions(2);
+			const registry = new NodeTypeRegistry();
+			expect(() => {
+				registry.register({ type: 'no-label' } as unknown as NodeTypeDefinition);
+			}).toThrow(/Invalid node type definition/);
+			expect(registry.has('no-label')).toBe(false);
+		});
+
+		it('should throw on a definition with wrong field types', () => {
+			expect.assertions(2);
+			const registry = new NodeTypeRegistry();
+			expect(() => {
+				registry.register({
+					type: 'bad',
+					label: 'Bad',
+					onCreate: 'not a function'
+				} as unknown as NodeTypeDefinition);
+			}).toThrow(/Invalid node type definition/);
+			expect(registry.has('bad')).toBe(false);
+		});
+
+		it('should accept a full definition with callbacks and actions', () => {
+			expect.assertions(2);
+			const registry = new NodeTypeRegistry();
+			const def = makeDef({
+				type: 'rich',
+				icon: 'R',
+				selfWrapping: true,
+				defaultSize: { width: 320, minHeight: 80 },
+				validateData: (data: unknown): data is { v: number } =>
+					typeof (data as { v?: unknown })?.v === 'number',
+				serializeData: (data) => data,
+				deserializeData: (raw) => raw,
+				actions: [{ id: 'act', label: 'Act', handler: () => {} }],
+				onCreate: () => {},
+				onDestroy: () => {}
+			});
+			registry.register(def);
+			expect(registry.has('rich')).toBe(true);
+			expect(registry.get('rich')).toBe(def);
+		});
+
 		it('should allow registering multiple distinct types', () => {
 			expect.assertions(3);
 			const registry = new NodeTypeRegistry();

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { ConversationStore } from '../persistence/ConversationStore.svelte.js';
 	import SaveIndicator from '../persistence/SaveIndicator.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	interface Props {
 		backHref: string;
@@ -9,13 +12,18 @@
 		class?: string;
 	}
 
-	let { backHref, backLabel = 'Chats', store, class: className = '' }: Props = $props();
+	let {
+		backHref,
+		backLabel = t.headerBar.backLabel,
+		store,
+		class: className = ''
+	}: Props = $props();
 </script>
 
 <header class="header-bar {className}">
 	<div class="header-content">
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-		<a href={backHref} class="back-button">
+		<a href={backHref} class="back-button" aria-label={backLabel}>
 			<svg
 				class="chevron-icon"
 				width="16"

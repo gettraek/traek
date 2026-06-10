@@ -1,4 +1,5 @@
 import type { NodeTypeDefinition } from './types';
+import { nodeTypeDefinitionSchema } from './schemas';
 
 /**
  * Reactive node type registry backed by a `$state` Map.
@@ -8,9 +9,18 @@ export class NodeTypeRegistry {
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	private map = $state<Map<string, NodeTypeDefinition>>(new Map());
 
-	/** Register a node type definition. Replaces existing if same type. */
+	/**
+	 * Register a node type definition. Replaces existing if same type.
+	 * Validates the definition shape; throws on invalid input.
+	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	register(definition: NodeTypeDefinition<any>): void {
+		const result = nodeTypeDefinitionSchema.safeParse(definition);
+		if (!result.success) {
+			throw new Error(`Invalid node type definition: ${result.error.message}`);
+		}
+		// Store the original object (not the parsed copy) to preserve
+		// component/function identity for === checks by consumers.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const next = new Map(this.map);
 		next.set(definition.type, definition);

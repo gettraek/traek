@@ -4,6 +4,7 @@
 	 */
 
 	import { getTraekI18n } from '../i18n/index';
+	import { focusTrap } from '../a11y/focusTrap';
 
 	const t = getTraekI18n();
 
@@ -29,7 +30,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="keyboard-help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title">
 	<div class="help-backdrop" onclick={handleBackdropClick}></div>
-	<div class="help-content">
+	<div class="help-content" use:focusTrap>
 		<h2 id="help-title">{t.keyboard.title}</h2>
 
 		<div class="shortcuts-section">

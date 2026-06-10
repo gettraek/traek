@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { Node, TraekEngine } from '../TraekEngine.svelte';
-	import { getNodeTags, getTagConfig } from './tagUtils';
+	import { getNodeTags, getTagConfig, getTagLabel } from './tagUtils';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let { node, engine }: { node: Node; engine?: TraekEngine } = $props();
 
@@ -27,10 +30,10 @@
 					e.stopPropagation();
 					handleRemoveTag(tag);
 				}}
-				title="Click to remove tag"
+				title={t.tags.removeTag}
 			>
-				<span class="tag-badge-label">{config.label}</span>
-				<span class="tag-badge-remove">×</span>
+				<span class="tag-badge-label">{getTagLabel(tag, t)}</span>
+				<span class="tag-badge-remove" aria-hidden="true">×</span>
 			</button>
 		{/each}
 	</span>
@@ -46,6 +49,7 @@
 	}
 
 	.tag-badge {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
 		gap: 3px;
@@ -71,6 +75,17 @@
 	.tag-badge:focus-visible {
 		outline: 2px solid var(--traek-input-button-bg, #00d8ff);
 		outline-offset: 2px;
+	}
+
+	/* Invisible hit-area extension so the touch target is at least 32x32px */
+	.tag-badge::after {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: max(100%, 32px);
+		height: max(100%, 32px);
 	}
 
 	.tag-badge-label {

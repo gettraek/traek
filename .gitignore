@@ -36,6 +36,7 @@ storybook-static
 
 # Package manager
 .pnpm-store
+package-lock.json
 
 # App build outputs
 apps/*/dist

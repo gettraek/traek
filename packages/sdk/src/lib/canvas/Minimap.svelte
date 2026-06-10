@@ -2,6 +2,9 @@
 	import type { ViewportManager } from './ViewportManager.svelte';
 	import type { Node } from '../TraekEngine.svelte';
 	import type { TraekEngineConfig } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		viewport,
@@ -105,7 +108,7 @@
 			onmousedown={handleMouseDown}
 			onclick={handleClick}
 			role="img"
-			aria-label="Minimap overview"
+			aria-label={t.minimap.overviewAriaLabel}
 		>
 			<rect class="minimap-bg" x="0" y="0" width={WIDTH} height={HEIGHT} rx="8" />
 
@@ -154,9 +157,9 @@
 	<button
 		class="minimap-toggle"
 		onclick={() => (isExpanded = !isExpanded)}
-		title={isExpanded ? 'Collapse minimap' : 'Expand minimap'}
-		aria-label={isExpanded ? 'Collapse minimap' : 'Expand minimap'}
-		onkeydown={(e) => e.key === 'Enter' && (isExpanded = !isExpanded)}
+		title={isExpanded ? t.minimap.collapse : t.minimap.expand}
+		aria-label={isExpanded ? t.minimap.collapse : t.minimap.expand}
+		aria-expanded={isExpanded}
 	>
 		<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
 			{#if isExpanded}

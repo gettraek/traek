@@ -54,6 +54,37 @@ describe('TraekEngine — additional coverage', () => {
 			expect(restored!.parentIds).toEqual([parent.id]);
 		});
 
+		it('should re-link surviving children when a deleted parent is restored', () => {
+			expect.assertions(4);
+			const engine = new TraekEngine();
+			const parent = engine.addNode('Parent', 'user', { parentIds: [] });
+			const child = engine.addNode('Child', 'assistant', { parentIds: [parent.id] });
+
+			engine.deleteNode(parent.id);
+			// deleteNode strips the deleted id from surviving children
+			expect(child.parentIds).toEqual([]);
+
+			expect(engine.restoreDeleted()).toBe(true);
+			const restoredChild = engine.getNode(child.id)!;
+			expect(restoredChild.parentIds).toContain(parent.id);
+			expect(engine.getChildren(parent.id).map((n) => n.id)).toContain(child.id);
+		});
+
+		it('should re-link stripped secondary parent edges at their original index', () => {
+			expect.assertions(3);
+			const engine = new TraekEngine();
+			const parentA = engine.addNode('Parent A', 'user', { parentIds: [] });
+			const parentB = engine.addNode('Parent B', 'user', { parentIds: [] });
+			const child = engine.addNode('Child', 'assistant', { parentIds: [parentA.id] });
+			expect(engine.addConnection(parentB.id, child.id)).toBe(true);
+
+			engine.deleteNode(parentB.id);
+			expect(engine.getNode(child.id)!.parentIds).toEqual([parentA.id]);
+
+			engine.restoreDeleted();
+			expect(engine.getNode(child.id)!.parentIds).toEqual([parentA.id, parentB.id]);
+		});
+
 		it('should return false when restoreDeleted is called with empty buffer', () => {
 			expect.assertions(1);
 			const engine = new TraekEngine();

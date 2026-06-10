@@ -4,6 +4,10 @@
 	 * Zeigt alle verfügbaren Keyboard-Shortcuts im Focus Mode
 	 */
 
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
+
 	let { onClose }: { onClose: () => void } = $props();
 
 	function handleBackdropClick(e: MouseEvent | KeyboardEvent) {
@@ -26,44 +30,44 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="hints-backdrop" onclick={handleBackdropClick}></div>
 	<div class="hints-content">
-		<h2 id="hints-title">Tastatur-Navigation</h2>
+		<h2 id="hints-title">{t.keyboard.title}</h2>
 
 		<div class="shortcuts-grid">
 			<div class="shortcut">
 				<kbd>↑</kbd>
-				<span>Zum Kind (tiefer)</span>
+				<span>{t.keyboard.navigateToFirstChild}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>↓</kbd>
-				<span>Zum Eltern (zurück)</span>
+				<span>{t.keyboard.navigateToParent}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>←</kbd>
-				<span>Vorherige Alternative</span>
+				<span>{t.keyboard.navigateToPreviousSibling}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>→</kbd>
-				<span>Nächste Alternative</span>
+				<span>{t.keyboard.navigateToNextSibling}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>Home</kbd>
-				<span>Zurück zum Start</span>
+				<span>{t.keyboard.goToRoot}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>i</kbd>
-				<span>Input fokussieren</span>
+				<span>{t.keyboard.switchFocusToInput}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>Esc</kbd>
-				<span>Input verlassen</span>
+				<span>{t.keyboard.leaveInput}</span>
 			</div>
 			<div class="shortcut">
 				<kbd>?</kbd>
-				<span>Diese Hilfe anzeigen</span>
+				<span>{t.keyboard.showHideHelp}</span>
 			</div>
 		</div>
 
-		<button class="close-button" onclick={onClose}>Schließen</button>
+		<button class="close-button" onclick={onClose}>{t.keyboard.close}</button>
 	</div>
 </div>
 

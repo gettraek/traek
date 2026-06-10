@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { ConversationStore } from './ConversationStore.svelte.js';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	interface Props {
 		store: ConversationStore;
@@ -22,7 +25,7 @@
 			>
 				<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" />
 			</svg>
-			<span>Saving...</span>
+			<span>{t.saveIndicator.saving}</span>
 		{:else if saveState === 'saved'}
 			<svg
 				class="icon-check"
@@ -35,7 +38,7 @@
 					fill="currentColor"
 				/>
 			</svg>
-			<span>Saved</span>
+			<span>{t.saveIndicator.saved}</span>
 		{:else if saveState === 'error'}
 			<svg
 				class="icon-error"
@@ -48,7 +51,7 @@
 					fill="currentColor"
 				/>
 			</svg>
-			<span>Save failed</span>
+			<span>{t.saveIndicator.saveFailed}</span>
 		{/if}
 	</div>
 {/if}
@@ -117,5 +120,16 @@
 	span {
 		font-weight: 500;
 		letter-spacing: 0.01em;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.save-indicator {
+			animation: none;
+			transition: none;
+		}
+
+		.spinner {
+			animation: none;
+		}
 	}
 </style>

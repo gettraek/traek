@@ -17,16 +17,30 @@ const openai = new OpenAI()
 export const POST: RequestHandler = async ({ request }) => {
   const { messages } = await request.json()
 
-  const stream = openai.beta.chat.completions.stream({
+  const stream = await openai.chat.completions.create({
     model: 'gpt-4o',
-    messages
+    messages,
+    stream: true
   })
 
-  return new Response(stream.toReadableStream())
+  const encoder = new TextEncoder()
+  const body = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content ?? ''
+        if (delta) controller.enqueue(encoder.encode(delta))
+      }
+      controller.close()
+    }
+  })
+
+  return new Response(body, { headers: { 'Content-Type': 'text/plain' } })
 }
 ```
 
 ## Client Streaming
+
+`TraekCanvas` adds the user node before calling `onSendMessage`, so the handler only creates the assistant node and streams content into it with `updateNode`. The conversation history for the request comes from `engine.contextPath()` — the linear path from the root to the active node.
 
 ```svelte
 <script>
@@ -34,32 +48,48 @@ export const POST: RequestHandler = async ({ request }) => {
 
   const engine = new TraekEngine()
 
-  async function handleSend({ content }) {
-    const userNode = engine.addNode({ role: 'user', content })
-    const assistantNode = engine.addNode({
-      role: 'assistant',
-      content: '',
-      status: 'streaming',
-      parentId: userNode.id
+  async function handleSend(input, userNode) {
+    // userNode is already in the tree; create the assistant node below it
+    const assistantNode = engine.addNode('', 'assistant', {
+      parentIds: [userNode.id]
     })
+    engine.updateNode(assistantNode.id, { status: 'streaming' })
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: engine.getMessages() })
-    })
+    // Build the message history from the path root → user node
+    const messages = engine
+      .contextPath()
+      .filter((n) => n.id !== assistantNode.id)
+      .map((n) => ({ role: n.role, content: n.content ?? '' }))
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages })
+      })
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      engine.appendContent(assistantNode.id, decoder.decode(value))
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let content = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        content += decoder.decode(value, { stream: true })
+        engine.updateNode(assistantNode.id, { content, status: 'streaming' })
+      }
+
+      engine.updateNode(assistantNode.id, { status: 'done' })
+    } catch (err) {
+      engine.updateNode(assistantNode.id, {
+        status: 'error',
+        errorMessage: String(err)
+      })
     }
-
-    engine.updateNode(assistantNode.id, { status: 'done' })
   }
 </script>
 
-<TraekCanvas {engine} onSendMessage={handleSend} />
+<div style="height: 100dvh; width: 100%;">
+  <TraekCanvas {engine} onSendMessage={handleSend} />
+</div>
 ```

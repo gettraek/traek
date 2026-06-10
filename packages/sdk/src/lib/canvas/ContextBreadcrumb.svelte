@@ -17,7 +17,7 @@
 		currentNodeId: string | null;
 	} = $props();
 
-	const breadcrumbPath = $derived(() => {
+	const breadcrumbPath = $derived.by(() => {
 		if (!currentNodeId) return [];
 		const path: Node[] = [];
 		let node: Node | null | undefined = engine.getNode(currentNodeId);
@@ -35,21 +35,21 @@
 	const maxVisibleCrumbs = 4;
 </script>
 
-<div class="breadcrumbs" class:expanded={isExpanded}>
-	{#if breadcrumbPath().length > 0}
+<nav class="breadcrumbs" class:expanded={isExpanded} aria-label={t.breadcrumb.navAriaLabel}>
+	{#if breadcrumbPath.length > 0}
 		<div class="breadcrumb-container">
-			{#each breadcrumbPath() as node, i (i)}
-				{@const isLast = i === breadcrumbPath().length - 1}
+			{#each breadcrumbPath as node, i (node.id)}
+				{@const isLast = i === breadcrumbPath.length - 1}
 				{@const isHidden =
 					!isExpanded &&
-					breadcrumbPath().length > maxVisibleCrumbs &&
-					i < breadcrumbPath().length - maxVisibleCrumbs}
+					breadcrumbPath.length > maxVisibleCrumbs &&
+					i < breadcrumbPath.length - maxVisibleCrumbs}
 
 				{#if i > 0 && !isHidden}
 					<span class="separator" aria-hidden="true">›</span>
 				{/if}
 
-				{#if i === 0 && breadcrumbPath().length > maxVisibleCrumbs && !isExpanded}
+				{#if i === 0 && breadcrumbPath.length > maxVisibleCrumbs && !isExpanded}
 					<button
 						class="expand-button"
 						onclick={() => {
@@ -88,7 +88,7 @@
 			{/each}
 		</div>
 	{/if}
-</div>
+</nav>
 
 <style>
 	.breadcrumbs {

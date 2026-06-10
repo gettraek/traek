@@ -55,8 +55,17 @@ const legacySerializedNodeSchema = z
 /** Accepts both new (parentIds) and legacy (parentId) node formats. Normalizes to parentIds. */
 export const serializedNodeFlexSchema = z.union([serializedNodeSchema, legacySerializedNodeSchema]);
 
+/** The snapshot version this build of the library reads and writes. */
+export const CURRENT_SNAPSHOT_VERSION = 1;
+
+/**
+ * Loose preparse used to detect the snapshot version before full validation,
+ * so unsupported future versions can be surfaced distinctly from corrupt data.
+ */
+export const snapshotVersionProbeSchema = z.looseObject({ version: z.number() });
+
 export const conversationSnapshotSchema = z.object({
-	version: z.literal(1),
+	version: z.literal(CURRENT_SNAPSHOT_VERSION),
 	createdAt: z.number(),
 	title: z.string().optional(),
 	config: z.record(z.string(), z.unknown()).optional(),

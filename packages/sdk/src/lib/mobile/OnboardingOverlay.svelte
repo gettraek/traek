@@ -62,6 +62,12 @@
 		if (e.key === 'Escape') {
 			skip();
 		} else if (e.key === 'Enter' || e.key === ' ') {
+			// Don't swallow activation of focused interactive elements (e.g. the Skip button):
+			// let them handle Enter/Space natively instead of advancing the tutorial.
+			const target = e.target as HTMLElement | null;
+			if (target?.closest('button, a, input, select, textarea, [tabindex]')) {
+				return;
+			}
 			e.preventDefault();
 			nextStep();
 		}

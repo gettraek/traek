@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import {
 		TraekCanvas,
@@ -99,39 +100,45 @@
 	// Initialize store and load conversation
 	onMount(() => {
 		(async () => {
-			await store.init();
+			try {
+				await store.init();
 
-			const currentId = id;
-			if (!currentId) {
-				error = 'No conversation ID provided';
-				return;
-			}
-
-			const loaded = await store.load(currentId);
-
-			if (loaded) {
-				snapshot = loaded;
-				engine = TraekEngine.fromSnapshot(loaded, DEFAULT_TRACK_ENGINE_CONFIG);
-			} else {
-				// Create new conversation
-				const newId = await store.create('New chat');
-				if (newId !== currentId) {
-					// Redirect case: ID mismatch
-					console.warn(`Created ID ${newId} doesn't match requested ${currentId}`);
+				const currentId = id;
+				if (!currentId) {
+					error = 'No conversation ID provided';
+					return;
 				}
-				snapshot = {
-					version: 1,
-					createdAt: Date.now(),
-					title: 'New chat',
-					activeNodeId: null,
-					nodes: []
-				};
-				engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
-			}
 
-			// Enable auto-save
-			if (engine) {
-				store.enableAutoSave(engine, currentId);
+				let conversationId = currentId;
+				const loaded = await store.load(currentId);
+
+				if (loaded) {
+					snapshot = loaded;
+					engine = TraekEngine.fromSnapshot(loaded, DEFAULT_TRACK_ENGINE_CONFIG);
+				} else {
+					// Unknown ID: create a new conversation and move to its canonical URL
+					const newId = await store.create('New chat');
+					conversationId = newId;
+					if (newId !== currentId) {
+						await goto(resolve('/demo/[id]', { id: newId }), { replaceState: true });
+					}
+					snapshot = {
+						version: 1,
+						createdAt: Date.now(),
+						title: 'New chat',
+						activeNodeId: null,
+						nodes: []
+					};
+					engine = new TraekEngine(DEFAULT_TRACK_ENGINE_CONFIG);
+				}
+
+				// Enable auto-save
+				if (engine) {
+					store.enableAutoSave(engine, conversationId);
+				}
+			} catch (e) {
+				console.error('Failed to initialize conversation', e);
+				error = e instanceof Error ? e.message : 'Failed to load conversation';
 			}
 		})();
 
@@ -139,6 +146,21 @@
 			store.destroy();
 		};
 	});
+
+	// Mirror the /api/chat server limits (defense in depth + smaller payloads):
+	// only user/assistant roles, content capped at 8000 chars, last 40 messages.
+	const MAX_CHAT_MESSAGES = 40;
+	const MAX_CHAT_CONTENT_LENGTH = 8000;
+
+	function toChatMessages(path: MessageNode[]): { role: string; content: string }[] {
+		return path
+			.filter((n) => n.role === 'user' || n.role === 'assistant')
+			.map((n) => ({
+				role: n.role,
+				content: (n.content ?? '').trim().slice(0, MAX_CHAT_CONTENT_LENGTH)
+			}))
+			.slice(-MAX_CHAT_MESSAGES);
+	}
 
 	function pathToUserNode(eng: TraekEngine, userNode: MessageNode): MessageNode[] {
 		const path: MessageNode[] = [];
@@ -179,11 +201,7 @@
 
 		// --- Retry path: stream into existing node, no delete; mark dependent nodes outdated ---
 		if (retryNodeId) {
-			const path = pathToUserNode(eng, userNode);
-			const messages = path.map((n) => ({
-				role: n.role,
-				content: (n.content ?? '').trim()
-			}));
+			const messages = toChatMessages(pathToUserNode(eng, userNode));
 
 			const descendants = eng.getDescendants(retryNodeId);
 			for (const desc of descendants) {
@@ -356,11 +374,7 @@
 		// When "exploration" is selected, run the default chat flow 2 times
 		// to create three parallel branches from the same user message.
 		const explorationRuns = selected.includes('exploration') ? 2 : 1;
-		const path = pathToUserNode(eng, userNode);
-		const messages = path.map((n) => ({
-			role: n.role,
-			content: (n.content ?? '').trim()
-		}));
+		const messages = toChatMessages(pathToUserNode(eng, userNode));
 
 		// Create all response + thought nodes up front (so parallel runs don't race on addNode).
 		const branches: { responseNodeId: string; thoughtNodeId: string }[] = [];
@@ -445,9 +459,7 @@
 
 {#if error}
 	<p class="error">{error}</p>
-{/if}
-
-{#if engine}
+{:else if engine}
 	<div class="chat-layout">
 		<HeaderBar backHref={resolve('/demo')} {store} />
 		<div class="canvas-wrap">

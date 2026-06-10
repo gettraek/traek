@@ -10,13 +10,17 @@
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"svelte": "./dist/index.js"
+			"svelte": "./dist/index.js",
+			"default": "./dist/index.js"
 		}
 	},
 	"files": [
 		"dist",
 		"!dist/**/*.test.*",
-		"!dist/**/*.spec.*"
+		"!dist/**/*.spec.*",
+		"!dist/**/*.stories.*",
+		"!dist/stories",
+		"!dist/**/__tests__"
 	],
 	"sideEffects": [
 		"**/*.css"
@@ -79,5 +83,12 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/gettraek/traek.git"
+	},
+	"homepage": "https://github.com/gettraek/traek#readme",
+	"bugs": {
+		"url": "https://github.com/gettraek/traek/issues"
+	},
+	"engines": {
+		"node": ">=20"
 	}
 }

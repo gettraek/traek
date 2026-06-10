@@ -42,12 +42,7 @@
 </script>
 
 <div class="zoom-controls">
-	<button
-		onclick={zoomIn}
-		title={t.zoom.zoomIn}
-		aria-label={t.zoom.zoomIn}
-		onkeydown={(e) => e.key === 'Enter' && zoomIn()}
-	>
+	<button onclick={zoomIn} title={t.zoom.zoomIn} aria-label={t.zoom.zoomIn}>
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
 			<path d="M8 4V12M4 8H12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
 		</svg>
@@ -58,17 +53,11 @@
 		onclick={resetZoom}
 		title={t.zoom.resetZoom}
 		aria-label={t.zoom.resetZoom}
-		onkeydown={(e) => e.key === 'Enter' && resetZoom()}
 	>
 		{Math.round(viewport.scale * 100)}%
 	</button>
 
-	<button
-		onclick={zoomOut}
-		title={t.zoom.zoomOut}
-		aria-label={t.zoom.zoomOut}
-		onkeydown={(e) => e.key === 'Enter' && zoomOut()}
-	>
+	<button onclick={zoomOut} title={t.zoom.zoomOut} aria-label={t.zoom.zoomOut}>
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
 			<path d="M4 8H12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
 		</svg>
@@ -81,7 +70,6 @@
 		title={t.zoom.fitAllNodes}
 		aria-label={t.zoom.fitAllNodes}
 		class="fit-all"
-		onkeydown={(e) => e.key === 'Enter' && fitAll()}
 	>
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
 			<rect

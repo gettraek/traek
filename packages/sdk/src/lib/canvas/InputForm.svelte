@@ -28,24 +28,30 @@
 		onSubmit: () => void;
 		slashDropdownRef?: SlashCommandDropdown | null;
 	} = $props();
+
+	let slashActiveOptionId = $state<string | undefined>(undefined);
+	const slashOpen = $derived(resolver !== null && resolver.slashFilter !== null);
+	// O(1) map-based lookups instead of per-render nodes.find/filter; engine.version
+	// tracks structural mutations so the count stays reactive.
+	const activeChildCount = $derived.by(() => {
+		void engine.version;
+		const activeId = engine.activeNodeId;
+		if (!activeId || !engine.getNode(activeId)) return 0;
+		return engine.getChildren(activeId).filter((n) => n.type !== 'thought').length;
+	});
 </script>
 
 <div class="floating-input-container" transition:fade>
 	{#if branchCelebration}
-		<div class="branch-celebration" transition:fade>
-			<span class="celebration-icon">🌿</span>
+		<div class="branch-celebration" transition:fade role="status">
+			<span class="celebration-icon" aria-hidden="true">🌿</span>
 			{branchCelebration}
 		</div>
 	{/if}
 	<div class="context-info">
 		{#if engine.activeNodeId}
-			{@const ctxNode = engine.nodes.find((n) => n.id === engine.activeNodeId)}
-			{@const childCount = ctxNode
-				? engine.nodes.filter((n) => n.parentIds.includes(ctxNode.id) && n.type !== 'thought')
-						.length
-				: 0}
 			<span class="dot"></span>
-			{#if childCount > 0}
+			{#if activeChildCount > 0}
 				{t.input.branchingFromSelected}
 			{:else}
 				{t.input.replyingToSelected}
@@ -73,6 +79,7 @@
 		{#if resolver && actions && resolver.slashFilter !== null}
 			<SlashCommandDropdown
 				bind:this={slashDropdownRef}
+				bind:activeOptionId={slashActiveOptionId}
 				{actions}
 				filter={resolver.slashFilter}
 				onSelect={(id) => {
@@ -88,6 +95,12 @@
 		<textarea
 			bind:value={userInput}
 			placeholder={t.input.placeholder}
+			aria-label={t.input.messageAriaLabel}
+			role={slashOpen ? 'combobox' : undefined}
+			aria-expanded={slashOpen ? true : undefined}
+			aria-controls={slashOpen ? 'traek-slash-listbox' : undefined}
+			aria-activedescendant={slashOpen ? slashActiveOptionId : undefined}
+			aria-autocomplete={slashOpen ? 'list' : undefined}
 			spellcheck="false"
 			rows="1"
 			oninput={(e) => {

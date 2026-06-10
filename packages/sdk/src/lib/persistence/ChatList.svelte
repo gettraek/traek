@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { ConversationStore } from './ConversationStore.svelte.js';
 	import type { ConversationListItem } from './types.js';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	interface Props {
 		store: ConversationStore;
@@ -13,6 +16,11 @@
 	const conversations = $derived(store.conversations);
 	let editingId = $state<string | null>(null);
 	let editingTitle = $state('');
+
+	// Two-step delete confirmation (replaces blocking native confirm())
+	let pendingDeleteId = $state<string | null>(null);
+	let pendingDeleteTimer: ReturnType<typeof setTimeout> | null = null;
+	const DELETE_CONFIRM_TIMEOUT = 4000;
 
 	// Group conversations by date
 	const grouped = $derived.by(() => {
@@ -42,30 +50,39 @@
 	});
 
 	function handleSelect(id: string) {
-		if (editingId === id) return; // Don't select while editing
 		onSelect(id);
 	}
 
-	function handleKeydown(id: string, event: KeyboardEvent) {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			handleSelect(id);
+	function resetPendingDelete() {
+		if (pendingDeleteTimer) {
+			clearTimeout(pendingDeleteTimer);
+			pendingDeleteTimer = null;
 		}
+		pendingDeleteId = null;
 	}
 
-	function handleDelete(id: string, event: Event) {
-		event.stopPropagation();
-
-		const conv = conversations.find((c) => c.id === id);
-		const confirmed = confirm(`Delete "${conv?.title ?? 'this conversation'}"?`);
-
-		if (confirmed) {
-			store.delete(id);
+	function handleDelete(id: string) {
+		if (pendingDeleteId === id) {
+			resetPendingDelete();
+			store.delete(id).catch((err) => {
+				console.error('[ChatList] Failed to delete conversation:', err);
+				// Re-sync so the list reflects actual storage state after the failure
+				store.listAll().catch(() => {});
+			});
+			return;
 		}
+
+		// First press: arm confirmation, auto-reset after timeout
+		if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
+		pendingDeleteId = id;
+		pendingDeleteTimer = setTimeout(() => {
+			pendingDeleteId = null;
+			pendingDeleteTimer = null;
+		}, DELETE_CONFIRM_TIMEOUT);
 	}
 
-	function startEdit(id: string, currentTitle: string, event: Event) {
-		event.stopPropagation();
+	function startEdit(id: string, currentTitle: string) {
+		resetPendingDelete();
 		editingId = id;
 		editingTitle = currentTitle;
 	}
@@ -90,314 +107,106 @@
 		const hour = 60 * minute;
 		const day = 24 * hour;
 
-		if (diff < minute) return 'Just now';
-		if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
-		if (diff < day) return `${Math.floor(diff / hour)}h ago`;
-		if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`;
+		if (diff < minute) return t.chatList.justNow;
+		if (diff < hour) return t.chatList.minutesAgo(Math.floor(diff / minute));
+		if (diff < day) return t.chatList.hoursAgo(Math.floor(diff / hour));
+		if (diff < 7 * day) return t.chatList.daysAgo(Math.floor(diff / day));
 
 		return new Date(timestamp).toLocaleDateString();
 	}
 </script>
 
+{#snippet dateGroup(title: string, items: ConversationListItem[])}
+	{#if items.length > 0}
+		<div class="group">
+			<h3 class="group-title">{title}</h3>
+			{#each items as conv (conv.id)}
+				<div class="item">
+					{#if editingId === conv.id}
+						<input
+							type="text"
+							class="edit-input"
+							aria-label={t.chatList.rename}
+							bind:value={editingTitle}
+							onblur={saveEdit}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') saveEdit();
+								if (e.key === 'Escape') cancelEdit();
+							}}
+						/>
+					{:else}
+						<button type="button" class="item-select" onclick={() => handleSelect(conv.id)}>
+							<span class="item-title">{conv.title}</span>
+							<span class="item-meta">
+								<span>{t.chatList.nodeCount(conv.nodeCount)}</span>
+								<span class="meta-sep">·</span>
+								<span>{formatRelativeTime(conv.updatedAt)}</span>
+							</span>
+							{#if conv.preview}
+								<span class="item-preview">{conv.preview}</span>
+							{/if}
+						</button>
+						<div class="item-actions">
+							<button
+								type="button"
+								class="action-btn"
+								title={t.chatList.rename}
+								aria-label={t.chatList.rename}
+								onclick={() => startEdit(conv.id, conv.title)}
+							>
+								<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+									<path
+										d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
+										fill="currentColor"
+									/>
+								</svg>
+							</button>
+							<button
+								type="button"
+								class="action-btn delete"
+								class:confirm={pendingDeleteId === conv.id}
+								title={pendingDeleteId === conv.id
+									? t.chatList.deleteConfirm(conv.title || t.chatList.untitledFallback)
+									: t.chatList.delete}
+								aria-label={pendingDeleteId === conv.id
+									? t.chatList.deleteConfirm(conv.title || t.chatList.untitledFallback)
+									: t.chatList.delete}
+								onclick={() => handleDelete(conv.id)}
+								onblur={() => {
+									if (pendingDeleteId === conv.id) resetPendingDelete();
+								}}
+							>
+								<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+									<path
+										d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
+										fill="currentColor"
+									/>
+									<path
+										d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
+										fill="currentColor"
+									/>
+								</svg>
+							</button>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	{/if}
+{/snippet}
+
 <div class="chat-list {className}">
 	<div class="list">
 		{#if conversations.length === 0}
 			<div class="empty">
-				<p>No conversations yet.</p>
-				<p class="empty-hint">Start your first chat!</p>
+				<p>{t.chatList.emptyState}</p>
+				<p class="empty-hint">{t.chatList.emptyStateHint}</p>
 			</div>
 		{:else}
-			{#if grouped.today.length > 0}
-				<div class="group">
-					<h3 class="group-title">Today</h3>
-					{#each grouped.today as conv (conv.id)}
-						<div
-							class="item"
-							role="button"
-							tabindex="0"
-							onclick={() => handleSelect(conv.id)}
-							onkeydown={(e) => handleKeydown(conv.id, e)}
-						>
-							{#if editingId === conv.id}
-								<input
-									type="text"
-									class="edit-input"
-									bind:value={editingTitle}
-									onblur={saveEdit}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') saveEdit();
-										if (e.key === 'Escape') cancelEdit();
-									}}
-									onclick={(e) => e.stopPropagation()}
-								/>
-							{:else}
-								<div class="item-content">
-									<div class="item-title">{conv.title}</div>
-									<div class="item-meta">
-										<span>{conv.nodeCount} {conv.nodeCount === 1 ? 'node' : 'nodes'}</span>
-										<span class="meta-sep">·</span>
-										<span>{formatRelativeTime(conv.updatedAt)}</span>
-									</div>
-									{#if conv.preview}
-										<div class="item-preview">{conv.preview}</div>
-									{/if}
-								</div>
-								<div class="item-actions">
-									<button
-										type="button"
-										class="action-btn"
-										title="Rename"
-										onclick={(e) => startEdit(conv.id, conv.title, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-									<button
-										type="button"
-										class="action-btn delete"
-										title="Delete"
-										onclick={(e) => handleDelete(conv.id, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-												fill="currentColor"
-											/>
-											<path
-												d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-
-			{#if grouped.yesterday.length > 0}
-				<div class="group">
-					<h3 class="group-title">Yesterday</h3>
-					{#each grouped.yesterday as conv (conv.id)}
-						<div
-							class="item"
-							role="button"
-							tabindex="0"
-							onclick={() => handleSelect(conv.id)}
-							onkeydown={(e) => handleKeydown(conv.id, e)}
-						>
-							{#if editingId === conv.id}
-								<input
-									type="text"
-									class="edit-input"
-									bind:value={editingTitle}
-									onblur={saveEdit}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') saveEdit();
-										if (e.key === 'Escape') cancelEdit();
-									}}
-									onclick={(e) => e.stopPropagation()}
-								/>
-							{:else}
-								<div class="item-content">
-									<div class="item-title">{conv.title}</div>
-									<div class="item-meta">
-										<span>{conv.nodeCount} {conv.nodeCount === 1 ? 'node' : 'nodes'}</span>
-										<span class="meta-sep">·</span>
-										<span>{formatRelativeTime(conv.updatedAt)}</span>
-									</div>
-									{#if conv.preview}
-										<div class="item-preview">{conv.preview}</div>
-									{/if}
-								</div>
-								<div class="item-actions">
-									<button
-										type="button"
-										class="action-btn"
-										title="Rename"
-										onclick={(e) => startEdit(conv.id, conv.title, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-									<button
-										type="button"
-										class="action-btn delete"
-										title="Delete"
-										onclick={(e) => handleDelete(conv.id, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-												fill="currentColor"
-											/>
-											<path
-												d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-
-			{#if grouped.lastWeek.length > 0}
-				<div class="group">
-					<h3 class="group-title">Last 7 days</h3>
-					{#each grouped.lastWeek as conv (conv.id)}
-						<div
-							class="item"
-							role="button"
-							tabindex="0"
-							onclick={() => handleSelect(conv.id)}
-							onkeydown={(e) => handleKeydown(conv.id, e)}
-						>
-							{#if editingId === conv.id}
-								<input
-									type="text"
-									class="edit-input"
-									bind:value={editingTitle}
-									onblur={saveEdit}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') saveEdit();
-										if (e.key === 'Escape') cancelEdit();
-									}}
-									onclick={(e) => e.stopPropagation()}
-								/>
-							{:else}
-								<div class="item-content">
-									<div class="item-title">{conv.title}</div>
-									<div class="item-meta">
-										<span>{conv.nodeCount} {conv.nodeCount === 1 ? 'node' : 'nodes'}</span>
-										<span class="meta-sep">·</span>
-										<span>{formatRelativeTime(conv.updatedAt)}</span>
-									</div>
-									{#if conv.preview}
-										<div class="item-preview">{conv.preview}</div>
-									{/if}
-								</div>
-								<div class="item-actions">
-									<button
-										type="button"
-										class="action-btn"
-										title="Rename"
-										onclick={(e) => startEdit(conv.id, conv.title, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-									<button
-										type="button"
-										class="action-btn delete"
-										title="Delete"
-										onclick={(e) => handleDelete(conv.id, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-												fill="currentColor"
-											/>
-											<path
-												d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-
-			{#if grouped.older.length > 0}
-				<div class="group">
-					<h3 class="group-title">Older</h3>
-					{#each grouped.older as conv (conv.id)}
-						<div
-							class="item"
-							role="button"
-							tabindex="0"
-							onclick={() => handleSelect(conv.id)}
-							onkeydown={(e) => handleKeydown(conv.id, e)}
-						>
-							{#if editingId === conv.id}
-								<input
-									type="text"
-									class="edit-input"
-									bind:value={editingTitle}
-									onblur={saveEdit}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') saveEdit();
-										if (e.key === 'Escape') cancelEdit();
-									}}
-									onclick={(e) => e.stopPropagation()}
-								/>
-							{:else}
-								<div class="item-content">
-									<div class="item-title">{conv.title}</div>
-									<div class="item-meta">
-										<span>{conv.nodeCount} {conv.nodeCount === 1 ? 'node' : 'nodes'}</span>
-										<span class="meta-sep">·</span>
-										<span>{formatRelativeTime(conv.updatedAt)}</span>
-									</div>
-									{#if conv.preview}
-										<div class="item-preview">{conv.preview}</div>
-									{/if}
-								</div>
-								<div class="item-actions">
-									<button
-										type="button"
-										class="action-btn"
-										title="Rename"
-										onclick={(e) => startEdit(conv.id, conv.title, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-									<button
-										type="button"
-										class="action-btn delete"
-										title="Delete"
-										onclick={(e) => handleDelete(conv.id, e)}
-									>
-										<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-											<path
-												d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-												fill="currentColor"
-											/>
-											<path
-												d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-												fill="currentColor"
-											/>
-										</svg>
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
+			{@render dateGroup(t.chatList.today, grouped.today)}
+			{@render dateGroup(t.chatList.yesterday, grouped.yesterday)}
+			{@render dateGroup(t.chatList.last7Days, grouped.lastWeek)}
+			{@render dateGroup(t.chatList.older, grouped.older)}
 		{/if}
 	</div>
 </div>
@@ -410,40 +219,6 @@
 		background: var(--traek-chatlist-bg, #0b0b0b);
 		color: var(--traek-chatlist-text, #e4e4e7);
 		font-family: system-ui, sans-serif;
-	}
-
-	.header {
-		padding: 1rem;
-		border-bottom: 1px solid var(--traek-chatlist-border, rgba(255, 255, 255, 0.1));
-	}
-
-	.new-chat {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		width: 100%;
-		padding: 0.65rem 1rem;
-		background: var(--traek-chatlist-new-bg, rgba(255, 255, 255, 0.1));
-		color: var(--traek-chatlist-new-text, #fafafa);
-		border: 1px solid var(--traek-chatlist-new-border, rgba(255, 255, 255, 0.15));
-		border-radius: 0.375rem;
-		cursor: pointer;
-		font-size: 0.9rem;
-		font-weight: 600;
-		transition:
-			background 0.15s,
-			border-color 0.15s;
-	}
-
-	.new-chat:hover {
-		background: var(--traek-chatlist-new-bg-hover, rgba(255, 255, 255, 0.16));
-		border-color: var(--traek-chatlist-new-border-hover, rgba(255, 255, 255, 0.22));
-	}
-
-	.new-chat svg {
-		width: 1rem;
-		height: 1rem;
 	}
 
 	.list {
@@ -489,7 +264,6 @@
 		background: var(--traek-chatlist-item-bg, rgba(24, 24, 27, 0.6));
 		border: 1px solid var(--traek-chatlist-item-border, rgba(255, 255, 255, 0.08));
 		border-radius: 0.375rem;
-		cursor: pointer;
 		transition:
 			background 0.15s,
 			border-color 0.15s;
@@ -500,13 +274,24 @@
 		border-color: var(--traek-chatlist-item-border-hover, rgba(255, 255, 255, 0.14));
 	}
 
-	.item:hover .item-actions {
+	.item:hover .item-actions,
+	.item:focus-within .item-actions {
 		opacity: 1;
 	}
 
-	.item-content {
+	.item-select {
 		flex: 1;
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		padding: 0;
+		background: transparent;
+		border: none;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
 	}
 
 	.item-title {
@@ -569,7 +354,8 @@
 		color: var(--traek-chatlist-action-text-hover, #fafafa);
 	}
 
-	.action-btn.delete:hover {
+	.action-btn.delete:hover,
+	.action-btn.delete.confirm {
 		background: var(--traek-chatlist-delete-bg-hover, rgba(239, 68, 68, 0.2));
 		color: var(--traek-chatlist-delete-text-hover, #f87171);
 	}

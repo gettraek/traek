@@ -2,6 +2,10 @@
 	import { fade, fly } from 'svelte/transition';
 	import { wordDiff } from './diffUtils.js';
 	import type { TraekEngine, Node, MessageNode } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+	import { focusTrap } from '../a11y/focusTrap';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -87,13 +91,18 @@
 		aria-modal="true"
 		aria-labelledby="compare-title"
 		tabindex="-1"
+		data-autofocus
+		use:focusTrap
 		transition:fly={{ y: 20, duration: 250 }}
 		onclick={(e) => e.stopPropagation()}
-		onkeydown={(e) => e.stopPropagation()}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') onClose();
+			e.stopPropagation();
+		}}
 	>
 		<div class="compare-header">
-			<h2 id="compare-title" class="compare-title">Compare Branches</h2>
-			<button type="button" class="compare-close" onclick={onClose} aria-label="Close comparison">
+			<h2 id="compare-title" class="compare-title">{t.compare.title}</h2>
+			<button type="button" class="compare-close" onclick={onClose} aria-label={t.compare.close}>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
 					<path
 						d="M5 5L15 15M15 5L5 15"
@@ -108,21 +117,21 @@
 		{#if children.length > 2}
 			<div class="compare-selectors">
 				<label class="compare-selector">
-					<span class="compare-selector-label">Branch A:</span>
+					<span class="compare-selector-label">{t.compare.branchA}:</span>
 					<select bind:value={selectedBranchA} class="compare-select">
 						{#each children as child, i (child.id)}
 							<option value={i} disabled={i === selectedBranchB}>
-								Branch {i + 1} ({child.role})
+								{t.compare.branchOption(i + 1, child.role)}
 							</option>
 						{/each}
 					</select>
 				</label>
 				<label class="compare-selector">
-					<span class="compare-selector-label">Branch B:</span>
+					<span class="compare-selector-label">{t.compare.branchB}:</span>
 					<select bind:value={selectedBranchB} class="compare-select">
 						{#each children as child, i (child.id)}
 							<option value={i} disabled={i === selectedBranchA}>
-								Branch {i + 1} ({child.role})
+								{t.compare.branchOption(i + 1, child.role)}
 							</option>
 						{/each}
 					</select>
@@ -133,10 +142,10 @@
 		<div class="compare-content">
 			<div class="compare-pane compare-pane--left">
 				<div class="compare-pane-header">
-					Branch A
+					{t.compare.branchA}
 					{#if children[selectedBranchA]}
 						<span class="compare-pane-meta">
-							({branchPathA.length} node{branchPathA.length !== 1 ? 's' : ''})
+							({t.compare.nodeCount(branchPathA.length)})
 						</span>
 					{/if}
 				</div>
@@ -153,10 +162,10 @@
 
 			<div class="compare-pane compare-pane--right">
 				<div class="compare-pane-header">
-					Branch B
+					{t.compare.branchB}
 					{#if children[selectedBranchB]}
 						<span class="compare-pane-meta">
-							({branchPathB.length} node{branchPathB.length !== 1 ? 's' : ''})
+							({t.compare.nodeCount(branchPathB.length)})
 						</span>
 					{/if}
 				</div>
@@ -174,11 +183,11 @@
 			<div class="compare-legend">
 				<span class="compare-legend-item">
 					<span class="compare-legend-swatch compare-legend-swatch--removed"></span>
-					Only in A
+					{t.compare.onlyInA}
 				</span>
 				<span class="compare-legend-item">
 					<span class="compare-legend-swatch compare-legend-swatch--added"></span>
-					Only in B
+					{t.compare.onlyInB}
 				</span>
 			</div>
 		</div>
@@ -386,6 +395,10 @@
 	.diff-segment--added {
 		background: rgba(0, 255, 163, 0.15);
 		color: #99ffcc;
+		/* Non-color cue so added text is distinguishable without color perception */
+		text-decoration: underline;
+		text-decoration-color: rgba(0, 255, 163, 0.6);
+		text-underline-offset: 2px;
 	}
 
 	.compare-divider {

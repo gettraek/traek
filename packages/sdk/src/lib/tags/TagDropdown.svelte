@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { Node, TraekEngine } from '../TraekEngine.svelte';
-	import { PREDEFINED_TAGS, getNodeTags } from './tagUtils';
+	import { PREDEFINED_TAGS, getNodeTags, getTagLabel } from './tagUtils';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let { node, engine, onClose }: { node: Node; engine: TraekEngine; onClose?: () => void } =
 		$props();
@@ -96,11 +99,11 @@
 		class="tag-dropdown-trigger"
 		bind:this={triggerEl}
 		onclick={toggleDropdown}
-		title="Manage tags"
+		title={t.tags.manageTags}
 		aria-expanded={isOpen}
 	>
-		<span class="tag-icon">🏷️</span>
-		<span>Tags</span>
+		<span class="tag-icon" aria-hidden="true">🏷️</span>
+		<span>{t.tags.tagsTitle}</span>
 		{#if nodeTags.length > 0}
 			<span class="tag-count">{nodeTags.length}</span>
 		{/if}
@@ -108,7 +111,7 @@
 
 	{#if isOpen}
 		<div class="tag-dropdown-panel" style:top="{panelTop}px" style:left="{panelLeft}px" use:portal>
-			<div class="tag-dropdown-header">Add Tags</div>
+			<div class="tag-dropdown-header">{t.tags.addTags}</div>
 
 			<div class="tag-list">
 				{#each Object.entries(PREDEFINED_TAGS) as [key, config] (key)}
@@ -119,10 +122,11 @@
 						class:active={isActive}
 						style:--tag-color={config.color}
 						style:--tag-bg={config.bgColor}
+						aria-pressed={isActive}
 						onclick={() => handleToggleTag(key)}
 					>
 						<span class="tag-item-check">{isActive ? '✓' : ''}</span>
-						<span class="tag-item-label">{config.label}</span>
+						<span class="tag-item-label">{getTagLabel(key, t)}</span>
 					</button>
 				{/each}
 			</div>
@@ -133,7 +137,7 @@
 				<input
 					type="text"
 					class="tag-custom-input"
-					placeholder="Custom tag..."
+					placeholder={t.tags.customTagPlaceholder}
 					bind:value={customTagInput}
 					onkeydown={handleKeydown}
 				/>
@@ -143,7 +147,7 @@
 					onclick={handleAddCustomTag}
 					disabled={!customTagInput.trim()}
 				>
-					Add
+					{t.tags.add}
 				</button>
 			</div>
 		</div>

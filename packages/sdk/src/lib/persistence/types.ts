@@ -30,3 +30,18 @@ export interface ConversationListItem {
  * Current save state of a conversation.
  */
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+/**
+ * Thrown by `ConversationStore.load()` when a stored snapshot declares a
+ * version newer than this build of the library supports. Distinct from
+ * `null` (not found / corrupt) so callers can prompt the user to upgrade.
+ */
+export class UnsupportedSnapshotVersionError extends Error {
+	readonly version: number;
+
+	constructor(version: number) {
+		super(`Unsupported conversation snapshot version: ${version}`);
+		this.name = 'UnsupportedSnapshotVersionError';
+		this.version = version;
+	}
+}

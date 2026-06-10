@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN pnpm exec turbo build --filter=@traek/web... --no-daemon
 RUN pnpm --filter @traek/web deploy --legacy --prod /app/web-deploy
 
 # Production stage
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
@@ -20,8 +20,10 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 
-COPY --from=builder /app/web-deploy/node_modules ./node_modules
-COPY --from=builder /app/apps/web/build ./build
+COPY --from=builder --chown=node:node /app/web-deploy/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/apps/web/build ./build
+
+USER node
 
 EXPOSE 3000
 

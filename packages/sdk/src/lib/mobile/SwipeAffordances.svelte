@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
+
 	let {
 		canSwipeUp = false,
 		canSwipeDown = false,
@@ -52,7 +56,7 @@
 				</svg>
 			</div>
 			{#if showHint}
-				<span class="hint-label">Wische nach oben für mehr</span>
+				<span class="hint-label">{t.swipeAffordances.swipeUpHint}</span>
 			{/if}
 		</div>
 	{/if}
@@ -71,7 +75,7 @@
 				</svg>
 			</div>
 			{#if showHint}
-				<span class="hint-label">Wische nach unten zurück</span>
+				<span class="hint-label">{t.swipeAffordances.swipeDownHint}</span>
 			{/if}
 		</div>
 	{/if}

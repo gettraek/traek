@@ -25,6 +25,9 @@
 		type SwipeDirection
 	} from './focusModeTypes';
 	import { hapticTap, hapticBoundary, hapticSelect } from './haptics';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		engine,
@@ -141,10 +144,10 @@
 
 	function showBoundaryToast(direction: SwipeDirection) {
 		const messages = {
-			up: 'Keine weiteren Antworten',
-			down: 'Du bist am Anfang',
-			left: 'Keine vorherige Alternative',
-			right: 'Keine weitere Alternative'
+			up: t.focusMode.noFurtherReplies,
+			down: t.focusMode.atBeginning,
+			left: t.focusMode.noPreviousAlternative,
+			right: t.focusMode.noNextAlternative
 		};
 
 		// Haptic feedback for boundary
@@ -393,7 +396,7 @@
 	bind:this={containerEl}
 	tabindex="0"
 	role="application"
-	aria-label="Focus Mode Navigation"
+	aria-label={t.focusMode.navigationAriaLabel}
 	onkeydown={handleKeydown}
 	onfocus={() => {
 		if (focusedElement !== 'input') focusedElement = 'content';
@@ -430,7 +433,7 @@
 							<div class="focus-fallback">
 								<div class="focus-fallback-role">{currentNode.role}</div>
 								<div class="focus-fallback-content">
-									{(currentNode as MessageNode).content ?? 'No content'}
+									{(currentNode as MessageNode).content ?? t.focusMode.noContent}
 								</div>
 							</div>
 						{/if}
@@ -438,7 +441,7 @@
 				</div>
 			{:else}
 				<div class="focus-empty">
-					<p>No messages yet. Swipe down or type below to start.</p>
+					<p>{t.focusMode.emptyState}</p>
 				</div>
 			{/if}
 		{/key}
@@ -478,23 +481,23 @@
 	<div class="focus-input-container">
 		<!-- Input Context (Item 2: Clickable mit Toggle) -->
 		{#if currentNode}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
+			<button
+				type="button"
 				class="input-context"
 				class:expanded={contextExpanded}
+				aria-expanded={contextExpanded}
 				onclick={() => {
 					contextExpanded = !contextExpanded;
 				}}
-				title="Klicke um die vollständige Nachricht zu sehen"
+				title={t.focusMode.viewFullMessageTitle}
 			>
-				<span class="context-label">Antwortest auf:</span>
+				<span class="context-label">{t.focusMode.replyingTo}</span>
 				<span class="context-preview">
 					{currentNode.role === 'user' ? '👤' : '🤖'}
 					{#if contextExpanded}
-						{(currentNode as MessageNode).content ?? 'Nachricht'}
+						{(currentNode as MessageNode).content ?? t.focusMode.messageFallback}
 					{:else}
-						{(currentNode as MessageNode).content?.slice(0, 50) ?? 'Nachricht'}
+						{(currentNode as MessageNode).content?.slice(0, 50) ?? t.focusMode.messageFallback}
 						{(currentNode as MessageNode).content &&
 						(currentNode as MessageNode).content.length > 50
 							? '...'
@@ -504,7 +507,7 @@
 				<span class="context-chevron" aria-hidden="true">
 					{contextExpanded ? '▴' : '▾'}
 				</span>
-			</div>
+			</button>
 		{/if}
 
 		<form
@@ -517,7 +520,7 @@
 			<textarea
 				bind:this={textareaEl}
 				bind:value={userInput}
-				placeholder="Type a message..."
+				placeholder={t.focusMode.inputPlaceholder}
 				spellcheck="false"
 				rows="1"
 				oninput={(e) => {
@@ -530,7 +533,7 @@
 					focusedElement = 'input';
 				}}
 			></textarea>
-			<button type="submit" disabled={!userInput.trim()} aria-label="Send message">
+			<button type="submit" disabled={!userInput.trim()} aria-label={t.input.sendAriaLabel}>
 				<svg viewBox="0 0 24 24" width="18" height="18">
 					<path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
 				</svg>
@@ -656,9 +659,14 @@
 		display: flex;
 		align-items: baseline;
 		gap: 8px;
+		width: 100%;
 		padding: 8px 12px;
 		font-size: 13px;
+		font-family: inherit;
+		text-align: left;
 		color: var(--traek-input-context-text, #888888);
+		background: transparent;
+		border: none;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 		cursor: pointer;
 		transition: all 0.3s ease;

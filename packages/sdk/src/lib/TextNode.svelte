@@ -240,6 +240,7 @@
 				bind:this={editTextarea}
 				bind:value={editContent}
 				class="edit-textarea"
+				aria-label={t.nodeActions.edit}
 				onkeydown={(e) => {
 					if (e.key === 'Enter' && !e.shiftKey) {
 						e.preventDefault();
@@ -260,6 +261,12 @@
 		</div>
 	{:else if detailLevel === 'full'}
 		<!-- Full detail: render complete markdown -->
+		<!--
+			Double-click is a mouse-only convenience shortcut for editing user messages.
+			Edit mode is also reachable through the keyboard-accessible node toolbar
+			("Edit" action), so this scroll container intentionally stays a static element.
+		-->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			bind:this={scrollContainer}
 			class="content-area custom-scrollbar"
@@ -383,7 +390,7 @@
 			text-align: center;
 			padding: 4px;
 			background: var(--traek-scroll-hint-bg, linear-gradient(transparent, rgba(0, 0, 0, 0.5)));
-			color: var(--traek-scroll-hint-text, #444444);
+			color: var(--traek-scroll-hint-text, #9a9a9a);
 		}
 
 		.custom-scrollbar {
@@ -407,8 +414,13 @@
 		.typing-cursor {
 			display: inline-block;
 			width: 8px;
-			animation: blink 1s infinite;
 			color: var(--traek-typing-cursor, #ff3e00);
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			.typing-cursor {
+				animation: blink 1s infinite;
+			}
 		}
 
 		:global(.search-highlight) {

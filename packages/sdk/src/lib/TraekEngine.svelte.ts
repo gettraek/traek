@@ -29,9 +29,16 @@ export interface Node {
 }
 
 /** Check whether adding an edge from parentId → childId would create a cycle. */
-export function wouldCreateCycle(nodes: Node[], parentId: string, childId: string): boolean {
+export function wouldCreateCycle(
+	nodes: Node[] | ReadonlyMap<string, Node>,
+	parentId: string,
+	childId: string
+): boolean {
 	// If parentId === childId, it's a self-loop
 	if (parentId === childId) return true;
+	// Build (or reuse) an id → node map so each DFS step is O(1)
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const nodeMap = Array.isArray(nodes) ? new Map(nodes.map((n) => [n.id, n] as const)) : nodes;
 	// DFS from parentId upward: if we reach childId, it would create a cycle
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const visited = new Set<string>();
@@ -41,7 +48,7 @@ export function wouldCreateCycle(nodes: Node[], parentId: string, childId: strin
 		if (current === childId) return true;
 		if (visited.has(current)) continue;
 		visited.add(current);
-		const node = nodes.find((n) => n.id === current);
+		const node = nodeMap.get(current);
 		if (node) {
 			for (const pid of node.parentIds) {
 				stack.push(pid);
@@ -152,15 +159,25 @@ export class TraekEngine {
 	/** Lifecycle callback: fired after node(s) are deleted. Provides count and a restore function for undo. */
 	public onNodeDeleted?: (deletedCount: number, restore: () => void) => void;
 
-	/** Buffer for last deleted nodes, enabling undo. */
+	/** Buffer for last deleted nodes, enabling undo. childEdges records parent links that were
+	 * stripped from surviving children so restoreDeleted() can re-link them. */
 	private lastDeletedBuffer: {
 		nodes: Node[];
+		childEdges: { childId: string; parentId: string; index: number }[];
 		activeNodeId: string | null;
 		timestamp: number;
 	} | null = null;
-	private deleteUndoTimeoutId: ReturnType<typeof setTimeout> = 0 as unknown as ReturnType<
-		typeof setTimeout
-	>;
+	private deleteUndoTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
+	/** Monotonic counter incremented on every mutating operation; lets consumers (e.g. auto-save) track deep mutations cheaply. */
+	#version = $state(0);
+	get version(): number {
+		return this.#version;
+	}
+
+	#bumpVersion(): void {
+		this.#version++;
+	}
 
 	constructor(config?: Partial<TraekEngineConfig>) {
 		this.config = { ...DEFAULT_TRACK_ENGINE_CONFIG, ...config };
@@ -232,7 +249,9 @@ export class TraekEngine {
 
 	// Der "Context Path" - Gibt nur die relevanten Knoten für den aktuellen Branch zurück.
 	// Follows the primary parent (first in parentIds) for a single linear path.
-	contextPath = $derived(() => {
+	// Memoized via $derived.by; external call sites use engine.contextPath(), so the public
+	// API stays a callable function that returns the cached array.
+	private contextPathMemo: Node[] = $derived.by(() => {
 		if (!this.activeNodeId) return [];
 		const path: Node[] = [];
 		let current = this.getNode(this.activeNodeId);
@@ -244,6 +263,8 @@ export class TraekEngine {
 		}
 		return path;
 	});
+
+	contextPath = (): Node[] => this.contextPathMemo;
 
 	/** Set by addNode when options.autofocus is true; canvas should center on this node and then clear. */
 	public pendingFocusNodeId = $state<string | null>(null);
@@ -285,6 +306,7 @@ export class TraekEngine {
 
 		this.nodes.push(newNode);
 		this.syncMapsAfterPush(newNode);
+		this.#bumpVersion();
 		// New node is active unless it's a thought (keep parent/current active so the main new node stays selected)
 		if (options.type !== 'thought') {
 			this.activeNodeId = newNode.id;
@@ -340,6 +362,7 @@ export class TraekEngine {
 
 		this.nodes.push(newNode);
 		this.syncMapsAfterPush(newNode);
+		this.#bumpVersion();
 		// New node is active unless it's a thought (keep parent/current active so the main new node stays selected)
 		if (options.type !== 'thought') {
 			this.activeNodeId = newNode.id;
@@ -375,26 +398,54 @@ export class TraekEngine {
 			id: p.id ?? crypto.randomUUID()
 		}));
 
-		// Topological sort: ensure all parents are added before children
+		// Topological sort (Kahn's algorithm): ensure all parents are added before children.
+		// Payloads colliding with existing engine ids (or duplicated in the batch) are skipped,
+		// matching the previous behavior.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const added = new Set<string>(this.nodes.map((n) => n.id));
-		const sorted: typeof withIds = [];
-		let prevSize = 0;
-		while (sorted.length < withIds.length) {
-			for (const p of withIds) {
-				if (added.has(p.id!)) continue;
-				const allParentsIn = p.parentIds.length === 0 || p.parentIds.every((pid) => added.has(pid));
-				if (allParentsIn) {
-					sorted.push(p);
-					added.add(p.id!);
+		const inBatch = new Map<string, (typeof withIds)[number]>();
+		for (const p of withIds) {
+			if (this.nodeIndexMap.has(p.id!) || inBatch.has(p.id!)) continue;
+			inBatch.set(p.id!, p);
+		}
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const inDegree = new Map<string, number>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const dependents = new Map<string, string[]>();
+		for (const p of inBatch.values()) {
+			let deg = 0;
+			for (const pid of p.parentIds) {
+				if (inBatch.has(pid)) {
+					deg++;
+					const list = dependents.get(pid) ?? [];
+					list.push(p.id!);
+					dependents.set(pid, list);
+				} else if (!this.nodeIndexMap.has(pid)) {
+					// Parent neither in batch nor engine: unsatisfiable, lands in the appended remainder
+					deg++;
 				}
 			}
-			if (sorted.length === prevSize) {
-				const remaining = withIds.filter((p) => !added.has(p.id!));
-				sorted.push(...remaining);
-				break;
+			inDegree.set(p.id!, deg);
+		}
+		const sorted: typeof withIds = [];
+		const order: string[] = [];
+		for (const p of inBatch.values()) {
+			if (inDegree.get(p.id!) === 0) order.push(p.id!);
+		}
+		for (let qi = 0; qi < order.length; qi++) {
+			const id = order[qi];
+			sorted.push(inBatch.get(id)!);
+			const deps = dependents.get(id);
+			if (!deps) continue;
+			for (const depId of deps) {
+				const d = (inDegree.get(depId) ?? 0) - 1;
+				inDegree.set(depId, d);
+				if (d === 0) order.push(depId);
 			}
-			prevSize = sorted.length;
+		}
+		if (sorted.length < inBatch.size) {
+			for (const p of inBatch.values()) {
+				if ((inDegree.get(p.id!) ?? 0) > 0) sorted.push(p);
+			}
 		}
 
 		const newNodes: MessageNode[] = sorted.map((p) => {
@@ -422,6 +473,7 @@ export class TraekEngine {
 
 		this.nodes = [...this.nodes, ...newNodes];
 		this.rebuildMaps();
+		this.#bumpVersion();
 		for (const n of newNodes) {
 			this.onNodeCreated?.(n);
 		}
@@ -557,6 +609,23 @@ export class TraekEngine {
 		}
 	}
 
+	/**
+	 * Re-layout a single subtree using the cached layout path (one childrenMap build plus
+	 * memoized subtree sizes) instead of the uncached recursive layoutChildren. Used by the
+	 * hot drag/position methods where layout runs on every pointer move.
+	 */
+	private layoutSubtreeCached(parentId: string): void {
+		if (!this.nodeIndexMap.has(parentId)) return;
+		const childrenMap = this.buildChildrenMap();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const subtreeHeightCache = new Map<string, number>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const subtreeWidthCache = new Map<string, number>();
+		this.fillSubtreeHeightCache(parentId, childrenMap, subtreeHeightCache);
+		this.fillSubtreeWidthCache(parentId, childrenMap, subtreeWidthCache);
+		this.layoutChildrenWithCache(parentId, childrenMap, subtreeHeightCache, subtreeWidthCache);
+	}
+
 	clearPendingFocus() {
 		this.pendingFocusNodeId = null;
 	}
@@ -565,6 +634,7 @@ export class TraekEngine {
 		const node = this.getNode(nodeId);
 		if (node) {
 			Object.assign(node, updates);
+			this.#bumpVersion();
 		}
 	}
 
@@ -577,6 +647,7 @@ export class TraekEngine {
 		if (Math.abs(currentHeight - height) < this.config.heightChangeThreshold) return;
 
 		node.metadata.height = height;
+		this.#bumpVersion();
 
 		if (this.pendingHeightLayoutRafId == null) {
 			this.pendingHeightLayoutRafId = requestAnimationFrame(() => {
@@ -592,16 +663,43 @@ export class TraekEngine {
 			const node = this.nodes[index];
 			if (node) {
 				this.onNodeDeleting?.(node);
-				this.storeDeletedBuffer([node]);
+				// Record the parent edges that will be stripped from surviving children
+				// so restoreDeleted() can re-link them at their original positions.
+				const childEdges: { childId: string; parentId: string; index: number }[] = [];
+				for (const n of this.nodes) {
+					if (n.id === nodeId) continue;
+					const edgeIndex = n.parentIds.indexOf(nodeId);
+					if (edgeIndex !== -1) {
+						childEdges.push({ childId: n.id, parentId: nodeId, index: edgeIndex });
+					}
+				}
+				this.storeDeletedBuffer([node], childEdges);
 			}
 			const primaryParentId = node?.parentIds[0] ?? null;
 			this.nodes.splice(index, 1);
 			this.nodeIndexMap.delete(nodeId);
 			this.removeFromChildrenIdMap(nodeId, primaryParentId);
-			this.rebuildNodeIndexMap();
+			// Targeted index update: only entries after the removed slot shifted
+			for (let i = index; i < this.nodes.length; i++) {
+				this.nodeIndexMap.set(this.nodes[i].id, i);
+			}
+			// Strip the deleted id from surviving children's parentIds and re-key
+			// any primary children in childrenIdMap under their new primary parent
+			this.childrenIdMap.delete(nodeId);
+			for (const n of this.nodes) {
+				if (n.parentIds.includes(nodeId)) {
+					const oldPrimary = n.parentIds[0] ?? null;
+					n.parentIds = n.parentIds.filter((pid) => pid !== nodeId);
+					const newPrimary = n.parentIds[0] ?? null;
+					if (oldPrimary !== newPrimary) {
+						this.addToChildrenIdMap(n.id, newPrimary);
+					}
+				}
+			}
 			if (this.activeNodeId === nodeId) {
 				this.activeNodeId = null;
 			}
+			this.#bumpVersion();
 			this.onNodeDeleted?.(1, () => this.restoreDeleted());
 		}
 	}
@@ -611,8 +709,8 @@ export class TraekEngine {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const descendants = new Set<string>();
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
+		for (let qi = 0; qi < queue.length; qi++) {
+			const currentId = queue[qi];
 			const children = this.getChildren(currentId);
 			for (const child of children) {
 				if (!descendants.has(child.id)) {
@@ -634,8 +732,8 @@ export class TraekEngine {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const visited = new Set<string>();
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
+		for (let qi = 0; qi < queue.length; qi++) {
+			const currentId = queue[qi];
 			const children = this.getChildren(currentId);
 			for (const child of children) {
 				if (!visited.has(child.id)) {
@@ -652,21 +750,36 @@ export class TraekEngine {
 
 	/** Delete a node and all its descendants. Navigate to the deleted node's first parent if needed. */
 	deleteNodeAndDescendants(nodeId: string) {
+		// Build a reverse adjacency map (parent id → child ids across ALL parent links) once,
+		// so the BFS below is O(nodes + edges) instead of scanning all nodes per queue item.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const childIdsByParent = new Map<string, string[]>();
+		for (const n of this.nodes) {
+			for (const pid of n.parentIds) {
+				const list = childIdsByParent.get(pid) ?? [];
+				list.push(n.id);
+				childIdsByParent.set(pid, list);
+			}
+		}
+
 		// Collect all descendants via BFS
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const toDelete = new Set<string>([nodeId]);
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
-			for (const n of this.nodes) {
-				if (n.parentIds.includes(currentId) && !toDelete.has(n.id)) {
-					toDelete.add(n.id);
-					queue.push(n.id);
+		for (let qi = 0; qi < queue.length; qi++) {
+			const childIds = childIdsByParent.get(queue[qi]);
+			if (!childIds) continue;
+			for (const childId of childIds) {
+				if (!toDelete.has(childId)) {
+					toDelete.add(childId);
+					queue.push(childId);
 				}
 			}
 		}
 
-		// Store deleted nodes for undo before firing callbacks
+		// Store deleted nodes for undo before firing callbacks. No childEdges needed here:
+		// the BFS above follows ALL parent links, so any node referencing a deleted node
+		// is itself a descendant and included in the deletion (no surviving stripped edges).
 		const deletedNodes = this.nodes.filter((n) => toDelete.has(n.id));
 		this.storeDeletedBuffer(deletedNodes);
 
@@ -704,16 +817,21 @@ export class TraekEngine {
 		}
 
 		this.flushLayoutFromRoot();
+		this.#bumpVersion();
 
 		const count = toDelete.size;
 		this.onNodeDeleted?.(count, () => this.restoreDeleted());
 	}
 
 	/** Store deleted nodes in the undo buffer with a 30s expiry. */
-	private storeDeletedBuffer(nodes: Node[]): void {
+	private storeDeletedBuffer(
+		nodes: Node[],
+		childEdges: { childId: string; parentId: string; index: number }[] = []
+	): void {
 		clearTimeout(this.deleteUndoTimeoutId);
 		this.lastDeletedBuffer = {
-			nodes: nodes.map((n) => structuredClone($state.snapshot(n))),
+			nodes: nodes.map((n) => $state.snapshot(n)),
+			childEdges,
 			activeNodeId: this.activeNodeId,
 			timestamp: Date.now()
 		};
@@ -731,12 +849,27 @@ export class TraekEngine {
 			return false;
 		}
 
-		const { nodes: restoredNodes, activeNodeId } = this.lastDeletedBuffer;
+		const { nodes: restoredNodes, activeNodeId, childEdges } = this.lastDeletedBuffer;
 		clearTimeout(this.deleteUndoTimeoutId);
 		this.lastDeletedBuffer = null;
 
 		// Re-add the nodes
 		this.nodes = [...this.nodes, ...restoredNodes];
+
+		// Re-link surviving children whose parent edge was stripped on delete.
+		// Survivor indices in nodeIndexMap are still valid (restored nodes were appended),
+		// so getNode() resolves them before the full rebuild below.
+		for (const edge of childEdges) {
+			const child = this.getNode(edge.childId);
+			if (!child || child.parentIds.includes(edge.parentId)) continue;
+			const insertAt = Math.min(edge.index, child.parentIds.length);
+			child.parentIds = [
+				...child.parentIds.slice(0, insertAt),
+				edge.parentId,
+				...child.parentIds.slice(insertAt)
+			];
+		}
+
 		this.rebuildMaps();
 
 		// Restore active node
@@ -745,6 +878,7 @@ export class TraekEngine {
 		}
 
 		this.flushLayoutFromRoot();
+		this.#bumpVersion();
 		return true;
 	}
 
@@ -796,6 +930,7 @@ export class TraekEngine {
 
 		this.nodes.push(newNode);
 		this.syncMapsAfterPush(newNode);
+		this.#bumpVersion();
 		this.activeNodeId = newNode.id;
 		this.onNodeCreated?.(newNode);
 
@@ -816,7 +951,8 @@ export class TraekEngine {
 		node.metadata.x = (node.metadata.x ?? 0) + dx / step;
 		node.metadata.y = (node.metadata.y ?? 0) + dy / step;
 		node.metadata.manualPosition = true;
-		this.layoutChildren(nodeId);
+		this.#bumpVersion();
+		this.layoutSubtreeCached(nodeId);
 	}
 
 	/**
@@ -840,7 +976,8 @@ export class TraekEngine {
 		node.metadata.x = xGrid;
 		node.metadata.y = yGrid;
 		node.metadata.manualPosition = true;
-		this.layoutChildren(nodeId);
+		this.#bumpVersion();
+		this.layoutSubtreeCached(nodeId);
 	}
 
 	/** Snap a node's position to integer grid (e.g. on drop). Re-layouts subtree. */
@@ -850,7 +987,8 @@ export class TraekEngine {
 		if (!node.metadata) node.metadata = { x: 0, y: 0 };
 		node.metadata.x = Math.round(node.metadata.x ?? 0);
 		node.metadata.y = Math.round(node.metadata.y ?? 0);
-		this.layoutChildren(nodeId);
+		this.#bumpVersion();
+		this.layoutSubtreeCached(nodeId);
 	}
 
 	/** Subtree width in grid units: width of the horizontal row of children. */
@@ -991,14 +1129,41 @@ export class TraekEngine {
 	/** Get the maximum depth across all leaf nodes. -1 for empty tree. */
 	getMaxDepth(): number {
 		if (this.nodes.length === 0) return -1;
+		// Single pass with memoized depths: each node's depth along the primary-parent
+		// chain is computed at most once, so the whole call is O(nodes) instead of
+		// O(nodes × depth). Max over all non-thought nodes equals max over leaves.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const depthCache = new Map<string, number>();
 		let max = 0;
 		for (const node of this.nodes) {
 			if (node.type === 'thought') continue;
-			const children = this.getChildren(node.id).filter((c) => c.type !== 'thought');
-			if (children.length === 0) {
-				const d = this.getDepth(node.id);
-				if (d > max) max = d;
+			// Walk up until we hit a cached depth, the root, or a cycle.
+			const chain: string[] = [];
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const onChain = new Set<string>();
+			let current: Node | undefined = node;
+			let startDepth = 0;
+			while (current) {
+				const cached = depthCache.get(current.id);
+				if (cached !== undefined) {
+					startDepth = cached + 1;
+					break;
+				}
+				if (onChain.has(current.id)) {
+					console.warn(`Cycle detected in getMaxDepth from node ${node.id}`);
+					break;
+				}
+				onChain.add(current.id);
+				chain.push(current.id);
+				const primaryParentId: string | undefined = current.parentIds[0];
+				current = primaryParentId ? this.getNode(primaryParentId) : undefined;
 			}
+			// Assign depths from the top of the walked chain back down to this node.
+			for (let i = chain.length - 1; i >= 0; i--) {
+				depthCache.set(chain[i], startDepth + (chain.length - 1 - i));
+			}
+			const d = depthCache.get(node.id) ?? 0;
+			if (d > max) max = d;
 		}
 		return max;
 	}
@@ -1037,6 +1202,7 @@ export class TraekEngine {
 
 	branchFrom(nodeId: string) {
 		this.activeNodeId = nodeId;
+		this.#bumpVersion();
 	}
 
 	/** Toggle collapse state of a node. When collapsed, descendants are hidden. */
@@ -1061,8 +1227,8 @@ export class TraekEngine {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const hidden = new Set<string>();
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
+		for (let qi = 0; qi < queue.length; qi++) {
+			const currentId = queue[qi];
 			const children = this.getChildren(currentId);
 			for (const child of children) {
 				if (!hidden.has(child.id) && child.type !== 'thought') {
@@ -1109,6 +1275,7 @@ export class TraekEngine {
 			this.removeFromChildrenIdMap(childId, oldPrimary);
 			this.addToChildrenIdMap(childId, newPrimary);
 		}
+		this.#bumpVersion();
 		this.flushLayoutFromRoot();
 		return true;
 	}
@@ -1128,6 +1295,7 @@ export class TraekEngine {
 			this.removeFromChildrenIdMap(childId, oldPrimary);
 			this.addToChildrenIdMap(childId, newPrimary);
 		}
+		this.#bumpVersion();
 		this.flushLayoutFromRoot();
 		return true;
 	}
@@ -1149,7 +1317,7 @@ export class TraekEngine {
 		// Find all matching nodes
 		const matches = searchNodesUtil(this.nodes, this.searchQuery);
 		this.searchMatches = matches;
-		this.currentSearchIndex = matches.length > 0 ? 0 : 0;
+		this.currentSearchIndex = 0;
 
 		// Auto-expand collapsed subtrees containing matches
 		for (const matchId of matches) {
@@ -1233,6 +1401,7 @@ export class TraekEngine {
 		const tags = (node.metadata.tags as string[]) ?? [];
 		if (!tags.includes(tag)) {
 			node.metadata.tags = [...tags, tag];
+			this.#bumpVersion();
 		}
 	}
 
@@ -1245,7 +1414,10 @@ export class TraekEngine {
 		if (!node.metadata) return;
 
 		const tags = (node.metadata.tags as string[]) ?? [];
-		node.metadata.tags = tags.filter((t) => t !== tag);
+		if (tags.includes(tag)) {
+			node.metadata.tags = tags.filter((t) => t !== tag);
+			this.#bumpVersion();
+		}
 	}
 
 	/**

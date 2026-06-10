@@ -7,6 +7,13 @@
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit';
+import { z } from 'zod';
+
+const imageRequestSchema = z.object({
+	prompt: z.string().trim().min(1).max(2000),
+	// The demo only requests square images; default and restrict to that size.
+	size: z.enum(['1024x1024']).default('1024x1024')
+});
 
 const DEFAULT_DAILY_LIMIT = dev ? 1000 : 25;
 
@@ -19,13 +26,32 @@ export async function POST({ request, getClientAddress }) {
 		});
 	}
 
+	let raw: unknown;
+	try {
+		raw = await request.json();
+	} catch {
+		return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+			status: 400,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	}
+
+	const parsed = imageRequestSchema.safeParse(raw);
+	if (!parsed.success) {
+		return new Response(
+			JSON.stringify({ error: 'prompt is required', details: parsed.error.issues }),
+			{ status: 400, headers: { 'Content-Type': 'application/json' } }
+		);
+	}
+	const { prompt, size } = parsed.data;
+
 	pruneOldEntries();
 	const ip = getClientAddress();
 	const limit = Math.max(
 		1,
 		parseInt(env.IMAGE_DAILY_LIMIT_PER_IP ?? String(DEFAULT_DAILY_LIMIT), 10) || DEFAULT_DAILY_LIMIT
 	);
-	const rate = checkDailyLimit(ip, limit);
+	const rate = checkDailyLimit('image', ip, limit);
 	if (!rate.allowed) {
 		return new Response(
 			JSON.stringify({
@@ -41,26 +67,6 @@ export async function POST({ request, getClientAddress }) {
 			}
 		);
 	}
-
-	let body: { prompt?: string; size?: string };
-	try {
-		body = await request.json();
-	} catch {
-		return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-			status: 400,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
-
-	const prompt = body.prompt?.trim();
-	if (!prompt) {
-		return new Response(JSON.stringify({ error: 'prompt is required' }), {
-			status: 400,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
-
-	const size = body.size ?? '1024x1024';
 
 	const res = await fetch('https://api.openai.com/v1/images/generations', {
 		method: 'POST',
@@ -78,16 +84,11 @@ export async function POST({ request, getClientAddress }) {
 
 	if (!res.ok) {
 		const text = await res.text().catch(() => '');
-		return new Response(
-			JSON.stringify({
-				error: 'OpenAI image request failed',
-				detail: text || res.statusText
-			}),
-			{
-				status: res.status,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
+		console.error('OpenAI image request failed', res.status, text || res.statusText);
+		return new Response(JSON.stringify({ error: 'Upstream image request failed' }), {
+			status: 502,
+			headers: { 'Content-Type': 'application/json' }
+		});
 	}
 
 	const json = (await res.json()) as {

@@ -1,4 +1,5 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { getSnippet, listSnippets } from '../data/snippets';
 
 /** Generate a complete SvelteKit page scaffold based on the requested features. */
@@ -235,19 +236,21 @@ function generateCustomNodeComponent(): string {
 </style>`;
 }
 
-export const scaffoldTools = [
-	{
-		name: 'get_snippet',
-		description:
-			'Get a complete, runnable code snippet for a specific Træk integration scenario. Returns copy-paste ready code with correct imports.',
-		inputSchema: {
-			id: z
-				.string()
-				.describe(
-					'Snippet ID. Run list_snippets to see all available IDs. Common ones: basic-setup, controlled-engine, openai-streaming, openai-streaming-page, custom-node, custom-node-usage, persistence, serialization, theming, slash-commands, sveltekit-layout'
-				)
+export function registerScaffoldTools(server: McpServer): void {
+	server.registerTool(
+		'get_snippet',
+		{
+			description:
+				'Get a complete, runnable code snippet for a specific Træk integration scenario. Returns copy-paste ready code with correct imports.',
+			inputSchema: {
+				id: z
+					.string()
+					.describe(
+						'Snippet ID. Run list_snippets to see all available IDs. Common ones: basic-setup, controlled-engine, openai-streaming, openai-streaming-page, custom-node, custom-node-usage, persistence, serialization, theming, slash-commands, sveltekit-layout'
+					)
+			}
 		},
-		handler: async ({ id }: { id: string }) => {
+		async ({ id }) => {
 			const snippet = getSnippet(id);
 			if (!snippet) {
 				const available = listSnippets()
@@ -278,47 +281,37 @@ export const scaffoldTools = [
 				]
 			};
 		}
-	},
+	);
 
-	{
-		name: 'scaffold_page',
-		description:
-			'Generate a complete SvelteKit page (and optionally API route and custom node component) with Træk integrated. Returns ready-to-use file contents.',
-		inputSchema: {
-			streaming: z
-				.boolean()
-				.default(true)
-				.describe('Include streaming AI response support (recommended). Default: true'),
-			persistence: z
-				.boolean()
-				.default(false)
-				.describe('Include ConversationStore for localStorage persistence. Default: false'),
-			customNode: z
-				.boolean()
-				.default(false)
-				.describe('Include a custom ImageNode component example. Default: false'),
-			apiProvider: z
-				.enum(['openai', 'none'])
-				.default('openai')
-				.describe("Generate API route for 'openai' streaming or 'none' (stub). Default: openai"),
-			includeApiRoute: z
-				.boolean()
-				.default(true)
-				.describe('Also generate the /api/chat +server.ts file. Default: true')
+	server.registerTool(
+		'scaffold_page',
+		{
+			description:
+				'Generate a complete SvelteKit page (and optionally API route and custom node component) with Træk integrated. Returns ready-to-use file contents.',
+			inputSchema: {
+				streaming: z
+					.boolean()
+					.default(true)
+					.describe('Include streaming AI response support (recommended). Default: true'),
+				persistence: z
+					.boolean()
+					.default(false)
+					.describe('Include ConversationStore for localStorage persistence. Default: false'),
+				customNode: z
+					.boolean()
+					.default(false)
+					.describe('Include a custom ImageNode component example. Default: false'),
+				apiProvider: z
+					.enum(['openai', 'none'])
+					.default('openai')
+					.describe("Generate API route for 'openai' streaming or 'none' (stub). Default: openai"),
+				includeApiRoute: z
+					.boolean()
+					.default(true)
+					.describe('Also generate the /api/chat +server.ts file. Default: true')
+			}
 		},
-		handler: async ({
-			streaming,
-			persistence,
-			customNode,
-			apiProvider,
-			includeApiRoute
-		}: {
-			streaming: boolean;
-			persistence: boolean;
-			customNode: boolean;
-			apiProvider: 'openai' | 'none';
-			includeApiRoute: boolean;
-		}) => {
+		async ({ streaming, persistence, customNode, apiProvider, includeApiRoute }) => {
 			const files: Array<{ path: string; language: string; content: string }> = [];
 
 			// Main page
@@ -373,5 +366,5 @@ export const scaffoldTools = [
 				]
 			};
 		}
-	}
-];
+	);
+}

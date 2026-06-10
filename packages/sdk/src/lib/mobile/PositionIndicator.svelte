@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		depth,
@@ -56,15 +59,19 @@
 	class="position-indicator"
 	role="status"
 	aria-live="polite"
-	aria-label="Position: Ebene {depth + 1} von {maxDepth + 1}, {siblingIndex +
-		1} von {siblingTotal} Geschwistern"
+	aria-label={t.positionIndicator.positionAriaLabel(
+		depth + 1,
+		maxDepth + 1,
+		siblingIndex + 1,
+		siblingTotal
+	)}
 	onmouseenter={handleInteraction}
 	ontouchstart={handleInteraction}
 >
 	<!-- Depth -->
 	<div class="indicator-item">
 		{#if showLabels}
-			<span class="item-label">Ebene</span>
+			<span class="item-label">{t.positionIndicator.levelLabel}</span>
 		{/if}
 		<span class="depth-label">{depth + 1} / {maxDepth + 1}</span>
 	</div>
@@ -74,25 +81,28 @@
 		<div class="separator" aria-hidden="true">•</div>
 		<div class="indicator-item">
 			{#if showLabels}
-				<span class="item-label">Position</span>
+				<span class="item-label">{t.positionIndicator.positionLabel}</span>
 			{/if}
 			{#if siblingTotal <= 5}
 				<!-- Item 5: Normal dots wenn ≤5 -->
-				<div class="sibling-dots" role="list" aria-label="Geschwister-Position">
+				<div class="sibling-dots" role="list" aria-label={t.positionIndicator.siblingDotsAriaLabel}>
 					<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
 					{#each Array(siblingTotal) as _, i (i)}
 						<span
 							class="dot"
 							class:active={i === siblingIndex}
 							role="listitem"
-							aria-label="{i + 1} von {siblingTotal}"
+							aria-label={t.positionIndicator.siblingDotAriaLabel(i + 1, siblingTotal)}
 							aria-current={i === siblingIndex ? 'true' : undefined}
 						></span>
 					{/each}
 				</div>
 			{:else}
 				<!-- Item 5: Text-Fallback bei >5 Siblings -->
-				<span class="sibling-text" aria-label="Position {siblingIndex + 1} von {siblingTotal}">
+				<span
+					class="sibling-text"
+					aria-label={t.positionIndicator.siblingPositionAriaLabel(siblingIndex + 1, siblingTotal)}
+				>
 					{siblingIndex + 1}/{siblingTotal}
 				</span>
 			{/if}
@@ -104,9 +114,9 @@
 		<div class="separator" aria-hidden="true">•</div>
 		<div class="indicator-item">
 			{#if showLabels}
-				<span class="item-label">Kinder</span>
+				<span class="item-label">{t.positionIndicator.childrenLabel}</span>
 			{/if}
-			<span class="branch-icon" title="{childCount} {childCount === 1 ? 'Kind' : 'Kinder'}">
+			<span class="branch-icon" title={t.positionIndicator.childCountTitle(childCount)}>
 				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
 					<path
 						d="M7 2v6M7 8c-2 0-3 2-5 2M7 8c2 0 3 2 5 2"
@@ -126,19 +136,21 @@
 	{#if showTooltip}
 		<div class="position-tooltip" role="tooltip">
 			<div class="tooltip-row">
-				<strong>Ebene {depth + 1}/{maxDepth + 1}:</strong> Du bist in der {depth + 1}.
-				Konversationsebene
+				<strong>{t.positionIndicator.tooltipLevelLabel(depth + 1, maxDepth + 1)}</strong>
+				{t.positionIndicator.tooltipLevelText(depth + 1)}
 			</div>
 			{#if siblingTotal > 1}
 				<div class="tooltip-row">
-					<strong>Alternative {siblingIndex + 1}/{siblingTotal}:</strong> Wische links/rechts für andere
-					Antworten
+					<strong
+						>{t.positionIndicator.tooltipAlternativeLabel(siblingIndex + 1, siblingTotal)}</strong
+					>
+					{t.positionIndicator.tooltipAlternativeText}
 				</div>
 			{/if}
 			{#if hasChildren}
 				<div class="tooltip-row">
-					<strong>{childCount} {childCount === 1 ? 'Fortsetzung' : 'Fortsetzungen'}:</strong> Wische nach
-					oben
+					<strong>{t.positionIndicator.tooltipChildrenLabel(childCount)}</strong>
+					{t.positionIndicator.tooltipChildrenText}
 				</div>
 			{/if}
 		</div>

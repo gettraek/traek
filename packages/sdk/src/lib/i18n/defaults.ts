@@ -12,6 +12,7 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 	},
 	input: {
 		placeholder: 'Ask the expert...',
+		messageAriaLabel: 'Message input',
 		sendAriaLabel: 'Send message',
 		branchingFromSelected: 'Branching from selected message',
 		replyingToSelected: 'Replying to selected message',
@@ -26,6 +27,7 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 	search: {
 		placeholder: 'Search...',
 		noMatches: 'No matches',
+		matchCounter: (current: number, total: number) => `${current}/${total}`,
 		previousMatch: 'Previous match (Shift+Enter)',
 		nextMatch: 'Next match (Enter)',
 		closeSearch: 'Close search (Escape)'
@@ -49,7 +51,36 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		goToDeepestLeafChord: 'Go to deepest leaf (chord)',
 		jumpToNthChild: 'Jump to nth child',
 		openFuzzySearch: 'Open fuzzy search',
-		close: 'Close'
+		close: 'Close',
+		leaveInput: 'Leave input'
+	},
+	keyboardNavigator: {
+		navigatedToParent: (label: string) => `Navigated to parent: ${label}`,
+		alreadyAtRoot: 'Already at root',
+		noChildren: 'No children',
+		navigatedToChild: (label: string) => `Navigated to child: ${label}`,
+		navigatedToPreviousSibling: (label: string) => `Navigated to previous sibling: ${label}`,
+		noPreviousSibling: 'No previous sibling',
+		navigatedToNextSibling: (label: string) => `Navigated to next sibling: ${label}`,
+		noNextSibling: 'No next sibling',
+		activatedNode: (label: string) => `Activated node: ${label}`,
+		noChildrenToCollapse: 'Node has no children to collapse',
+		collapsedNode: 'Collapsed node',
+		expandedNode: 'Expanded node',
+		navigatedToRoot: 'Navigated to root',
+		navigatedToDeepestLeaf: (label: string) => `Navigated to deepest leaf: ${label}`,
+		alreadyAtLeaf: 'Already at leaf node',
+		showingHelp: 'Showing keyboard shortcuts',
+		hidingHelp: 'Hiding keyboard shortcuts',
+		chordStarted: (key: string) => `Chord started: ${key}`,
+		unknownChord: 'Unknown chord sequence',
+		noChildrenAvailable: 'No children available',
+		onlyNChildrenAvailable: (count: number) => `Only ${count} children available`,
+		jumpedToChild: (index: number, label: string) => `Jumped to child ${index}: ${label}`,
+		fuzzySearchOpened: 'Fuzzy search opened',
+		fuzzySearchClosed: 'Fuzzy search closed',
+		navigatedTo: (label: string) => `Navigated to: ${label}`,
+		unknownNode: 'Unknown node'
 	},
 	fuzzySearch: {
 		placeholder: 'Type to search nodes...',
@@ -131,6 +162,7 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		tourProgress: 'Tour progress'
 	},
 	breadcrumb: {
+		navAriaLabel: 'Conversation path',
 		showFullPath: 'Show full path',
 		defaultNodeText: 'Message'
 	},
@@ -141,9 +173,155 @@ export const DEFAULT_TRANSLATIONS: TraekTranslations = {
 		nodeActions: 'Node actions'
 	},
 	replay: {
+		reset: 'Skip to start',
 		stepBack: 'Step back',
 		pause: 'Pause',
 		play: 'Play',
-		stepForward: 'Step forward'
+		stepForward: 'Step forward',
+		replayMode: 'Replay Mode',
+		playbackSpeed: 'Playback speed',
+		scrubberAriaLabel: 'Replay position'
+	},
+	focusMode: {
+		noFurtherReplies: 'No further replies',
+		atBeginning: 'You are at the beginning',
+		noPreviousAlternative: 'No previous alternative',
+		noNextAlternative: 'No further alternative',
+		navigationAriaLabel: 'Focus Mode Navigation',
+		noContent: 'No content',
+		emptyState: 'No messages yet. Swipe down or type below to start.',
+		viewFullMessageTitle: 'Click to view the full message',
+		replyingTo: 'Replying to:',
+		messageFallback: 'Message',
+		inputPlaceholder: 'Type a message...'
+	},
+	childSelector: {
+		title: 'Which continuation?',
+		description: (count: number) => `There are ${count} replies. Choose one:`,
+		userLabel: 'User',
+		assistantLabel: 'Assistant',
+		messageFallback: 'Message',
+		cancel: 'Cancel'
+	},
+	positionIndicator: {
+		positionAriaLabel: (
+			level: number,
+			totalLevels: number,
+			sibling: number,
+			totalSiblings: number
+		) => `Position: level ${level} of ${totalLevels}, sibling ${sibling} of ${totalSiblings}`,
+		levelLabel: 'Level',
+		positionLabel: 'Position',
+		childrenLabel: 'Children',
+		siblingDotsAriaLabel: 'Sibling position',
+		siblingDotAriaLabel: (index: number, total: number) => `${index} of ${total}`,
+		siblingPositionAriaLabel: (index: number, total: number) => `Position ${index} of ${total}`,
+		childCountTitle: (count: number) => `${count} ${count === 1 ? 'child' : 'children'}`,
+		tooltipLevelLabel: (level: number, total: number) => `Level ${level}/${total}:`,
+		tooltipLevelText: (level: number) => `You are at conversation level ${level}`,
+		tooltipAlternativeLabel: (index: number, total: number) => `Alternative ${index}/${total}:`,
+		tooltipAlternativeText: 'Swipe left/right for other replies',
+		tooltipChildrenLabel: (count: number) => `${count} continuation${count === 1 ? '' : 's'}:`,
+		tooltipChildrenText: 'Swipe up'
+	},
+	homeButton: {
+		backToStart: 'Back to start',
+		backToStartTitle: 'Back to start (Home key)'
+	},
+	swipeAffordances: {
+		swipeUpHint: 'Swipe up for more',
+		swipeDownHint: 'Swipe down to go back'
+	},
+	chatList: {
+		deleteConfirm: (title: string) => `Delete "${title}"?`,
+		untitledFallback: 'this conversation',
+		justNow: 'Just now',
+		minutesAgo: (count: number) => `${count}m ago`,
+		hoursAgo: (count: number) => `${count}h ago`,
+		daysAgo: (count: number) => `${count}d ago`,
+		emptyState: 'No conversations yet.',
+		emptyStateHint: 'Start your first chat!',
+		today: 'Today',
+		yesterday: 'Yesterday',
+		last7Days: 'Last 7 days',
+		older: 'Older',
+		nodeCount: (count: number) => `${count} node${count === 1 ? '' : 's'}`,
+		rename: 'Rename',
+		delete: 'Delete'
+	},
+	saveIndicator: {
+		saving: 'Saving...',
+		saved: 'Saved',
+		saveFailed: 'Save failed'
+	},
+	tags: {
+		manageTags: 'Manage tags',
+		tagsTitle: 'Tags',
+		addTags: 'Add Tags',
+		customTagPlaceholder: 'Custom tag...',
+		add: 'Add',
+		filterByTags: 'Filter by Tags',
+		clearFilters: 'Clear filters',
+		removeTag: 'Click to remove tag',
+		labelImportant: 'Important',
+		labelTodo: 'Todo',
+		labelIdea: 'Idea',
+		labelQuestion: 'Question',
+		labelResolved: 'Resolved'
+	},
+	theme: {
+		dark: 'Dark',
+		light: 'Light',
+		highContrast: 'High Contrast',
+		togglePicker: 'Toggle theme picker',
+		themeTitle: 'Theme',
+		selectTheme: (name: string) => `Select ${name} theme`,
+		accentColor: 'Accent Color'
+	},
+	compare: {
+		title: 'Compare Branches',
+		close: 'Close comparison',
+		branchA: 'Branch A',
+		branchB: 'Branch B',
+		branchOption: (index: number, role: string) => `Branch ${index} (${role})`,
+		nodeCount: (count: number) => `${count} node${count !== 1 ? 's' : ''}`,
+		onlyInA: 'Only in A',
+		onlyInB: 'Only in B'
+	},
+	nodeWrapper: {
+		userLabel: 'User',
+		assistantLabel: 'Assistant',
+		outdatedLabel: 'Outdated',
+		outdatedTitle: 'This reply was based on a previous version of the message above.',
+		outdatedAriaLabel: 'Outdated: this reply was based on a previous version of the message above.',
+		processing: 'Processing…',
+		errorLabel: 'Error',
+		errorFallback: 'An error occurred',
+		retry: 'Retry',
+		dismiss: 'Dismiss',
+		hiddenCount: (count: number) => `${count} hidden`,
+		branchesCount: (count: number) => `${count} branches`,
+		thinkingCompleted: 'Thinking completed',
+		thoughtProcess: 'Thought process',
+		expandSubtree: 'Expand subtree',
+		collapseSubtree: 'Collapse subtree'
+	},
+	minimap: {
+		overviewAriaLabel: 'Minimap overview',
+		expand: 'Expand minimap',
+		collapse: 'Collapse minimap'
+	},
+	nodeRenderer: {
+		missingComponent: (type: string) => `Missing component for ${type} node.`
+	},
+	headerBar: {
+		backLabel: 'Chats'
+	},
+	ghostPreview: {
+		userRoleLabel: 'user'
+	},
+	actions: {
+		badgesGroupLabel: 'Message actions',
+		slashCommandsLabel: 'Slash commands'
 	}
 };

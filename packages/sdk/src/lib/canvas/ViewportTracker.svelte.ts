@@ -20,6 +20,20 @@ export class ViewportTracker {
 
 	private config: TraekEngineConfig;
 
+	/**
+	 * Memoized node map keyed on the nodes array identity + length.
+	 * The map values are live node references, so position/height mutations on
+	 * existing nodes do not invalidate the cache. Identity + length alone can go
+	 * stale (e.g. delete-then-add via splice+push keeps identity and restores
+	 * length), so the cache is additionally expired once per animation frame —
+	 * same pattern as ViewportManager's #getContentBounds.
+	 */
+
+	private nodeMapCache: Map<string, Node> | null = null;
+	private nodeMapCacheNodes: Node[] | null = null;
+	private nodeMapCacheLength = -1;
+	private nodeMapInvalidateRafId = 0;
+
 	constructor(config: TraekEngineConfig, bufferPx: number = 200) {
 		this.config = config;
 		this.bufferPx = bufferPx;
@@ -90,12 +104,14 @@ export class ViewportTracker {
 
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const visible = new Set<string>();
-		const collapsedCache = this.buildCollapsedCache(nodes, collapsedNodes);
+		// Skip the full ancestor walk entirely when nothing is collapsed
+		const collapsedCache =
+			collapsedNodes.size > 0 ? this.buildCollapsedCache(nodes, collapsedNodes) : null;
 
 		for (const node of nodes) {
 			// Skip thought nodes and collapsed descendants
 			if (node.type === 'thought') continue;
-			if (collapsedCache.get(node.id)) continue;
+			if (collapsedCache?.get(node.id)) continue;
 
 			if (this.isNodeInViewport(node, bounds)) {
 				visible.add(node.id);
@@ -105,6 +121,35 @@ export class ViewportTracker {
 		return visible;
 	}
 
+	/** Get (or rebuild) the memoized id → node map for the given nodes array. */
+	private getNodeMap(nodes: Node[]): Map<string, Node> {
+		if (
+			this.nodeMapCache &&
+			this.nodeMapCacheNodes === nodes &&
+			this.nodeMapCacheLength === nodes.length
+		) {
+			return this.nodeMapCache;
+		}
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const map = new Map(nodes.map((n) => [n.id, n]));
+		this.nodeMapCache = map;
+		this.nodeMapCacheNodes = nodes;
+		this.nodeMapCacheLength = nodes.length;
+		// In-place delete-then-add can keep array identity and restore length, so
+		// expire the cache on the next animation frame (at most one rebuild per frame).
+		// In non-browser environments (tests) requestAnimationFrame may be missing;
+		// there the memo simply behaves as before.
+		if (typeof requestAnimationFrame === 'function' && !this.nodeMapInvalidateRafId) {
+			this.nodeMapInvalidateRafId = requestAnimationFrame(() => {
+				this.nodeMapInvalidateRafId = 0;
+				this.nodeMapCache = null;
+				this.nodeMapCacheNodes = null;
+				this.nodeMapCacheLength = -1;
+			});
+		}
+		return map;
+	}
+
 	/**
 	 * Build a cache of which nodes are in collapsed subtrees.
 	 * A node is hidden if any ancestor in its primary parent chain is collapsed.
@@ -112,8 +157,7 @@ export class ViewportTracker {
 	private buildCollapsedCache(nodes: Node[], collapsedNodes: Set<string>): Map<string, boolean> {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const cache = new Map<string, boolean>();
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+		const nodeMap = this.getNodeMap(nodes);
 
 		for (const node of nodes) {
 			cache.set(node.id, this.isInCollapsedSubtree(node.id, nodeMap, collapsedNodes));

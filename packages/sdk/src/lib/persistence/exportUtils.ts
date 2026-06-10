@@ -16,7 +16,7 @@ export function snapshotToJSON(snapshot: ConversationSnapshot): string {
  * Linearizes the tree structure into threads (root → leaf paths).
  */
 export function snapshotToMarkdown(snapshot: ConversationSnapshot): string {
-	const title = snapshot.title ?? 'Untitled Conversation';
+	const title = sanitizeMarkdownTitle(snapshot.title ?? 'Untitled Conversation');
 	const createdAt = new Date(snapshot.createdAt).toLocaleString();
 
 	let md = `# ${title}\n\n`;
@@ -68,8 +68,13 @@ export function snapshotToMarkdown(snapshot: ConversationSnapshot): string {
 	return md;
 }
 
+/** Hard cap on extracted threads to keep DAG exports bounded. */
+const MAX_THREADS = 1000;
+
 /**
  * Extract all linear threads (root → leaf paths) from the tree.
+ * Guards against cycles (terminates the path) and caps the total
+ * number of threads so DAG fan-out cannot explode.
  */
 function extractThreads(
 	roots: SerializedNode[],
@@ -77,28 +82,64 @@ function extractThreads(
 ): SerializedNode[][] {
 	const threads: SerializedNode[][] = [];
 
-	function dfs(node: SerializedNode, path: SerializedNode[]): void {
-		const newPath = [...path, node];
-
-		// Find children
-		const children = Array.from(nodeMap.values()).filter((n) => n.parentIds.includes(node.id));
-
-		if (children.length === 0) {
-			// Leaf node: this is a complete thread
-			threads.push(newPath);
-		} else {
-			// Recurse into each child
-			for (const child of children) {
-				dfs(child, newPath);
+	// Precompute children once: parentId → child nodes (O(n) instead of O(n²))
+	const childrenMap = new Map<string, SerializedNode[]>();
+	for (const node of nodeMap.values()) {
+		for (const parentId of node.parentIds) {
+			const list = childrenMap.get(parentId);
+			if (list) {
+				list.push(node);
+			} else {
+				childrenMap.set(parentId, [node]);
 			}
 		}
 	}
 
+	const path: SerializedNode[] = [];
+
+	const onPath = new Set<string>();
+
+	function dfs(node: SerializedNode): void {
+		if (threads.length >= MAX_THREADS) return;
+
+		if (onPath.has(node.id)) {
+			// Cycle detected: terminate this path as a thread
+			threads.push([...path]);
+			return;
+		}
+
+		path.push(node);
+		onPath.add(node.id);
+
+		const children = childrenMap.get(node.id) ?? [];
+		if (children.length === 0) {
+			// Leaf node: this is a complete thread
+			threads.push([...path]);
+		} else {
+			for (const child of children) {
+				dfs(child);
+			}
+		}
+
+		path.pop();
+		onPath.delete(node.id);
+	}
+
 	for (const root of roots) {
-		dfs(root, []);
+		dfs(root);
 	}
 
 	return threads;
+}
+
+/**
+ * Sanitize a title for safe interpolation into a Markdown heading:
+ * collapse newlines and escape a leading `#` so the title cannot
+ * inject extra headings or break the document structure.
+ */
+function sanitizeMarkdownTitle(title: string): string {
+	const flattened = title.replace(/[\r\n]+/g, ' ').trim();
+	return flattened.startsWith('#') ? `\\${flattened}` : flattened;
 }
 
 /**

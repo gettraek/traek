@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Toast } from './toastStore.svelte';
 	import { toastStore } from './toastStore.svelte';
 	import { getTraekI18n } from '../i18n/index';
@@ -10,8 +10,16 @@
 
 	let progress = $state(100);
 	let visible = $state(false);
+	let hovered = $state(false);
+	let focused = $state(false);
+	// Countdown pauses while the pointer hovers OR focus is inside the toast.
+	const paused = $derived(hovered || focused);
+	let counting = false;
 	let rafId = 0;
 	let startTime = 0;
+	// Each Toast instance belongs to one immutable toast entry; capture once.
+	let remaining = untrack(() => toast.duration);
+	let dismissTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const icons: Record<string, string> = {
 		success: '\u2713',
@@ -20,26 +28,60 @@
 		undo: '\u21A9'
 	};
 
+	const tick = (now: number) => {
+		const elapsed = now - startTime;
+		progress = Math.max(0, ((remaining - elapsed) / toast.duration) * 100);
+		if (progress > 0) {
+			rafId = requestAnimationFrame(tick);
+		}
+	};
+
+	function startCountdown() {
+		if (counting) return;
+		counting = true;
+		startTime = performance.now();
+		dismissTimer = setTimeout(() => toastStore.removeToast(toast.id), remaining);
+		rafId = requestAnimationFrame(tick);
+	}
+
+	function stopCountdown() {
+		if (!counting) return;
+		counting = false;
+		clearTimeout(dismissTimer);
+		cancelAnimationFrame(rafId);
+		remaining = Math.max(0, remaining - (performance.now() - startTime));
+	}
+
+	function handleFocusOut(e: FocusEvent) {
+		const next = e.relatedTarget;
+		if (next instanceof Node && e.currentTarget instanceof Node && e.currentTarget.contains(next))
+			return;
+		focused = false;
+	}
+
 	onMount(() => {
+		// Take over auto-dismiss from the store so hover/focus can pause the countdown.
+		toastStore.claimTimer(toast.id);
+
 		// Trigger slide-in on next frame
 		requestAnimationFrame(() => {
 			visible = true;
 		});
 
-		// Animate progress bar
-		startTime = performance.now();
-		const tick = (now: number) => {
-			const elapsed = now - startTime;
-			progress = Math.max(0, 100 - (elapsed / toast.duration) * 100);
-			if (progress > 0) {
-				rafId = requestAnimationFrame(tick);
-			}
-		};
-		rafId = requestAnimationFrame(tick);
-
 		return () => {
-			cancelAnimationFrame(rafId);
+			stopCountdown();
+			// Hand the dismiss timer back to the store in case the toast entry
+			// outlives this component instance, so it can never linger forever.
+			toastStore.releaseTimer(toast.id, remaining);
 		};
+	});
+
+	$effect(() => {
+		if (paused) {
+			stopCountdown();
+		} else {
+			startCountdown();
+		}
 	});
 
 	function handleUndo() {
@@ -52,16 +94,24 @@
 	}
 </script>
 
-<div class="traek-toast traek-toast--{toast.type}" class:traek-toast--visible={visible}>
-	<div class="traek-toast__icon">{icons[toast.type] ?? '\u2139'}</div>
+<div
+	class="traek-toast traek-toast--{toast.type}"
+	class:traek-toast--visible={visible}
+	role="status"
+	aria-live="polite"
+	onmouseenter={() => (hovered = true)}
+	onmouseleave={() => (hovered = false)}
+	onfocusin={() => (focused = true)}
+	onfocusout={handleFocusOut}
+>
+	<div class="traek-toast__icon" aria-hidden="true">{icons[toast.type] ?? '\u2139'}</div>
 	<div class="traek-toast__body">
 		<span class="traek-toast__message">{toast.message}</span>
 		{#if toast.type === 'undo' && toast.onUndo}
 			<button class="traek-toast__undo" onclick={handleUndo}>{i18n.toast.undo}</button>
 		{/if}
 	</div>
-	<button class="traek-toast__close" onclick={handleClose} aria-label={i18n.toast.dismiss}
-		>\u2715</button
+	<button class="traek-toast__close" onclick={handleClose} aria-label={i18n.toast.dismiss}>✕</button
 	>
 	<div class="traek-toast__progress" style:width="{progress}%"></div>
 </div>

@@ -12,16 +12,33 @@
 		const TENDRIL_RANGE = 120; // radius around cursor where tendrils appear
 		const TENDRIL_MAX_LENGTH = 14;
 		const SMOOTH = 0.08;
+		// Below this smoothed-cursor delta (px) the scene is visually static.
+		const IDLE_EPSILON = 0.1;
+
+		const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let reducedMotion = reducedMotionQuery.matches;
 
 		const mouseTarget = { x: 0, y: 0 };
 		const mouseSmoothed = { x: 0, y: 0 };
 		function handleMove(e: MouseEvent) {
+			if (reducedMotion) return;
 			mouseTarget.x = e.clientX;
 			mouseTarget.y = e.clientY;
+			startLoop();
 		}
 		function handleLeave() {
+			if (reducedMotion) return;
 			mouseTarget.x = -1e4;
 			mouseTarget.y = -1e4;
+			startLoop();
+		}
+		function handleScroll() {
+			// The grid is anchored to world coords, so scrolling changes the frame.
+			if (reducedMotion) {
+				draw();
+				return;
+			}
+			startLoop();
 		}
 		function resize() {
 			const dpr = Math.min(2, window.devicePixelRatio ?? 1);
@@ -33,12 +50,18 @@
 			canvas.style.height = h + 'px';
 			ctx = canvas.getContext('2d');
 			if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			if (reducedMotion) {
+				draw();
+			} else {
+				startLoop();
+			}
 		}
 
 		let ctx = canvas.getContext('2d');
 		let rafId = 0;
+		let running = false;
 
-		function getThemeColors() {
+		function readThemeColors() {
 			const style = getComputedStyle(document.documentElement);
 			return {
 				dot: style.getPropertyValue('--traek-gravity-dot').trim() || '#262626',
@@ -50,17 +73,68 @@
 			};
 		}
 
+		// Cache theme colors; getComputedStyle every frame is expensive. Re-read
+		// only when the data-theme attribute on <html> changes.
+		let colors = readThemeColors();
+		const themeObserver = new MutationObserver(() => {
+			colors = readThemeColors();
+			if (reducedMotion) {
+				draw();
+			} else {
+				startLoop();
+			}
+		});
+		themeObserver.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['data-theme']
+		});
+
+		function startLoop() {
+			if (running || reducedMotion) return;
+			running = true;
+			rafId = requestAnimationFrame(frame);
+		}
+
+		function frame() {
+			const dx = mouseTarget.x - mouseSmoothed.x;
+			const dy = mouseTarget.y - mouseSmoothed.y;
+			if (Math.abs(dx) < IDLE_EPSILON && Math.abs(dy) < IDLE_EPSILON) {
+				// Effectively idle: snap, render one final frame, and stop the loop.
+				// pointermove/leave/scroll/resize restart it via startLoop().
+				mouseSmoothed.x = mouseTarget.x;
+				mouseSmoothed.y = mouseTarget.y;
+				draw();
+				running = false;
+				return;
+			}
+			mouseSmoothed.x += dx * SMOOTH;
+			mouseSmoothed.y += dy * SMOOTH;
+			draw();
+			rafId = requestAnimationFrame(frame);
+		}
+
+		function handleReducedMotionChange() {
+			reducedMotion = reducedMotionQuery.matches;
+			if (reducedMotion) {
+				running = false;
+				cancelAnimationFrame(rafId);
+				// Static frame without cursor reaction
+				mouseTarget.x = -1e4;
+				mouseTarget.y = -1e4;
+				mouseSmoothed.x = -1e4;
+				mouseSmoothed.y = -1e4;
+				draw();
+			} else {
+				startLoop();
+			}
+		}
+
 		function draw() {
 			if (!ctx) return;
-			const colors = getThemeColors();
 			const w = window.innerWidth;
 			const h = window.innerHeight;
 			const scrollX = window.scrollX || 0;
 			const scrollY = window.scrollY || 0;
-
-			// Smooth mouse
-			mouseSmoothed.x += (mouseTarget.x - mouseSmoothed.x) * SMOOTH;
-			mouseSmoothed.y += (mouseTarget.y - mouseSmoothed.y) * SMOOTH;
 
 			const margin = DOT_STEP * 4;
 			ctx.clearRect(-margin, -margin, w + margin * 2, h + margin * 2);
@@ -140,20 +214,30 @@
 					}
 				}
 			}
-
-			rafId = requestAnimationFrame(draw);
 		}
 
 		window.addEventListener('mousemove', handleMove);
 		window.addEventListener('mouseleave', handleLeave);
 		window.addEventListener('resize', resize);
+		window.addEventListener('scroll', handleScroll, { passive: true });
+		reducedMotionQuery.addEventListener('change', handleReducedMotionChange);
+		if (reducedMotion) {
+			// Park the cursor off-canvas so the static frame has no tendrils.
+			mouseTarget.x = -1e4;
+			mouseTarget.y = -1e4;
+			mouseSmoothed.x = -1e4;
+			mouseSmoothed.y = -1e4;
+		}
 		resize();
-		draw();
 
 		return () => {
 			window.removeEventListener('mousemove', handleMove);
 			window.removeEventListener('mouseleave', handleLeave);
 			window.removeEventListener('resize', resize);
+			window.removeEventListener('scroll', handleScroll);
+			reducedMotionQuery.removeEventListener('change', handleReducedMotionChange);
+			themeObserver.disconnect();
+			running = false;
 			cancelAnimationFrame(rafId);
 		};
 	});

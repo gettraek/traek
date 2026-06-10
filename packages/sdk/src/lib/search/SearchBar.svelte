@@ -22,14 +22,30 @@
 
 	let query = $state('');
 	let inputRef: HTMLInputElement | null = $state(null);
+	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const SEARCH_DEBOUNCE_MS = 150;
 
 	onMount(() => {
 		inputRef?.focus();
+		return () => clearTimeout(debounceTimer);
 	});
 
 	function handleInput(e: Event) {
 		const target = e.target as HTMLInputElement;
 		query = target.value;
+		clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(() => {
+			debounceTimer = undefined;
+			onSearch(query);
+		}, SEARCH_DEBOUNCE_MS);
+	}
+
+	/** Run a pending debounced search immediately (e.g. before navigating matches). */
+	function flushSearch() {
+		if (debounceTimer === undefined) return;
+		clearTimeout(debounceTimer);
+		debounceTimer = undefined;
 		onSearch(query);
 	}
 
@@ -37,11 +53,20 @@
 		if (e.key === 'Escape') {
 			onClose();
 		} else if (e.key === 'Enter') {
+			flushSearch();
 			if (e.shiftKey) {
 				onPrevious();
 			} else {
 				onNext();
 			}
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			flushSearch();
+			onNext();
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			flushSearch();
+			onPrevious();
 		}
 	}
 </script>
@@ -79,11 +104,11 @@
 		/>
 
 		{#if totalMatches > 0}
-			<div class="match-counter">
-				{currentIndex + 1}/{totalMatches}
+			<div class="match-counter" role="status">
+				{t.search.matchCounter(currentIndex + 1, totalMatches)}
 			</div>
 		{:else if query.trim() !== ''}
-			<div class="match-counter no-matches">{t.search.noMatches}</div>
+			<div class="match-counter no-matches" role="status">{t.search.noMatches}</div>
 		{/if}
 
 		<div class="search-controls">
@@ -221,6 +246,19 @@
 		cursor: pointer;
 		transition: all 0.15s ease;
 		padding: 0;
+		position: relative;
+	}
+
+	/* Invisible hit-area extension so the touch target is at least 32x32px */
+	.nav-button::after,
+	.close-button::after {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: max(100%, 32px);
+		height: max(100%, 32px);
 	}
 
 	.nav-button:hover:not(:disabled),

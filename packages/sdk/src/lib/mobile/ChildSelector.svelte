@@ -6,6 +6,9 @@
 	 */
 
 	import type { Node, MessageNode } from '../TraekEngine.svelte';
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
 
 	let {
 		children,
@@ -127,27 +130,33 @@
 		<!-- Drag Handle -->
 		<div class="drag-handle" aria-hidden="true"></div>
 
-		<h3 id="selector-title">Welche Fortsetzung?</h3>
-		<p class="selector-hint">Es gibt {children.length} Antworten. Wähle eine:</p>
+		<h3 id="selector-title">{t.childSelector.title}</h3>
+		<p class="selector-hint">{t.childSelector.description(children.length)}</p>
 
-		<div class="children-list" role="list">
-			{#each children as child, i (i)}
-				<button class="child-option" onclick={() => onSelect(child.id)}>
-					<span class="option-number">{i + 1}</span>
-					<div class="option-content">
-						<span class="option-role">{child.role === 'user' ? '👤 User' : '🤖 Assistant'}</span>
-						<span class="option-preview">
-							{(child as MessageNode).content?.slice(0, 80) ?? 'Nachricht'}
-							{(child as MessageNode).content && (child as MessageNode).content.length > 80
-								? '...'
-								: ''}
-						</span>
-					</div>
-				</button>
+		<ul class="children-list">
+			{#each children as child, i (child.id)}
+				<li>
+					<button class="child-option" onclick={() => onSelect(child.id)}>
+						<span class="option-number">{i + 1}</span>
+						<div class="option-content">
+							<span class="option-role">
+								{child.role === 'user'
+									? `👤 ${t.childSelector.userLabel}`
+									: `🤖 ${t.childSelector.assistantLabel}`}
+							</span>
+							<span class="option-preview">
+								{(child as MessageNode).content?.slice(0, 80) ?? t.childSelector.messageFallback}
+								{(child as MessageNode).content && (child as MessageNode).content.length > 80
+									? '...'
+									: ''}
+							</span>
+						</div>
+					</button>
+				</li>
 			{/each}
-		</div>
+		</ul>
 
-		<button class="cancel-button" onclick={onClose}>Abbrechen</button>
+		<button class="cancel-button" onclick={onClose}>{t.childSelector.cancel}</button>
 	</div>
 </div>
 
@@ -254,13 +263,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		margin-bottom: 16px;
+		margin: 0 0 16px;
+		padding: 0;
+		list-style: none;
 		max-height: 50vh;
 		overflow-y: auto;
 		overscroll-behavior: contain;
 	}
 
 	.child-option {
+		width: 100%;
 		display: flex;
 		align-items: flex-start;
 		gap: 12px;

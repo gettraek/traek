@@ -1,5 +1,6 @@
 import type { ConversationSnapshot, SerializedNode } from './types';
-import { TraekEngine, type TraekEngineConfig } from '../TraekEngine.svelte';
+import { conversationSnapshotSchema } from './schemas';
+import { TraekEngine, type TraekEngineConfig, type AddNodePayload } from '../TraekEngine.svelte';
 
 /**
  * Replays a conversation snapshot step by step, adding nodes
@@ -16,8 +17,12 @@ export class ReplayController {
 	readonly totalNodes: number;
 
 	private sortedNodes: SerializedNode[];
-	private engine: TraekEngine;
-	private config?: Partial<TraekEngineConfig>;
+	/**
+	 * Single engine instance for the controller's lifetime. Never reassigned:
+	 * consumers hold a reference via getEngine(), so seekTo/reset mutate this
+	 * instance in place instead of swapping it for a new one.
+	 */
+	private readonly engine: TraekEngine;
 	private onNodeAdded?: (nodeId: string) => void;
 	private intervalId: ReturnType<typeof setInterval> | null = null;
 	private baseIntervalMs: number;
@@ -32,12 +37,17 @@ export class ReplayController {
 			baseIntervalMs?: number;
 		}
 	) {
-		this.sortedNodes = [...snapshot.nodes].sort((a, b) => a.createdAt - b.createdAt);
+		// Validate at the boundary: snapshots often come from storage or files.
+		const parsed = conversationSnapshotSchema.safeParse(snapshot);
+		if (!parsed.success) {
+			throw new Error(`Invalid conversation snapshot: ${parsed.error.message}`);
+		}
+
+		this.sortedNodes = [...parsed.data.nodes].sort((a, b) => a.createdAt - b.createdAt);
 		this.totalNodes = this.sortedNodes.length;
-		this.config = options?.config ?? snapshot.config;
 		this.onNodeAdded = options?.onNodeAdded;
 		this.baseIntervalMs = options?.baseIntervalMs ?? 800;
-		this.engine = new TraekEngine(this.config);
+		this.engine = new TraekEngine(options?.config ?? parsed.data.config);
 	}
 
 	/** Get the engine instance being replayed into. */
@@ -65,19 +75,7 @@ export class ReplayController {
 		this.currentIndex += 1;
 		const node = this.sortedNodes[this.currentIndex];
 		if (!node) return;
-		this.engine.addNodes([
-			{
-				id: node.id,
-				parentIds: node.parentIds,
-				content: node.content,
-				role: node.role,
-				type: node.type,
-				status: node.status,
-				createdAt: node.createdAt,
-				metadata: node.metadata,
-				data: node.data
-			}
-		]);
+		this.engine.addNodes([this.toPayload(node)]);
 		this.engine.activeNodeId = node.id;
 		this.onNodeAdded?.(node.id);
 
@@ -91,7 +89,9 @@ export class ReplayController {
 		if (this.currentIndex < 0) return;
 		const node = this.sortedNodes[this.currentIndex];
 		if (node) {
-			this.engine.deleteNode(node.id);
+			this.withSuppressedDeleteNotifications(() => {
+				this.engine.deleteNode(node.id);
+			});
 		}
 		this.currentIndex -= 1;
 		const prev = this.currentIndex >= 0 ? this.sortedNodes[this.currentIndex] : null;
@@ -99,38 +99,34 @@ export class ReplayController {
 		if (prev) this.onNodeAdded?.(prev.id);
 	}
 
-	/** Jump to a specific index. Rebuilds the engine state up to that point. */
+	/**
+	 * Jump to a specific index. Mutates the existing engine in place
+	 * (adds missing nodes or removes newest-first) so external references
+	 * from getEngine() stay valid.
+	 */
 	seekTo(index: number): void {
 		const target = Math.max(-1, Math.min(index, this.totalNodes - 1));
 		const wasPlaying = this.isPlaying;
 		this.pause();
 
-		// Rebuild from scratch
-		this.engine = new TraekEngine(this.config);
-		this.currentIndex = -1;
-
-		if (target >= 0) {
-			const nodesToAdd = this.sortedNodes.slice(0, target + 1);
-			this.engine.addNodes(
-				nodesToAdd.map((n) => ({
-					id: n.id,
-					parentIds: n.parentIds,
-					content: n.content,
-					role: n.role,
-					type: n.type,
-					status: n.status,
-					createdAt: n.createdAt,
-					metadata: n.metadata,
-					data: n.data
-				}))
-			);
-			this.currentIndex = target;
-			const lastNode = nodesToAdd[nodesToAdd.length - 1];
-			if (lastNode) {
-				this.engine.activeNodeId = lastNode.id;
-				this.onNodeAdded?.(lastNode.id);
-			}
+		if (target > this.currentIndex) {
+			// Add the missing nodes in one batch (parents always precede children
+			// chronologically, and addNodes topologically sorts as a safety net).
+			const nodesToAdd = this.sortedNodes.slice(this.currentIndex + 1, target + 1);
+			this.engine.addNodes(nodesToAdd.map((n) => this.toPayload(n)));
+		} else if (target < this.currentIndex) {
+			// Remove newest-first so children are deleted before their parents.
+			this.withSuppressedDeleteNotifications(() => {
+				for (let i = this.currentIndex; i > target; i--) {
+					this.engine.deleteNode(this.sortedNodes[i].id);
+				}
+			});
 		}
+
+		this.currentIndex = target;
+		const current = target >= 0 ? this.sortedNodes[target] : null;
+		this.engine.activeNodeId = current?.id ?? null;
+		if (current) this.onNodeAdded?.(current.id);
 
 		if (wasPlaying && target < this.totalNodes - 1) {
 			this.play();
@@ -146,16 +142,46 @@ export class ReplayController {
 		}
 	}
 
-	/** Reset to beginning. */
+	/** Reset to beginning. Keeps the same engine instance. */
 	reset(): void {
 		this.pause();
-		this.engine = new TraekEngine(this.config);
-		this.currentIndex = -1;
+		this.seekTo(-1);
 	}
 
 	/** Clean up timers. */
 	destroy(): void {
 		this.pause();
+	}
+
+	/**
+	 * Run engine deletions without firing onNodeDeleted, which hosts
+	 * (e.g. TraekCanvas) wire to per-deletion undo toasts — replay
+	 * navigation is not undoable and an undo would desync the controller.
+	 * onNodeDeleting still fires so node registries can tear down per-node
+	 * component state.
+	 */
+	private withSuppressedDeleteNotifications(fn: () => void): void {
+		const original = this.engine.onNodeDeleted;
+		this.engine.onNodeDeleted = undefined;
+		try {
+			fn();
+		} finally {
+			this.engine.onNodeDeleted = original;
+		}
+	}
+
+	private toPayload(node: SerializedNode): AddNodePayload {
+		return {
+			id: node.id,
+			parentIds: node.parentIds,
+			content: node.content,
+			role: node.role,
+			type: node.type,
+			status: node.status,
+			createdAt: node.createdAt,
+			metadata: node.metadata,
+			data: node.data
+		};
 	}
 
 	private scheduleNext(): void {

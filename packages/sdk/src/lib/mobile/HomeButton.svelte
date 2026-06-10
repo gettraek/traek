@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { getTraekI18n } from '../i18n/index';
+
+	const t = getTraekI18n();
+
 	let {
 		onclick,
 		show = true
@@ -12,8 +16,8 @@
 	<button
 		class="home-button"
 		{onclick}
-		aria-label="Zurück zum Start"
-		title="Zurück zum Start (Home-Taste)"
+		aria-label={t.homeButton.backToStart}
+		title={t.homeButton.backToStartTitle}
 	>
 		<svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
 			<path

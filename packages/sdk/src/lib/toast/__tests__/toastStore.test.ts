@@ -140,6 +140,81 @@ describe('ToastStore', () => {
 		});
 	});
 
+	describe('claimTimer / releaseTimer', () => {
+		it('claimTimer should stop the store from auto-dismissing the toast', () => {
+			expect.assertions(1);
+			const id = toastStore.addToast({ message: 'Claimed', type: 'info', duration: 4000 });
+			toastStore.claimTimer(id);
+			vi.advanceTimersByTime(10000);
+			expect(toastStore.toasts).toHaveLength(1);
+		});
+
+		it('claimTimer should be a no-op for unknown ids', () => {
+			expect.assertions(1);
+			toastStore.addToast({ message: 'Other', type: 'info', duration: 4000 });
+			toastStore.claimTimer('non-existent-id');
+			vi.advanceTimersByTime(4000);
+			expect(toastStore.toasts).toHaveLength(0);
+		});
+
+		it('removeToast should still work on a claimed toast', () => {
+			expect.assertions(1);
+			const id = toastStore.addToast({ message: 'Claimed', type: 'info', duration: 4000 });
+			toastStore.claimTimer(id);
+			toastStore.removeToast(id);
+			expect(toastStore.toasts).toHaveLength(0);
+		});
+
+		it('releaseTimer should re-arm a store-owned timer with the remaining time', () => {
+			expect.assertions(2);
+			const id = toastStore.addToast({ message: 'Released', type: 'info', duration: 4000 });
+			toastStore.claimTimer(id);
+			toastStore.releaseTimer(id, 1500);
+			vi.advanceTimersByTime(1499);
+			expect(toastStore.toasts).toHaveLength(1);
+			vi.advanceTimersByTime(1);
+			expect(toastStore.toasts).toHaveLength(0);
+		});
+
+		it('releaseTimer should be a no-op when the toast no longer exists', () => {
+			expect.assertions(1);
+			const id = toastStore.addToast({ message: 'Gone', type: 'info', duration: 4000 });
+			toastStore.claimTimer(id);
+			toastStore.removeToast(id);
+			toastStore.releaseTimer(id, 1000);
+			vi.advanceTimersByTime(2000);
+			expect(toastStore.toasts).toHaveLength(0);
+		});
+
+		it('releaseTimer should clamp negative remaining time to immediate dismissal', () => {
+			expect.assertions(1);
+			const id = toastStore.addToast({ message: 'Expired', type: 'undo', duration: 30000 });
+			toastStore.claimTimer(id);
+			toastStore.releaseTimer(id, -50);
+			vi.advanceTimersByTime(0);
+			expect(toastStore.toasts).toHaveLength(0);
+		});
+
+		it('releaseTimer should replace an existing store timer instead of stacking', () => {
+			expect.assertions(2);
+			const id = toastStore.addToast({ message: 'Replace', type: 'info', duration: 1000 });
+			// Release without claiming first: store timer (1000ms) must be replaced
+			toastStore.releaseTimer(id, 5000);
+			vi.advanceTimersByTime(4999);
+			expect(toastStore.toasts).toHaveLength(1);
+			vi.advanceTimersByTime(1);
+			expect(toastStore.toasts).toHaveLength(0);
+		});
+
+		it('clear should remove claimed toasts as well', () => {
+			expect.assertions(1);
+			const id = toastStore.addToast({ message: 'Claimed', type: 'info', duration: 4000 });
+			toastStore.claimTimer(id);
+			toastStore.clear();
+			expect(toastStore.toasts).toHaveLength(0);
+		});
+	});
+
 	describe('clear', () => {
 		it('should remove all toasts', () => {
 			expect.assertions(1);

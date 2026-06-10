@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { getNodeTags, getTagConfig, matchesTagFilter, PREDEFINED_TAGS } from '../tagUtils';
+import {
+	getNodeTags,
+	getTagConfig,
+	getTagLabel,
+	matchesTagFilter,
+	PREDEFINED_TAGS
+} from '../tagUtils';
 import type { Node } from '../../TraekEngine.svelte';
+import { DEFAULT_TRANSLATIONS } from '../../i18n/defaults';
+import { mergeTranslations } from '../../i18n/context';
 
 describe('tagUtils', () => {
 	describe('getNodeTags', () => {
@@ -50,6 +58,26 @@ describe('tagUtils', () => {
 				color: '#888888',
 				bgColor: 'rgba(136, 136, 136, 0.15)'
 			});
+		});
+	});
+
+	describe('getTagLabel', () => {
+		it('should resolve predefined tag labels from translations', () => {
+			expect(getTagLabel('important', DEFAULT_TRANSLATIONS)).toBe('Important');
+			expect(getTagLabel('todo', DEFAULT_TRANSLATIONS)).toBe('Todo');
+			expect(getTagLabel('idea', DEFAULT_TRANSLATIONS)).toBe('Idea');
+			expect(getTagLabel('question', DEFAULT_TRANSLATIONS)).toBe('Question');
+			expect(getTagLabel('resolved', DEFAULT_TRANSLATIONS)).toBe('Resolved');
+		});
+
+		it('should use overridden translations for predefined tags', () => {
+			const t = mergeTranslations({ tags: { labelImportant: 'Wichtig' } });
+			expect(getTagLabel('important', t)).toBe('Wichtig');
+			expect(getTagLabel('todo', t)).toBe('Todo');
+		});
+
+		it('should fall back to the stored label for custom tags', () => {
+			expect(getTagLabel('custom-tag', DEFAULT_TRANSLATIONS)).toBe('custom-tag');
 		});
 	});
 

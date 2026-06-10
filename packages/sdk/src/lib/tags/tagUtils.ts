@@ -1,4 +1,5 @@
 import type { Node } from '../TraekEngine.svelte';
+import type { TraekTranslations } from '../i18n/types';
 
 export interface TagConfig {
 	label: string;
@@ -54,6 +55,28 @@ export function getTagConfig(tag: string): TagConfig {
 			bgColor: 'rgba(136, 136, 136, 0.15)'
 		}
 	);
+}
+
+/**
+ * Resolve the display label for a tag via translations.
+ * Predefined tag ids map to i18n keys; custom tags fall back to their stored label.
+ * Stored data (tag ids, colors) is unaffected — only the displayed label is translated.
+ */
+export function getTagLabel(tag: string, translations: TraekTranslations): string {
+	switch (tag) {
+		case 'important':
+			return translations.tags.labelImportant;
+		case 'todo':
+			return translations.tags.labelTodo;
+		case 'idea':
+			return translations.tags.labelIdea;
+		case 'question':
+			return translations.tags.labelQuestion;
+		case 'resolved':
+			return translations.tags.labelResolved;
+		default:
+			return getTagConfig(tag).label;
+	}
 }
 
 /**
