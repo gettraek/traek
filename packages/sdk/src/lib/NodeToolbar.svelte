@@ -25,6 +25,60 @@
 
 	let expandedActionId = $state<string | null>(null);
 	let expandedVariants = $state<ActionVariant[] | null>(null);
+	let toolbarEl = $state<HTMLDivElement | null>(null);
+
+	function getToolbarButtons(): HTMLButtonElement[] {
+		if (!toolbarEl) return [];
+		return Array.from(toolbarEl.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+	}
+
+	function setRovingFocus(buttons: HTMLButtonElement[], index: number, focus = true) {
+		buttons.forEach((b, i) => {
+			b.tabIndex = i === index ? 0 : -1;
+		});
+		if (focus) buttons[index]?.focus();
+	}
+
+	// Roving tabindex: keep exactly one toolbar button tabbable.
+	// When variants expand, move focus to the first variant button.
+	$effect(() => {
+		void expandedActionId;
+		void actions;
+		const buttons = getToolbarButtons();
+		if (buttons.length === 0) return;
+		if (expandedActionId && toolbarEl) {
+			const firstVariant = toolbarEl.querySelector<HTMLButtonElement>(
+				'.traek-toolbar-badge--variant'
+			);
+			const index = firstVariant ? buttons.indexOf(firstVariant) : 0;
+			setRovingFocus(buttons, Math.max(index, 0));
+		} else {
+			const active = buttons.indexOf(document.activeElement as HTMLButtonElement);
+			setRovingFocus(buttons, Math.max(active, 0), active >= 0);
+		}
+	});
+
+	function handleToolbarKeydown(e: KeyboardEvent) {
+		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') {
+			return;
+		}
+		const buttons = getToolbarButtons();
+		if (buttons.length === 0) return;
+		const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+		let next: number;
+		if (e.key === 'ArrowRight') {
+			next = current < 0 ? 0 : (current + 1) % buttons.length;
+		} else if (e.key === 'ArrowLeft') {
+			next = current < 0 ? buttons.length - 1 : (current - 1 + buttons.length) % buttons.length;
+		} else if (e.key === 'Home') {
+			next = 0;
+		} else {
+			next = buttons.length - 1;
+		}
+		e.preventDefault();
+		e.stopPropagation();
+		setRovingFocus(buttons, next);
+	}
 
 	function handleActionClick(e: MouseEvent, action: NodeTypeAction) {
 		e.stopPropagation();
@@ -79,13 +133,16 @@
 {/if}
 
 {#if actions.length > 0}
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
+		bind:this={toolbarEl}
 		class="traek-node-toolbar"
 		role="toolbar"
 		aria-label={t.toolbar.nodeActions}
 		style:left="{x}px"
 		style:top="{y}px"
 		style:max-width="{nodeWidth}px"
+		onkeydown={handleToolbarKeydown}
 	>
 		<!-- Tag Dropdown -->
 		<TagDropdown {node} {engine} />

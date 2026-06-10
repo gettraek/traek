@@ -76,6 +76,7 @@
 		{#if resolver && actions && resolver.slashFilter !== null}
 			<SlashCommandDropdown
 				bind:this={slashDropdownRef}
+				bind:activeOptionId={slashActiveOptionId}
 				{actions}
 				filter={resolver.slashFilter}
 				onSelect={(id) => {
@@ -91,6 +92,12 @@
 		<textarea
 			bind:value={userInput}
 			placeholder={t.input.placeholder}
+			aria-label={t.input.placeholder}
+			role={slashOpen ? 'combobox' : undefined}
+			aria-expanded={slashOpen ? true : undefined}
+			aria-controls={slashOpen ? 'traek-slash-listbox' : undefined}
+			aria-activedescendant={slashOpen ? slashActiveOptionId : undefined}
+			aria-autocomplete={slashOpen ? 'list' : undefined}
 			spellcheck="false"
 			rows="1"
 			oninput={(e) => {

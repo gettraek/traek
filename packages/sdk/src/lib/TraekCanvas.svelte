@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import {
 		TraekEngine,
@@ -40,6 +41,7 @@
 	import ThemePicker from './theme/ThemePicker.svelte';
 	import { setTraekI18n } from './i18n/index';
 	import type { PartialTraekTranslations } from './i18n/index';
+	import { SVG_ORIGIN_OFFSET } from './canvas/constants';
 
 	type InputActionsContext = {
 		engine: TraekEngine;
@@ -118,14 +120,31 @@
 		translations?: PartialTraekTranslations;
 	} = $props();
 
-	const config = $derived({
-		...DEFAULT_TRACK_ENGINE_CONFIG,
-		...configProp
-	} satisfies TraekEngineConfig);
+	/** Shallow equality over config fields (all primitives). */
+	function configsEqual(a: TraekEngineConfig, b: TraekEngineConfig): boolean {
+		const keys = Object.keys(b) as (keyof TraekEngineConfig)[];
+		if (Object.keys(a).length !== keys.length) return false;
+		for (const key of keys) {
+			if (a[key] !== b[key]) return false;
+		}
+		return true;
+	}
 
-	// Set up i18n context (set once at initialization — context cannot change after mount)
+	// Merge defaults with the config prop, preserving object identity when the result is
+	// structurally equal. Without this, a parent passing an inline config object would
+	// produce a new identity on every render, recreating ViewportManager /
+	// CanvasInteraction and resetting pan/zoom.
+	let lastMergedConfig: TraekEngineConfig | null = null;
+	const config = $derived.by(() => {
+		const merged: TraekEngineConfig = { ...DEFAULT_TRACK_ENGINE_CONFIG, ...configProp };
+		if (lastMergedConfig && configsEqual(lastMergedConfig, merged)) return lastMergedConfig;
+		lastMergedConfig = merged;
+		return merged;
+	});
 
-	const t = setTraekI18n(translationsProp);
+	// Set up i18n context (set once at initialization — context cannot change after mount).
+	// untrack: intentional one-time read of the prop at init.
+	const t = setTraekI18n(untrack(() => translationsProp));
 
 	// Engine initialization
 	let defaultEngine = $state<TraekEngine | null>(null);
@@ -136,31 +155,66 @@
 	});
 	const engine = $derived(engineProp ?? (defaultEngine as TraekEngine));
 
-	// Viewport manager
+	// Viewport manager. initialScale/initialOffset are untracked (only used at
+	// construction) and the change callback is a stable wrapper, so the manager is
+	// only recreated when engine or config (structurally) change.
 	let viewport = $state<ViewportManager | null>(null);
 	$effect(() => {
 		if (!engine) return;
-		viewport = new ViewportManager(config, initialScale, initialOffset, onViewportChange);
-		return () => viewport?.destroy();
+		const vp = new ViewportManager(
+			config,
+			untrack(() => initialScale),
+			untrack(() => initialOffset),
+			(v) => onViewportChange?.(v)
+		);
+		viewport = vp;
+		return () => vp.destroy();
 	});
 
 	// Canvas interaction manager
 	let interaction = $state<CanvasInteraction | null>(null);
 	$effect(() => {
 		if (!engine || !viewport) return;
-		interaction = new CanvasInteraction(viewport, engine, config, onNodesChanged);
+		const inter = new CanvasInteraction(viewport, engine, config, () => onNodesChanged?.());
+		interaction = inter;
+		return () => inter.destroy();
 	});
 
-	// Viewport tracker and visible nodes calculation
+	// Single viewport tracker instance, recreated only when config changes —
+	// not on every visibility recomputation (keeps its internal node-map memo warm).
+	const tracker = $derived(new ViewportTracker(config, 200));
+
+	// rAF-throttled snapshot of pan/zoom so visibleNodeIds doesn't track the raw
+	// per-event offset/scale — virtualization bounds update at most once per frame.
+	let trackedViewport = $state(
+		untrack(() => ({
+			scale: initialScale ?? 1,
+			offsetX: initialOffset?.x ?? 0,
+			offsetY: initialOffset?.y ?? 0
+		}))
+	);
+	$effect(() => {
+		const vp = viewport;
+		if (!vp) return;
+		const scale = vp.scale;
+		const offsetX = vp.offset.x;
+		const offsetY = vp.offset.y;
+		const rafId = requestAnimationFrame(() => {
+			trackedViewport = { scale, offsetX, offsetY };
+		});
+		return () => cancelAnimationFrame(rafId);
+	});
+
+	// Visible nodes calculation (DOM virtualization)
 	const visibleNodeIds = $derived.by(() => {
 		if (!viewport || !engine) return new Set<string>();
-		const tracker = new ViewportTracker(config, 200);
+		void viewport.viewportResizeVersion;
 		return tracker.getVisibleNodeIds(
 			engine.nodes,
 			engine.collapsedNodes,
 			viewport.viewportEl,
-			viewport.scale,
-			viewport.offset
+			trackedViewport.scale,
+			{ x: trackedViewport.offsetX, y: trackedViewport.offsetY }
 		);
 	});
 
@@ -245,7 +299,7 @@
 	$effect(() => {
 		const id = engine.pendingFocusNodeId;
 		if (!id || !viewport) return;
-		const node = engine.nodes.find((n: Node) => n.id === id);
+		const node = engine.getNode(id);
 		if (node) {
 			viewport.centerOnNode(node, engine.nodes, () => {
 				if (showIntroOverlay) showIntroOverlay = false;
@@ -323,6 +377,14 @@
 	// Branch celebration tracking
 	let celebratedBranches = $state(new Set<string>());
 	let branchCelebration = $state<string | null>(null);
+	let celebrationTimeoutId: ReturnType<typeof setTimeout> | undefined;
+	let sendFlashTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
+	// Clear pending UI timeouts when the canvas is destroyed
+	$effect(() => () => {
+		clearTimeout(celebrationTimeoutId);
+		clearTimeout(sendFlashTimeoutId);
+	});
 
 	// Branch comparison
 	let comparingNodeId = $state<string | null>(null);
@@ -388,13 +450,17 @@
 		return () => cancelAnimationFrame(rafId);
 	});
 
-	// Global keyboard shortcut handler for search
+	// Keyboard shortcut for search — registered only while canvas mode is active, and
+	// only handled when focus is within this canvas instance (doesn't hijack Ctrl+F
+	// for the rest of the page).
 	$effect(() => {
-		if (typeof window === 'undefined') return;
+		if (typeof window === 'undefined' || resolvedMode !== 'canvas') return;
 
 		const handleKeydown = (e: KeyboardEvent) => {
 			// Ctrl+F / Cmd+F to open search
 			if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+				const root = viewport?.viewportEl;
+				if (!root || !root.contains(document.activeElement)) return;
 				e.preventDefault();
 				showSearchBar = true;
 			}
@@ -436,7 +502,7 @@
 			])
 		];
 
-		const parentNode = engine.nodes.find((n: Node) => n.id === engine.activeNodeId);
+		const parentNode = engine.activeNodeId ? engine.getNode(engine.activeNodeId) : undefined;
 		let position: { x?: number; y?: number } = {};
 
 		if (!parentNode) {
@@ -463,13 +529,12 @@
 
 		// Check if this created a branch
 		if (parentNode) {
-			const siblings = engine.nodes.filter(
-				(n) => n.parentIds.includes(parentNode.id) && n.type !== 'thought'
-			);
+			const siblings = engine.getChildren(parentNode.id).filter((n) => n.type !== 'thought');
 			if (siblings.length === 2 && !celebratedBranches.has(parentNode.id)) {
 				celebratedBranches = new Set([...celebratedBranches, parentNode.id]);
 				branchCelebration = t.canvas.branchCelebration;
-				setTimeout(() => {
+				clearTimeout(celebrationTimeoutId);
+				celebrationTimeoutId = setTimeout(() => {
 					branchCelebration = null;
 				}, 4000);
 			}
@@ -478,7 +543,8 @@
 		const actionArg = allActions.length > 0 ? allActions : undefined;
 
 		sendFlash = true;
-		setTimeout(() => {
+		clearTimeout(sendFlashTimeoutId);
+		sendFlashTimeoutId = setTimeout(() => {
 			sendFlash = false;
 		}, 300);
 
@@ -535,7 +601,7 @@
 	}
 
 	function handleRegenerate(nodeId: string) {
-		const node = engine?.nodes.find((n) => n.id === nodeId);
+		const node = engine?.getNode(nodeId);
 		if (!node || node.type !== 'text' || !('content' in node)) return;
 
 		const messageNode = node as MessageNode;
@@ -554,7 +620,7 @@
 
 	const activeNodeActions = $derived.by(() => {
 		if (!engine?.activeNodeId) return [];
-		const activeNode = engine.nodes.find((n: Node) => n.id === engine.activeNodeId);
+		const activeNode = engine.getNode(engine.activeNodeId);
 		if (!activeNode) return [];
 
 		const defaults =
