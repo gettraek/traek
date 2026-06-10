@@ -20,8 +20,10 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 
-COPY --from=builder /app/web-deploy/node_modules ./node_modules
-COPY --from=builder /app/apps/web/build ./build
+COPY --from=builder --chown=node:node /app/web-deploy/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/apps/web/build ./build
+
+USER node
 
 EXPOSE 3000
 

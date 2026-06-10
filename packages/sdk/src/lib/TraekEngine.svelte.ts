@@ -721,16 +721,29 @@ export class TraekEngine {
 
 	/** Delete a node and all its descendants. Navigate to the deleted node's first parent if needed. */
 	deleteNodeAndDescendants(nodeId: string) {
+		// Build a reverse adjacency map (parent id → child ids across ALL parent links) once,
+		// so the BFS below is O(nodes + edges) instead of scanning all nodes per queue item.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const childIdsByParent = new Map<string, string[]>();
+		for (const n of this.nodes) {
+			for (const pid of n.parentIds) {
+				const list = childIdsByParent.get(pid) ?? [];
+				list.push(n.id);
+				childIdsByParent.set(pid, list);
+			}
+		}
+
 		// Collect all descendants via BFS
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const toDelete = new Set<string>([nodeId]);
 		const queue = [nodeId];
-		while (queue.length > 0) {
-			const currentId = queue.shift()!;
-			for (const n of this.nodes) {
-				if (n.parentIds.includes(currentId) && !toDelete.has(n.id)) {
-					toDelete.add(n.id);
-					queue.push(n.id);
+		for (let qi = 0; qi < queue.length; qi++) {
+			const childIds = childIdsByParent.get(queue[qi]);
+			if (!childIds) continue;
+			for (const childId of childIds) {
+				if (!toDelete.has(childId)) {
+					toDelete.add(childId);
+					queue.push(childId);
 				}
 			}
 		}
