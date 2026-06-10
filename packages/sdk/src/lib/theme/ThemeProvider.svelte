@@ -145,6 +145,9 @@
 
 	// React to initialTheme prop changes after mount; setTheme also applies
 	// the CSS variables so prop-driven switches take effect visually.
+	// Capturing the initial prop value here is intentional: the effect below
+	// only reacts to later changes.
+	// svelte-ignore state_referenced_locally
 	let lastInitialTheme = initialTheme;
 	$effect(() => {
 		if (initialTheme !== lastInitialTheme) {
