@@ -29,9 +29,16 @@ export interface Node {
 }
 
 /** Check whether adding an edge from parentId → childId would create a cycle. */
-export function wouldCreateCycle(nodes: Node[], parentId: string, childId: string): boolean {
+export function wouldCreateCycle(
+	nodes: Node[] | ReadonlyMap<string, Node>,
+	parentId: string,
+	childId: string
+): boolean {
 	// If parentId === childId, it's a self-loop
 	if (parentId === childId) return true;
+	// Build (or reuse) an id → node map so each DFS step is O(1)
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const nodeMap = Array.isArray(nodes) ? new Map(nodes.map((n) => [n.id, n] as const)) : nodes;
 	// DFS from parentId upward: if we reach childId, it would create a cycle
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const visited = new Set<string>();
@@ -41,7 +48,7 @@ export function wouldCreateCycle(nodes: Node[], parentId: string, childId: strin
 		if (current === childId) return true;
 		if (visited.has(current)) continue;
 		visited.add(current);
-		const node = nodes.find((n) => n.id === current);
+		const node = nodeMap.get(current);
 		if (node) {
 			for (const pid of node.parentIds) {
 				stack.push(pid);
@@ -158,9 +165,17 @@ export class TraekEngine {
 		activeNodeId: string | null;
 		timestamp: number;
 	} | null = null;
-	private deleteUndoTimeoutId: ReturnType<typeof setTimeout> = 0 as unknown as ReturnType<
-		typeof setTimeout
-	>;
+	private deleteUndoTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
+	/** Monotonic counter incremented on every mutating operation; lets consumers (e.g. auto-save) track deep mutations cheaply. */
+	#version = $state(0);
+	get version(): number {
+		return this.#version;
+	}
+
+	#bumpVersion(): void {
+		this.#version++;
+	}
 
 	constructor(config?: Partial<TraekEngineConfig>) {
 		this.config = { ...DEFAULT_TRACK_ENGINE_CONFIG, ...config };
@@ -232,7 +247,9 @@ export class TraekEngine {
 
 	// Der "Context Path" - Gibt nur die relevanten Knoten für den aktuellen Branch zurück.
 	// Follows the primary parent (first in parentIds) for a single linear path.
-	contextPath = $derived(() => {
+	// Memoized via $derived.by; external call sites use engine.contextPath(), so the public
+	// API stays a callable function that returns the cached array.
+	private contextPathMemo: Node[] = $derived.by(() => {
 		if (!this.activeNodeId) return [];
 		const path: Node[] = [];
 		let current = this.getNode(this.activeNodeId);
@@ -244,6 +261,8 @@ export class TraekEngine {
 		}
 		return path;
 	});
+
+	contextPath = (): Node[] => this.contextPathMemo;
 
 	/** Set by addNode when options.autofocus is true; canvas should center on this node and then clear. */
 	public pendingFocusNodeId = $state<string | null>(null);
@@ -285,6 +304,7 @@ export class TraekEngine {
 
 		this.nodes.push(newNode);
 		this.syncMapsAfterPush(newNode);
+		this.#bumpVersion();
 		// New node is active unless it's a thought (keep parent/current active so the main new node stays selected)
 		if (options.type !== 'thought') {
 			this.activeNodeId = newNode.id;
@@ -340,6 +360,7 @@ export class TraekEngine {
 
 		this.nodes.push(newNode);
 		this.syncMapsAfterPush(newNode);
+		this.#bumpVersion();
 		// New node is active unless it's a thought (keep parent/current active so the main new node stays selected)
 		if (options.type !== 'thought') {
 			this.activeNodeId = newNode.id;
@@ -375,26 +396,54 @@ export class TraekEngine {
 			id: p.id ?? crypto.randomUUID()
 		}));
 
-		// Topological sort: ensure all parents are added before children
+		// Topological sort (Kahn's algorithm): ensure all parents are added before children.
+		// Payloads colliding with existing engine ids (or duplicated in the batch) are skipped,
+		// matching the previous behavior.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const added = new Set<string>(this.nodes.map((n) => n.id));
-		const sorted: typeof withIds = [];
-		let prevSize = 0;
-		while (sorted.length < withIds.length) {
-			for (const p of withIds) {
-				if (added.has(p.id!)) continue;
-				const allParentsIn = p.parentIds.length === 0 || p.parentIds.every((pid) => added.has(pid));
-				if (allParentsIn) {
-					sorted.push(p);
-					added.add(p.id!);
+		const inBatch = new Map<string, (typeof withIds)[number]>();
+		for (const p of withIds) {
+			if (this.nodeIndexMap.has(p.id!) || inBatch.has(p.id!)) continue;
+			inBatch.set(p.id!, p);
+		}
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const inDegree = new Map<string, number>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const dependents = new Map<string, string[]>();
+		for (const p of inBatch.values()) {
+			let deg = 0;
+			for (const pid of p.parentIds) {
+				if (inBatch.has(pid)) {
+					deg++;
+					const list = dependents.get(pid) ?? [];
+					list.push(p.id!);
+					dependents.set(pid, list);
+				} else if (!this.nodeIndexMap.has(pid)) {
+					// Parent neither in batch nor engine: unsatisfiable, lands in the appended remainder
+					deg++;
 				}
 			}
-			if (sorted.length === prevSize) {
-				const remaining = withIds.filter((p) => !added.has(p.id!));
-				sorted.push(...remaining);
-				break;
+			inDegree.set(p.id!, deg);
+		}
+		const sorted: typeof withIds = [];
+		const order: string[] = [];
+		for (const p of inBatch.values()) {
+			if (inDegree.get(p.id!) === 0) order.push(p.id!);
+		}
+		for (let qi = 0; qi < order.length; qi++) {
+			const id = order[qi];
+			sorted.push(inBatch.get(id)!);
+			const deps = dependents.get(id);
+			if (!deps) continue;
+			for (const depId of deps) {
+				const d = (inDegree.get(depId) ?? 0) - 1;
+				inDegree.set(depId, d);
+				if (d === 0) order.push(depId);
 			}
-			prevSize = sorted.length;
+		}
+		if (sorted.length < inBatch.size) {
+			for (const p of inBatch.values()) {
+				if ((inDegree.get(p.id!) ?? 0) > 0) sorted.push(p);
+			}
 		}
 
 		const newNodes: MessageNode[] = sorted.map((p) => {
@@ -422,6 +471,7 @@ export class TraekEngine {
 
 		this.nodes = [...this.nodes, ...newNodes];
 		this.rebuildMaps();
+		this.#bumpVersion();
 		for (const n of newNodes) {
 			this.onNodeCreated?.(n);
 		}

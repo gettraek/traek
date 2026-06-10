@@ -11,9 +11,23 @@ export class ViewportManager {
 	viewportResizeVersion = $state(0);
 
 	#focusAnimationId = 0;
+	#centerOuterRafId = 0;
+	#centerInnerRafId = 0;
 	#viewportChangeTimeoutId = 0;
+	#destroyed = false;
 	#config: TraekEngineConfig;
 	#onViewportChange?: (viewport: { scale: number; offset: { x: number; y: number } }) => void;
+
+	/**
+	 * Cached content bounding box (canvas px) used by clampOffset. Recomputed when the
+	 * nodes array identity/length changes, and invalidated once per animation frame so
+	 * in-place position/height mutations (drag, streaming) are picked up at most 1
+	 * frame late instead of recomputing the full box on every pan/zoom event.
+	 */
+	#boundsCache: { minX: number; maxX: number; minY: number; maxY: number } | null = null;
+	#boundsCacheNodes: Node[] | null = null;
+	#boundsCacheLength = -1;
+	#boundsInvalidateRafId = 0;
 
 	constructor(
 		config: TraekEngineConfig,

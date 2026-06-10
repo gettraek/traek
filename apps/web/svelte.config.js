@@ -6,7 +6,13 @@ const config = {
 	extensions: ['.svelte', '.svx'],
 	preprocess: [vitePreprocess(), mdsvex()],
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		csp: {
+			mode: 'auto',
+			directives: {
+				'script-src': ['self', 'https://umami.gettraek.com']
+			}
+		}
 	}
 };
 

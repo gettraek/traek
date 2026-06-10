@@ -5,6 +5,9 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
 		include: ['src/**/*.{test,spec}.{ts,js}'],
-		exclude: ['**/node_modules/**', '**/dist/**', '**/.svelte-kit/**']
+		exclude: ['**/node_modules/**', '**/dist/**', '**/.svelte-kit/**'],
+		coverage: {
+			reporter: ['text', 'json-summary']
+		}
 	}
 });

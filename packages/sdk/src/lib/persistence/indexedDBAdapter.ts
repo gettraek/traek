@@ -3,24 +3,35 @@
  * Provides async wrappers around IndexedDB's callback-based API.
  */
 
-const DB_NAME = 'traek-conversations';
+const DEFAULT_DB_NAME = 'traek-conversations';
 const DB_VERSION = 1;
 const STORE_NAME = 'conversations';
 
 /**
  * Open or create the IndexedDB database.
  */
-export function openDB(): Promise<IDBDatabase> {
+export function openDB(dbName: string = DEFAULT_DB_NAME): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
 		if (typeof indexedDB === 'undefined') {
 			reject(new Error('IndexedDB is not available in this environment'));
 			return;
 		}
 
-		const request = indexedDB.open(DB_NAME, DB_VERSION);
+		const request = indexedDB.open(dbName, DB_VERSION);
 
 		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve(request.result);
+		request.onblocked = () =>
+			reject(
+				new Error(
+					`IndexedDB open blocked for "${dbName}" — another tab is holding an older version`
+				)
+			);
+		request.onsuccess = () => {
+			const db = request.result;
+			// Close gracefully when another tab/window requests a version upgrade
+			db.onversionchange = () => db.close();
+			resolve(db);
+		};
 
 		request.onupgradeneeded = (event) => {
 			const db = (event.target as IDBOpenDBRequest).result;
@@ -52,29 +63,34 @@ export function get<T>(db: IDBDatabase, id: string): Promise<T | undefined> {
 
 /**
  * Store or update a conversation.
+ * Resolves only when the transaction completes, so quota-related
+ * aborts surface as rejections instead of silent data loss.
  */
 export function put<T>(db: IDBDatabase, value: T): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const tx = db.transaction(STORE_NAME, 'readwrite');
-		const store = tx.objectStore(STORE_NAME);
-		const request = store.put(value);
 
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve();
+		tx.oncomplete = () => resolve();
+		tx.onabort = () => reject(tx.error ?? new Error('IndexedDB write transaction aborted'));
+		tx.onerror = () => reject(tx.error ?? new Error('IndexedDB write transaction failed'));
+
+		tx.objectStore(STORE_NAME).put(value);
 	});
 }
 
 /**
  * Delete a conversation by ID.
+ * Resolves only when the transaction completes.
  */
 export function deleteEntry(db: IDBDatabase, id: string): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const tx = db.transaction(STORE_NAME, 'readwrite');
-		const store = tx.objectStore(STORE_NAME);
-		const request = store.delete(id);
 
-		request.onerror = () => reject(request.error);
-		request.onsuccess = () => resolve();
+		tx.oncomplete = () => resolve();
+		tx.onabort = () => reject(tx.error ?? new Error('IndexedDB delete transaction aborted'));
+		tx.onerror = () => reject(tx.error ?? new Error('IndexedDB delete transaction failed'));
+
+		tx.objectStore(STORE_NAME).delete(id);
 	});
 }
 
@@ -115,27 +131,6 @@ export function getAllKeys(db: IDBDatabase): Promise<string[]> {
 		request.onerror = () => reject(request.error);
 		request.onsuccess = () => resolve(request.result as string[]);
 	});
-}
-
-/**
- * Check if IndexedDB is available in the current environment.
- */
-export function isIndexedDBAvailable(): boolean {
-	if (typeof window === 'undefined') return false;
-	if (typeof indexedDB === 'undefined') return false;
-
-	// Some browsers (old Safari private mode) report indexedDB but operations fail
-	try {
-		const test = indexedDB.open('__traek_test__');
-		test.onsuccess = () => {
-			const db = test.result;
-			db.close();
-			indexedDB.deleteDatabase('__traek_test__');
-		};
-		return true;
-	} catch {
-		return false;
-	}
 }
 
 /**

@@ -9,14 +9,18 @@ import { checkDailyLimit, pruneOldEntries } from '$lib/server/rate-limit';
 import { z } from 'zod';
 
 const resolveActionsRequestSchema = z.object({
-	input: z.string().min(1),
-	actions: z.array(
-		z.object({
-			id: z.string(),
-			description: z.string()
-		})
-	)
+	input: z.string().min(1).max(2000),
+	actions: z
+		.array(
+			z.object({
+				id: z.string().max(100),
+				description: z.string().max(200)
+			})
+		)
+		.max(20)
 });
+
+const actionIdsSchema = z.array(z.string());
 
 const DEFAULT_DAILY_LIMIT = dev ? 10000 : 100;
 
@@ -27,30 +31,6 @@ export async function POST({ request, getClientAddress }) {
 			status: 500,
 			headers: { 'Content-Type': 'application/json' }
 		});
-	}
-
-	pruneOldEntries();
-	const ip = getClientAddress();
-	const limit = Math.max(
-		1,
-		parseInt(env.RESOLVE_ACTIONS_DAILY_LIMIT ?? String(DEFAULT_DAILY_LIMIT), 10) ||
-			DEFAULT_DAILY_LIMIT
-	);
-	const rate = checkDailyLimit(ip, limit);
-	if (!rate.allowed) {
-		return new Response(
-			JSON.stringify({
-				error: 'Daily request limit reached',
-				retryAfter: rate.retryAfter
-			}),
-			{
-				status: 429,
-				headers: {
-					'Content-Type': 'application/json',
-					'Retry-After': String(rate.retryAfter)
-				}
-			}
-		);
 	}
 
 	let raw: unknown;
@@ -71,6 +51,30 @@ export async function POST({ request, getClientAddress }) {
 		);
 	}
 	const { input, actions } = parsed.data;
+
+	pruneOldEntries();
+	const ip = getClientAddress();
+	const limit = Math.max(
+		1,
+		parseInt(env.RESOLVE_ACTIONS_DAILY_LIMIT ?? String(DEFAULT_DAILY_LIMIT), 10) ||
+			DEFAULT_DAILY_LIMIT
+	);
+	const rate = checkDailyLimit('resolve-actions', ip, limit);
+	if (!rate.allowed) {
+		return new Response(
+			JSON.stringify({
+				error: 'Daily request limit reached',
+				retryAfter: rate.retryAfter
+			}),
+			{
+				status: 429,
+				headers: {
+					'Content-Type': 'application/json',
+					'Retry-After': String(rate.retryAfter)
+				}
+			}
+		);
+	}
 
 	const actionList = actions.map((a) => `- ${a.id}: ${a.description}`).join('\n');
 	const systemPrompt = `You are an action classifier. Given a user message and a list of available actions, return a JSON array of action IDs that are relevant to the user's intent. Return only the JSON array, nothing else. If no actions match, return [].
@@ -96,9 +100,10 @@ ${actionList}`;
 		});
 
 		if (!res.ok) {
-			const err = await res.text();
-			return new Response(JSON.stringify({ error: 'OpenAI request failed', detail: err }), {
-				status: res.status,
+			const err = await res.text().catch(() => '');
+			console.error('OpenAI resolve-actions request failed', res.status, err);
+			return new Response(JSON.stringify({ error: 'Upstream request failed' }), {
+				status: 502,
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}
@@ -108,10 +113,14 @@ ${actionList}`;
 		};
 		const content = data.choices?.[0]?.message?.content ?? '[]';
 
-		let actionIds: string[];
+		// Validate model output and only return ids that were actually submitted
+		let actionIds: string[] = [];
 		try {
-			actionIds = JSON.parse(content);
-			if (!Array.isArray(actionIds)) actionIds = [];
+			const modelOutput = actionIdsSchema.safeParse(JSON.parse(content));
+			if (modelOutput.success) {
+				const knownIds = new Set(actions.map((a) => a.id));
+				actionIds = modelOutput.data.filter((id) => knownIds.has(id));
+			}
 		} catch {
 			actionIds = [];
 		}
@@ -120,11 +129,10 @@ ${actionList}`;
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (e) {
-		return new Response(
-			JSON.stringify({
-				error: e instanceof Error ? e.message : 'Unexpected error'
-			}),
-			{ status: 500, headers: { 'Content-Type': 'application/json' } }
-		);
+		console.error('resolve-actions failed', e);
+		return new Response(JSON.stringify({ error: 'Unexpected error' }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' }
+		});
 	}
 }
