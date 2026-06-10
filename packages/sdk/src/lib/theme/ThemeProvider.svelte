@@ -124,14 +124,32 @@
 		children
 	}: { initialTheme?: ThemeName; children: import('svelte').Snippet } = $props();
 
-	let currentThemeName = $state<ThemeName>(DEFAULT_THEME);
-	let currentTheme = $state<TraekTheme>(themes[DEFAULT_THEME]);
+	/**
+	 * Seed from the DOM when the host page set a known data-theme before
+	 * hydration (e.g. an inline script honoring prefers-color-scheme),
+	 * falling back to the initialTheme prop. Guarded for SSR.
+	 */
+	function resolveSeedTheme(): ThemeName {
+		if (typeof document !== 'undefined') {
+			const domTheme = document.documentElement.dataset.theme;
+			if (domTheme && domTheme in themes) {
+				return domTheme as ThemeName;
+			}
+		}
+		return initialTheme;
+	}
 
-	// Initialize theme from props
+	const seedTheme = resolveSeedTheme();
+	let currentThemeName = $state<ThemeName>(seedTheme);
+	let currentTheme = $state<TraekTheme>(themes[seedTheme]);
+
+	// React to initialTheme prop changes after mount; setTheme also applies
+	// the CSS variables so prop-driven switches take effect visually.
+	let lastInitialTheme = initialTheme;
 	$effect(() => {
-		if (initialTheme !== currentThemeName) {
-			currentThemeName = initialTheme;
-			currentTheme = themes[initialTheme];
+		if (initialTheme !== lastInitialTheme) {
+			lastInitialTheme = initialTheme;
+			setTheme(initialTheme);
 		}
 	});
 
@@ -181,9 +199,12 @@
 
 	setContext(THEME_CONTEXT_KEY, themeContext);
 
-	// Apply initial theme on mount
+	// Apply the initial theme on mount, unless the DOM already carries the
+	// same theme (set by the host before hydration) — don't clobber it.
 	onMount(() => {
-		applyThemeToRoot(currentTheme, currentThemeName);
+		if (document.documentElement.dataset.theme !== currentThemeName) {
+			applyThemeToRoot(currentTheme, currentThemeName);
+		}
 	});
 </script>
 

@@ -5,7 +5,7 @@
 
 const store = new Map<string, { date: string; count: number }>();
 
-/** Hard cap on tracked entries to bound memory; oldest (insertion order) are evicted first. */
+/** Hard cap on tracked entries to bound memory; least recently used are evicted first. */
 const MAX_ENTRIES = 50_000;
 
 function today(): string {
@@ -13,8 +13,12 @@ function today(): string {
 }
 
 function setEntry(key: string, entry: { date: string; count: number }): void {
-	if (!store.has(key) && store.size >= MAX_ENTRIES) {
-		// Evict oldest entries (Map preserves insertion order)
+	if (store.has(key)) {
+		// Refresh recency: delete + re-insert so Map insertion order tracks last use
+		// and eviction below is LRU-ish instead of punishing long-lived active keys.
+		store.delete(key);
+	} else if (store.size >= MAX_ENTRIES) {
+		// Evict least recently used entries (Map preserves insertion order)
 		const excess = store.size - MAX_ENTRIES + 1;
 		let evicted = 0;
 		for (const oldKey of store.keys()) {
@@ -62,6 +66,9 @@ export function checkDailyLimit(
 	}
 
 	entry.count += 1;
+	// Refresh recency on every successful hit so active counters aren't evicted/reset.
+	store.delete(key);
+	store.set(key, entry);
 	return { allowed: true };
 }
 

@@ -121,7 +121,12 @@
 			const pulseTimeoutId = setTimeout(() => {
 				showCompletePulse = false;
 			}, 300);
-			return () => clearTimeout(pulseTimeoutId);
+			return () => {
+				clearTimeout(pulseTimeoutId);
+				// Reset eagerly: if the effect re-runs within 300ms (status changed again),
+				// the cancelled timeout would otherwise leave the pulse stuck on.
+				showCompletePulse = false;
+			};
 		}
 	});
 	let expandedStepIndices = $state<Record<number, boolean>>({});

@@ -23,13 +23,16 @@ export class ViewportTracker {
 	/**
 	 * Memoized node map keyed on the nodes array identity + length.
 	 * The map values are live node references, so position/height mutations on
-	 * existing nodes do not invalidate the cache — only membership changes do
-	 * (push keeps array identity but changes length; bulk ops reassign the array).
+	 * existing nodes do not invalidate the cache. Identity + length alone can go
+	 * stale (e.g. delete-then-add via splice+push keeps identity and restores
+	 * length), so the cache is additionally expired once per animation frame —
+	 * same pattern as ViewportManager's #getContentBounds.
 	 */
 
 	private nodeMapCache: Map<string, Node> | null = null;
 	private nodeMapCacheNodes: Node[] | null = null;
 	private nodeMapCacheLength = -1;
+	private nodeMapInvalidateRafId = 0;
 
 	constructor(config: TraekEngineConfig, bufferPx: number = 200) {
 		this.config = config;
@@ -132,6 +135,18 @@ export class ViewportTracker {
 		this.nodeMapCache = map;
 		this.nodeMapCacheNodes = nodes;
 		this.nodeMapCacheLength = nodes.length;
+		// In-place delete-then-add can keep array identity and restore length, so
+		// expire the cache on the next animation frame (at most one rebuild per frame).
+		// In non-browser environments (tests) requestAnimationFrame may be missing;
+		// there the memo simply behaves as before.
+		if (typeof requestAnimationFrame === 'function' && !this.nodeMapInvalidateRafId) {
+			this.nodeMapInvalidateRafId = requestAnimationFrame(() => {
+				this.nodeMapInvalidateRafId = 0;
+				this.nodeMapCache = null;
+				this.nodeMapCacheNodes = null;
+				this.nodeMapCacheLength = -1;
+			});
+		}
 		return map;
 	}
 

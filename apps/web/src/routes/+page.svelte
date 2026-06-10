@@ -51,11 +51,11 @@ npm install traek
 
     // stream chunks into assistantNode.content here...
   }
-
-  <TraekCanvas {engine} {onSendMessage} />
 ` +
 				// eslint-disable-next-line no-useless-escape
 				`<\/script>
+
+<TraekCanvas {engine} {onSendMessage} />
 \`\`\``
 		)
 	);

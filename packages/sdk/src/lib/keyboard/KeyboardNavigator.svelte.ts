@@ -1,4 +1,6 @@
 import type { TraekEngine } from '../TraekEngine.svelte';
+import type { TraekTranslations } from '../i18n/types';
+import { DEFAULT_TRANSLATIONS } from '../i18n/defaults';
 
 /**
  * KeyboardNavigator - State machine for desktop keyboard navigation
@@ -20,10 +22,16 @@ export class KeyboardNavigator {
 
 	#engine: TraekEngine;
 	#onAnnounce?: (message: string) => void;
+	#t: TraekTranslations['keyboardNavigator'];
 
-	constructor(engine: TraekEngine, onAnnounce?: (message: string) => void) {
+	constructor(
+		engine: TraekEngine,
+		onAnnounce?: (message: string) => void,
+		translations?: TraekTranslations
+	) {
 		this.#engine = engine;
 		this.#onAnnounce = onAnnounce;
+		this.#t = (translations ?? DEFAULT_TRANSLATIONS).keyboardNavigator;
 
 		// Initialize focused node from engine's active node
 		$effect(() => {

@@ -46,6 +46,36 @@ class ToastStore {
 		this.toasts = this.toasts.filter((t) => t.id !== id);
 	}
 
+	/**
+	 * Take ownership of a toast's auto-dismiss timer. The store stops
+	 * auto-dismissing this toast; the claimer must dismiss it itself
+	 * (removeToast) or hand control back via releaseTimer.
+	 */
+	claimTimer(id: string): void {
+		const timer = this.timers.get(id);
+		if (timer != null) {
+			clearTimeout(timer);
+			this.timers.delete(id);
+		}
+	}
+
+	/**
+	 * Return auto-dismiss ownership to the store. Re-arms a store-owned
+	 * timer with the given remaining time when the toast still exists, so a
+	 * claimed toast cannot linger forever after its claimer unmounts.
+	 */
+	releaseTimer(id: string, remainingMs: number): void {
+		if (!this.toasts.some((t) => t.id === id)) return;
+		this.claimTimer(id);
+		const timer = setTimeout(
+			() => {
+				this.removeToast(id);
+			},
+			Math.max(0, remainingMs)
+		);
+		this.timers.set(id, timer);
+	}
+
 	clear(): void {
 		for (const timer of this.timers.values()) {
 			clearTimeout(timer);

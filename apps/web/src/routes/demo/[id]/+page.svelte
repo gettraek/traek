@@ -147,6 +147,21 @@
 		};
 	});
 
+	// Mirror the /api/chat server limits (defense in depth + smaller payloads):
+	// only user/assistant roles, content capped at 8000 chars, last 40 messages.
+	const MAX_CHAT_MESSAGES = 40;
+	const MAX_CHAT_CONTENT_LENGTH = 8000;
+
+	function toChatMessages(path: MessageNode[]): { role: string; content: string }[] {
+		return path
+			.filter((n) => n.role === 'user' || n.role === 'assistant')
+			.map((n) => ({
+				role: n.role,
+				content: (n.content ?? '').trim().slice(0, MAX_CHAT_CONTENT_LENGTH)
+			}))
+			.slice(-MAX_CHAT_MESSAGES);
+	}
+
 	function pathToUserNode(eng: TraekEngine, userNode: MessageNode): MessageNode[] {
 		const path: MessageNode[] = [];
 		let current: MessageNode | undefined = userNode;
@@ -186,11 +201,7 @@
 
 		// --- Retry path: stream into existing node, no delete; mark dependent nodes outdated ---
 		if (retryNodeId) {
-			const path = pathToUserNode(eng, userNode);
-			const messages = path.map((n) => ({
-				role: n.role,
-				content: (n.content ?? '').trim()
-			}));
+			const messages = toChatMessages(pathToUserNode(eng, userNode));
 
 			const descendants = eng.getDescendants(retryNodeId);
 			for (const desc of descendants) {
@@ -363,11 +374,7 @@
 		// When "exploration" is selected, run the default chat flow 2 times
 		// to create three parallel branches from the same user message.
 		const explorationRuns = selected.includes('exploration') ? 2 : 1;
-		const path = pathToUserNode(eng, userNode);
-		const messages = path.map((n) => ({
-			role: n.role,
-			content: (n.content ?? '').trim()
-		}));
+		const messages = toChatMessages(pathToUserNode(eng, userNode));
 
 		// Create all response + thought nodes up front (so parallel runs don't race on addNode).
 		const branches: { responseNodeId: string; thoughtNodeId: string }[] = [];

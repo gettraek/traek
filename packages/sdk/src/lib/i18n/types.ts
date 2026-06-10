@@ -56,6 +56,34 @@ export interface TraekTranslations {
 		close: string;
 		leaveInput: string;
 	};
+	keyboardNavigator: {
+		navigatedToParent: (label: string) => string;
+		alreadyAtRoot: string;
+		noChildren: string;
+		navigatedToChild: (label: string) => string;
+		navigatedToPreviousSibling: (label: string) => string;
+		noPreviousSibling: string;
+		navigatedToNextSibling: (label: string) => string;
+		noNextSibling: string;
+		activatedNode: (label: string) => string;
+		noChildrenToCollapse: string;
+		collapsedNode: string;
+		expandedNode: string;
+		navigatedToRoot: string;
+		navigatedToDeepestLeaf: (label: string) => string;
+		alreadyAtLeaf: string;
+		showingHelp: string;
+		hidingHelp: string;
+		chordStarted: (key: string) => string;
+		unknownChord: string;
+		noChildrenAvailable: string;
+		onlyNChildrenAvailable: (count: number) => string;
+		jumpedToChild: (index: number, label: string) => string;
+		fuzzySearchOpened: string;
+		fuzzySearchClosed: string;
+		navigatedTo: (label: string) => string;
+		unknownNode: string;
+	};
 	fuzzySearch: {
 		placeholder: string;
 		ariaLabel: string;

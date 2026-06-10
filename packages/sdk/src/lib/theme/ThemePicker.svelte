@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { useTheme } from './ThemeProvider.svelte';
-	import { themes, type ThemeName, createCustomTheme } from './themes';
+	import { themes, DEFAULT_THEME, type ThemeName, createCustomTheme } from './themes';
 	import { getTraekI18n } from '../i18n/index';
 
 	const t = getTraekI18n();
@@ -13,25 +13,48 @@
 	let { compact = false }: { compact?: boolean } = $props();
 
 	const themeContext = useTheme();
-	let selectedThemeName = $state<ThemeName>('dark');
+
+	function isThemeName(value: string | null | undefined): value is ThemeName {
+		return value != null && value in themes;
+	}
+
+	/**
+	 * Seed from the data-theme the host page applied before hydration
+	 * (e.g. honoring prefers-color-scheme). Guarded for SSR.
+	 */
+	function resolveSeedTheme(): ThemeName {
+		if (typeof document !== 'undefined') {
+			const domTheme = document.documentElement.dataset.theme;
+			if (isThemeName(domTheme)) {
+				return domTheme;
+			}
+		}
+		return DEFAULT_THEME;
+	}
+
+	let selectedThemeName = $state<ThemeName>(resolveSeedTheme());
 	let customAccent = $state<string>(DEFAULT_ACCENT);
 	let isOpen = $state(false);
 
 	// Load saved preferences
 	onMount(() => {
 		if (typeof localStorage !== 'undefined') {
-			const savedTheme = localStorage.getItem(STORAGE_KEY_THEME) as ThemeName | null;
+			const savedTheme = localStorage.getItem(STORAGE_KEY_THEME);
 			const savedAccent = localStorage.getItem(STORAGE_KEY_ACCENT);
 
-			if (savedTheme && themes[savedTheme]) {
+			if (isThemeName(savedTheme)) {
 				selectedThemeName = savedTheme;
 			}
 
 			if (savedAccent) {
 				customAccent = savedAccent;
 			}
+		}
 
-			// Apply saved theme
+		// Apply only when the result differs from what the DOM already
+		// carries, so a pre-hydration system preference is not clobbered.
+		const domTheme = document.documentElement.dataset.theme;
+		if (selectedThemeName !== domTheme || customAccent !== DEFAULT_ACCENT) {
 			applyThemeWithAccent(selectedThemeName, customAccent);
 		}
 	});

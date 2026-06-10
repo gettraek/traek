@@ -12,19 +12,22 @@ import { z } from 'zod';
 const MAX_MESSAGES = 40;
 const MAX_CONTENT_LENGTH = 8000;
 
+// Coerce instead of reject: the demo client sends the full ancestor path verbatim,
+// which may include system/custom-role nodes, over-long assistant content, or deep
+// threads. Unknown roles are dropped, content is truncated, and the history is
+// windowed to the last MAX_MESSAGES entries below.
 const chatRequestSchema = z.object({
 	messages: z
 		.array(
 			z.object({
-				role: z.enum(['user', 'assistant']),
-				content: z.string().max(MAX_CONTENT_LENGTH)
+				role: z.string(),
+				content: z.string()
 			})
 		)
 		.min(1)
-		.max(MAX_MESSAGES)
 });
 
-// Server-controlled system prompt; client-supplied system messages are rejected by the schema.
+// Server-controlled system prompt; client-supplied system messages are filtered out.
 const SYSTEM_PROMPT =
 	'You are the Træk demo assistant, a helpful AI inside a spatial, tree-structured conversation canvas. Answer concisely and use markdown where it helps.';
 
@@ -56,7 +59,17 @@ export async function POST({ request, getClientAddress }) {
 			{ status: 400, headers: { 'Content-Type': 'application/json' } }
 		);
 	}
-	const { messages } = parsed.data;
+	const messages = parsed.data.messages
+		.filter((m) => m.role === 'user' || m.role === 'assistant')
+		.map((m) => ({ role: m.role, content: m.content.slice(0, MAX_CONTENT_LENGTH) }))
+		.slice(-MAX_MESSAGES);
+
+	if (messages.length === 0) {
+		return new Response(
+			JSON.stringify({ error: 'messages must contain at least one user or assistant message' }),
+			{ status: 400, headers: { 'Content-Type': 'application/json' } }
+		);
+	}
 
 	pruneOldEntries();
 	const ip = getClientAddress();
@@ -111,6 +124,9 @@ export async function POST({ request, getClientAddress }) {
 	const reader = res.body!.getReader();
 	const decoder = new TextDecoder();
 	let buffer = '';
+	// Set when the client disconnects; the pump must not touch the controller
+	// afterwards (close()/error() would throw) nor log the abort as a real error.
+	let cancelled = false;
 	const stream = new ReadableStream({
 		async start(controller) {
 			try {
@@ -136,13 +152,22 @@ export async function POST({ request, getClientAddress }) {
 						}
 					}
 				}
-				controller.close();
+				if (!cancelled) {
+					try {
+						controller.close();
+					} catch {
+						// Controller already closed/errored; nothing to do.
+					}
+				}
 			} catch (e) {
-				console.error('OpenAI chat stream error', e);
-				controller.error(e);
+				if (!cancelled) {
+					console.error('OpenAI chat stream error', e);
+					controller.error(e);
+				}
 			}
 		},
 		cancel() {
+			cancelled = true;
 			reader.cancel().catch(() => {});
 		}
 	});

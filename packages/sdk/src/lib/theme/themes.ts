@@ -391,6 +391,9 @@ export type ThemeName = keyof typeof themes;
  */
 export const DEFAULT_THEME: ThemeName = 'dark';
 
+/** Fallback accent used when an invalid color is passed to createCustomTheme. */
+const FALLBACK_ACCENT = '#00d8ff';
+
 /**
  * Generate color variations for the accent color
  */
@@ -403,7 +406,24 @@ function generateAccentVariations(accentHex: string): {
 	alpha30: string;
 } {
 	// Parse hex color
-	const hex = accentHex.replace('#', '');
+	let base = accentHex;
+	let hex = accentHex.replace('#', '').trim();
+
+	// Normalize 3-digit hex (#0af → 00aaff)
+	if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+		hex = hex
+			.split('')
+			.map((ch) => ch + ch)
+			.join('');
+	}
+
+	// Guard invalid input: fall back instead of producing NaN-based colors
+	if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+		console.warn(`[traek] Invalid accent color "${accentHex}", falling back to ${FALLBACK_ACCENT}`);
+		base = FALLBACK_ACCENT;
+		hex = FALLBACK_ACCENT.slice(1);
+	}
+
 	const r = parseInt(hex.slice(0, 2), 16);
 	const g = parseInt(hex.slice(2, 4), 16);
 	const b = parseInt(hex.slice(4, 6), 16);
@@ -417,7 +437,7 @@ function generateAccentVariations(accentHex: string): {
 	const dark = `#${darker(r).toString(16).padStart(2, '0')}${darker(g).toString(16).padStart(2, '0')}${darker(b).toString(16).padStart(2, '0')}`;
 
 	return {
-		base: accentHex,
+		base,
 		light,
 		dark,
 		alpha15: `rgba(${r}, ${g}, ${b}, 0.15)`,

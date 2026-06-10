@@ -89,7 +89,9 @@ export class ReplayController {
 		if (this.currentIndex < 0) return;
 		const node = this.sortedNodes[this.currentIndex];
 		if (node) {
-			this.engine.deleteNode(node.id);
+			this.withSuppressedDeleteNotifications(() => {
+				this.engine.deleteNode(node.id);
+			});
 		}
 		this.currentIndex -= 1;
 		const prev = this.currentIndex >= 0 ? this.sortedNodes[this.currentIndex] : null;
@@ -114,9 +116,11 @@ export class ReplayController {
 			this.engine.addNodes(nodesToAdd.map((n) => this.toPayload(n)));
 		} else if (target < this.currentIndex) {
 			// Remove newest-first so children are deleted before their parents.
-			for (let i = this.currentIndex; i > target; i--) {
-				this.engine.deleteNode(this.sortedNodes[i].id);
-			}
+			this.withSuppressedDeleteNotifications(() => {
+				for (let i = this.currentIndex; i > target; i--) {
+					this.engine.deleteNode(this.sortedNodes[i].id);
+				}
+			});
 		}
 
 		this.currentIndex = target;
@@ -147,6 +151,23 @@ export class ReplayController {
 	/** Clean up timers. */
 	destroy(): void {
 		this.pause();
+	}
+
+	/**
+	 * Run engine deletions without firing onNodeDeleted, which hosts
+	 * (e.g. TraekCanvas) wire to per-deletion undo toasts — replay
+	 * navigation is not undoable and an undo would desync the controller.
+	 * onNodeDeleting still fires so node registries can tear down per-node
+	 * component state.
+	 */
+	private withSuppressedDeleteNotifications(fn: () => void): void {
+		const original = this.engine.onNodeDeleted;
+		this.engine.onNodeDeleted = undefined;
+		try {
+			fn();
+		} finally {
+			this.engine.onNodeDeleted = original;
+		}
 	}
 
 	private toPayload(node: SerializedNode): AddNodePayload {

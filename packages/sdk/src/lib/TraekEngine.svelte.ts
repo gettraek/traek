@@ -159,9 +159,11 @@ export class TraekEngine {
 	/** Lifecycle callback: fired after node(s) are deleted. Provides count and a restore function for undo. */
 	public onNodeDeleted?: (deletedCount: number, restore: () => void) => void;
 
-	/** Buffer for last deleted nodes, enabling undo. */
+	/** Buffer for last deleted nodes, enabling undo. childEdges records parent links that were
+	 * stripped from surviving children so restoreDeleted() can re-link them. */
 	private lastDeletedBuffer: {
 		nodes: Node[];
+		childEdges: { childId: string; parentId: string; index: number }[];
 		activeNodeId: string | null;
 		timestamp: number;
 	} | null = null;
@@ -661,7 +663,17 @@ export class TraekEngine {
 			const node = this.nodes[index];
 			if (node) {
 				this.onNodeDeleting?.(node);
-				this.storeDeletedBuffer([node]);
+				// Record the parent edges that will be stripped from surviving children
+				// so restoreDeleted() can re-link them at their original positions.
+				const childEdges: { childId: string; parentId: string; index: number }[] = [];
+				for (const n of this.nodes) {
+					if (n.id === nodeId) continue;
+					const edgeIndex = n.parentIds.indexOf(nodeId);
+					if (edgeIndex !== -1) {
+						childEdges.push({ childId: n.id, parentId: nodeId, index: edgeIndex });
+					}
+				}
+				this.storeDeletedBuffer([node], childEdges);
 			}
 			const primaryParentId = node?.parentIds[0] ?? null;
 			this.nodes.splice(index, 1);
@@ -765,9 +777,19 @@ export class TraekEngine {
 			}
 		}
 
-		// Store deleted nodes for undo before firing callbacks
+		// Store deleted nodes for undo before firing callbacks, plus the parent edges
+		// that will be stripped from surviving children (for re-linking on undo).
 		const deletedNodes = this.nodes.filter((n) => toDelete.has(n.id));
-		this.storeDeletedBuffer(deletedNodes);
+		const childEdges: { childId: string; parentId: string; index: number }[] = [];
+		for (const n of this.nodes) {
+			if (toDelete.has(n.id)) continue;
+			for (let i = 0; i < n.parentIds.length; i++) {
+				if (toDelete.has(n.parentIds[i])) {
+					childEdges.push({ childId: n.id, parentId: n.parentIds[i], index: i });
+				}
+			}
+		}
+		this.storeDeletedBuffer(deletedNodes, childEdges);
 
 		// Fire onNodeDeleting for each
 		for (const id of toDelete) {
@@ -810,10 +832,14 @@ export class TraekEngine {
 	}
 
 	/** Store deleted nodes in the undo buffer with a 30s expiry. */
-	private storeDeletedBuffer(nodes: Node[]): void {
+	private storeDeletedBuffer(
+		nodes: Node[],
+		childEdges: { childId: string; parentId: string; index: number }[] = []
+	): void {
 		clearTimeout(this.deleteUndoTimeoutId);
 		this.lastDeletedBuffer = {
 			nodes: nodes.map((n) => $state.snapshot(n)),
+			childEdges,
 			activeNodeId: this.activeNodeId,
 			timestamp: Date.now()
 		};
@@ -831,12 +857,27 @@ export class TraekEngine {
 			return false;
 		}
 
-		const { nodes: restoredNodes, activeNodeId } = this.lastDeletedBuffer;
+		const { nodes: restoredNodes, activeNodeId, childEdges } = this.lastDeletedBuffer;
 		clearTimeout(this.deleteUndoTimeoutId);
 		this.lastDeletedBuffer = null;
 
 		// Re-add the nodes
 		this.nodes = [...this.nodes, ...restoredNodes];
+
+		// Re-link surviving children whose parent edge was stripped on delete.
+		// Survivor indices in nodeIndexMap are still valid (restored nodes were appended),
+		// so getNode() resolves them before the full rebuild below.
+		for (const edge of childEdges) {
+			const child = this.getNode(edge.childId);
+			if (!child || child.parentIds.includes(edge.parentId)) continue;
+			const insertAt = Math.min(edge.index, child.parentIds.length);
+			child.parentIds = [
+				...child.parentIds.slice(0, insertAt),
+				edge.parentId,
+				...child.parentIds.slice(insertAt)
+			];
+		}
+
 		this.rebuildMaps();
 
 		// Restore active node

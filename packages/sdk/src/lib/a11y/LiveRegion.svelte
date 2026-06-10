@@ -45,7 +45,12 @@
 	});
 </script>
 
-<div class="live-region" role="status" aria-live={politeness} aria-atomic="true">
+<div
+	class="live-region"
+	role={politeness === 'assertive' ? 'alert' : 'status'}
+	aria-live={politeness}
+	aria-atomic="true"
+>
 	{currentMessage}
 </div>
 

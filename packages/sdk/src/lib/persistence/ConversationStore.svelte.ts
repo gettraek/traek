@@ -139,18 +139,25 @@ export class ConversationStore {
 	}
 
 	/**
-	 * Clean up resources. Flushes any pending auto-save first.
+	 * Clean up resources. Flushes any pending auto-save first; the database
+	 * handle stays open until that flush settles so the final save is not
+	 * silently rerouted to localStorage. Safe to call synchronously.
 	 */
 	destroy(): void {
+		const flushed = this.flushPendingAutoSave();
 		this.disableAutoSave();
 		if (this.saveStateResetTimeout !== null) {
 			clearTimeout(this.saveStateResetTimeout);
 			this.saveStateResetTimeout = null;
 		}
-		if (this.db) {
-			this.db.close();
-			this.db = null;
-		}
+		const db = this.db;
+		void flushed.finally(() => {
+			db?.close();
+			// Only clear when a re-init has not swapped in a fresh handle meanwhile
+			if (this.db === db) {
+				this.db = null;
+			}
+		});
 		this.isReady = false;
 		this.initPromise = null;
 	}
